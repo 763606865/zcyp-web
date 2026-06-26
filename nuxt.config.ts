@@ -2,6 +2,12 @@ import { pwa } from './app/config/pwa'
 import { appDescription } from './app/constants/index'
 
 export default defineNuxtConfig({
+  css: [
+    '@unocss/reset/tailwind.css',
+    '~/styles/main.css',
+    'uno.css',
+  ],
+
   modules: [
     '@vueuse/nuxt',
     '@unocss/nuxt',
@@ -13,6 +19,16 @@ export default defineNuxtConfig({
 
   devtools: {
     enabled: true,
+  },
+
+  devServer: {
+    host: '127.0.0.1',
+  },
+
+  vite: {
+    server: {
+      allowedHosts: ['local-web.zcyp.com'],
+    },
   },
 
   app: {
@@ -30,6 +46,16 @@ export default defineNuxtConfig({
         { name: 'theme-color', media: '(prefers-color-scheme: light)', content: 'white' },
         { name: 'theme-color', media: '(prefers-color-scheme: dark)', content: '#222222' },
       ],
+    },
+  },
+
+  runtimeConfig: {
+    public: {
+      siteName: process.env.NUXT_PUBLIC_SITE_NAME || '中测易招',
+      apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || '',
+      useMock: process.env.NUXT_PUBLIC_USE_MOCK || 'true',
+      amapKey: process.env.NUXT_PUBLIC_AMAP_KEY || '',
+      cnzzKey: process.env.NUXT_PUBLIC_CNZZ_KEY || '',
     },
   },
 

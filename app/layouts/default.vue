@@ -1,9 +1,17 @@
+<script setup lang="ts">
+import { createDiscreteApi, NConfigProvider } from 'naive-ui'
+import { dateZhCN, naiveThemeOverrides, zhCN } from '~/utils/naive-theme'
+import { setGlobalNotify } from '~/utils/notice'
+
+const { message } = createDiscreteApi(['message'])
+
+setGlobalNotify((msg: string, type = 'success') => {
+  message[type](msg, { closable: true, duration: 3000 })
+})
+</script>
+
 <template>
-  <main class="px-10 py-20 text-center">
+  <NConfigProvider :theme-overrides="naiveThemeOverrides" :locale="zhCN" :date-locale="dateZhCN">
     <slot />
-    <Footer />
-    <div class="text-sm mx-auto mt-5 text-center opacity-25">
-      [Default Layout]
-    </div>
-  </main>
+  </NConfigProvider>
 </template>
