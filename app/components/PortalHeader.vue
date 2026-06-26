@@ -107,7 +107,7 @@ onBeforeUnmount(() => {
           </a>
         </nav>
 
-        <div ref="panelRef" class="portal-user-menu">
+        <div v-if="userStore.isLoggedIn" ref="panelRef" class="portal-user-menu">
           <NuxtLink to="/notifications">
             消息
           </NuxtLink>
@@ -151,6 +151,9 @@ onBeforeUnmount(() => {
             </div>
           </div>
         </div>
+        <NuxtLink v-else to="/login" class="portal-login-link no-underline">
+          去登录
+        </NuxtLink>
       </div>
     </div>
 
