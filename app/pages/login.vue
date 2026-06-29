@@ -1,14 +1,15 @@
 <script setup lang="ts">
-definePageMeta({
-  layout: 'blank',
-  middleware: ['guest-only'],
-})
-
 import { computed, ref, watch } from 'vue'
 import { phoneLogin, sendVerificationCode } from '~/services/auth'
 import { ApiRequestError, resolveAssetUrl } from '~/services/http'
 import { useUserStore } from '~/stores/user'
+import { createAuthRedirectQuery, resolveAuthRedirectTarget } from '~/utils/auth-redirect'
 import { pushGlobalNotice } from '~/utils/notice'
+
+definePageMeta({
+  layout: 'blank',
+  middleware: ['guest-only'],
+})
 
 type AuthMode = 'login' | 'register'
 
@@ -40,6 +41,7 @@ const canSubmit = computed(() => PHONE_RE.test(phone.value) && SMS_CODE_RE.test(
 const siteName = computed(() => siteConfig.value?.name || '中测国招')
 const shortName = computed(() => siteConfig.value?.short_name || '中测')
 const logoUrl = computed(() => resolveAssetUrl(siteConfig.value?.logo))
+const postAuthRedirect = computed(() => resolveAuthRedirectTarget(route.query.redirect))
 
 function syncModeFromQuery() {
   authMode.value = route.query.mode === 'register' ? 'register' : 'login'
@@ -50,7 +52,7 @@ function switchMode(mode: AuthMode) {
   successMessage.value = ''
   router.replace({
     path: '/login',
-    query: mode === 'register' ? { mode: 'register' } : {},
+    query: createAuthRedirectQuery(postAuthRedirect.value, mode === 'register' ? { mode: 'register' } : {}),
   })
 }
 
@@ -114,11 +116,14 @@ async function submitAuth() {
     pushGlobalNotice('登录成功')
 
     if (userStore.needsIdentitySelection) {
-      await router.push('/identity/select?from=login')
+      await router.push({
+        path: '/identity/select',
+        query: createAuthRedirectQuery(postAuthRedirect.value, { from: 'login' }),
+      })
       return
     }
 
-    await router.push('/')
+    await router.push(postAuthRedirect.value || '/')
   }
   catch (error) {
     errorMessage.value = error instanceof ApiRequestError ? error.message : '登录失败，请稍后重试。'

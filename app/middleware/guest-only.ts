@@ -1,11 +1,18 @@
-export default defineNuxtRouteMiddleware(() => {
+import { createAuthRedirectQuery, resolveAuthRedirectTarget } from '~/utils/auth-redirect'
+
+export default defineNuxtRouteMiddleware((to) => {
+  if (import.meta.server)
+    return
+
   const userStore = useUserStore()
 
   if (!userStore.isLoggedIn)
     return
 
-  if (userStore.needsIdentitySelection)
-    return navigateTo('/identity/select')
+  const redirectTarget = resolveAuthRedirectTarget(to.query.redirect)
 
-  return navigateTo('/')
+  if (userStore.needsIdentitySelection)
+    return navigateTo({ path: '/identity/select', query: createAuthRedirectQuery(redirectTarget) })
+
+  return navigateTo(redirectTarget || '/')
 })

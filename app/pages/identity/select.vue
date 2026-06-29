@@ -1,11 +1,12 @@
 <script setup lang="ts">
-definePageMeta({
-  middleware: ['identity-selection-only'],
-})
-
 import { refreshToken } from '~/services/auth'
 import { ApiRequestError } from '~/services/http'
 import { authIdentityTypeValueMap } from '~/types/auth'
+import { resolveAuthRedirectTarget } from '~/utils/auth-redirect'
+
+definePageMeta({
+  middleware: ['identity-selection-only'],
+})
 
 type IdentityCode = 'jobseeker' | 'employer' | 'campus_manager' | 'government_manager' | 'headhunter'
 
@@ -82,6 +83,7 @@ const isSubmitting = ref(false)
 const errorMessage = ref('')
 
 const selectedIdentity = computed<IdentityOption>(() => identityOptions.find(item => item.code === selectedCode.value) ?? identityOptions[0]!)
+const postAuthRedirect = computed(() => resolveAuthRedirectTarget(route.query.redirect))
 
 const fromLogin = computed(() => route.query.from === 'login')
 
@@ -95,7 +97,7 @@ async function confirmIdentity() {
   try {
     const authData = await refreshToken({ identity_type: authIdentityTypeValueMap[selectedCode.value] }, userStore.authHeader)
     userStore.setAuthSession(authData)
-    await router.push('/profile')
+    await router.push(postAuthRedirect.value || '/profile')
   }
   catch (error) {
     errorMessage.value = error instanceof ApiRequestError ? error.message : '默认身份设置失败，请稍后重试。'
@@ -104,7 +106,6 @@ async function confirmIdentity() {
     isSubmitting.value = false
   }
 }
-
 </script>
 
 <template>
