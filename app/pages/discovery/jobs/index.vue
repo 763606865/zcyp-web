@@ -20,7 +20,6 @@ definePageMeta({
 type DiscoveryTab = 'official' | 'atlas'
 type TagTone = 'blue' | 'green' | 'orange'
 type OfficialFilterKind = 'city' | 'salary' | 'experience' | 'employmentType' | 'education' | 'companyType' | 'companySize'
-type AtlasSelectKind = 'education' | 'publisherType'
 
 interface AtlasTag {
   label: string
@@ -62,6 +61,7 @@ const selectedCompanyTypeFilter = ref(0)
 const selectedCompanySizeFilter = ref(0)
 const cityFilterTouched = ref(false)
 const selectedAtlasCityFilter = ref('不限')
+const selectedAtlasEmploymentTypeFilter = ref(0)
 const selectedAtlasGraduationYearFilter = ref(0)
 const selectedAtlasEducationLevelFilter = ref(0)
 const selectedAtlasPublisherTypeFilter = ref(0)
@@ -122,16 +122,23 @@ const experienceFilters = [
 const educationLevelSelectOptions = [{ label: '学历要求', value: 0 }, ...educationLevelFilters.filter(item => item.value !== 0)]
 const companySizeSelectOptions = [{ label: '公司规模', value: 0 }, ...companySizeFilters.filter(item => item.value !== 0)]
 const companyTypeSelectOptions = [{ label: '公司性质', value: 0 }, ...companyTypeFilters.filter(item => item.value !== 0)]
+const currentYear = new Date().getFullYear()
 const graduationFilters = [
   { label: '不限', value: 0 },
-  { label: '2024', value: 2024 },
-  { label: '2025', value: 2025 },
-  { label: '2026', value: 2026 },
-  { label: '2027', value: 2027 },
+  ...Array.from({ length: 4 }, (_, index) => {
+    const year = currentYear + index
+    return { label: `${year}年`, value: year }
+  }),
 ]
-const viewFilters = ['卡片', '列表']
-const sortFilters = ['综合排序', '离截止时间越近越靠前']
-const atlasEducationLevelSelectOptions = [{ label: '学历要求', value: 0 }, ...educationLevelFilters.filter(item => item.value !== 0)]
+const atlasEmploymentTypeFilters = [
+  { label: '不限', value: 0 },
+  { label: '社招全职', value: 1 },
+  { label: '兼职招聘', value: 2 },
+  { label: '实习招聘', value: 3 },
+  { label: '校园招聘', value: 4 },
+  { label: '派遣外包', value: 5 },
+]
+const atlasEducationLevelFilters = [{ label: '不限', value: 0 }, ...educationLevelFilters.filter(item => item.value !== 0)]
 const atlasPublisherTypeSelectOptions = [
   { label: '发布类型', value: 0 },
   { label: '国有企业', value: 1 },
@@ -254,6 +261,8 @@ const atlasSearchQuery = computed<RcTalentAnnouncementQuery>(() => {
   const selectedCityCode = resolveCityFilterCode(selectedAtlasCityFilter.value)
   if (selectedCityCode)
     query.city_code = selectedCityCode
+  if (selectedAtlasEmploymentTypeFilter.value)
+    query.employment_type = selectedAtlasEmploymentTypeFilter.value
   if (selectedAtlasGraduationYearFilter.value)
     query.graduation_year = selectedAtlasGraduationYearFilter.value
   if (selectedAtlasEducationLevelFilter.value)
@@ -265,7 +274,8 @@ const atlasSearchQuery = computed<RcTalentAnnouncementQuery>(() => {
 })
 
 const hasAtlasSearchFilters = computed(() => Boolean(
-  selectedAtlasGraduationYearFilter.value
+  selectedAtlasEmploymentTypeFilter.value
+  || selectedAtlasGraduationYearFilter.value
   || selectedAtlasEducationLevelFilter.value
   || selectedAtlasPublisherTypeFilter.value,
 ))
@@ -475,7 +485,7 @@ const { data: atlasData, pending: loadingAtlas } = await useAsyncData(
   loadAtlasAnnouncements,
   {
     server: false,
-    watch: [atlasPage, cityCode, selectedAtlasCityFilter, selectedAtlasGraduationYearFilter, selectedAtlasEducationLevelFilter, selectedAtlasPublisherTypeFilter, atlasAuthHeader],
+    watch: [atlasPage, cityCode, selectedAtlasCityFilter, selectedAtlasEmploymentTypeFilter, selectedAtlasGraduationYearFilter, selectedAtlasEducationLevelFilter, selectedAtlasPublisherTypeFilter, atlasAuthHeader],
     default: () => ({ current_page: 1, data: [], last_page: 1, per_page: ATLAS_PAGE_SIZE, total: 0 }) as RcTalentAnnouncementListResponse,
   },
 )
@@ -536,8 +546,12 @@ function setActiveTab(tab: DiscoveryTab) {
 
 async function goCitySelect() {
   cityFilterTouched.value = false
-  atlasCityFilterTouched.value = false
   await router.push('/city-select')
+}
+
+async function goAtlasCityStations() {
+  atlasCityFilterTouched.value = false
+  await router.push('/city-stations')
 }
 
 function selectOfficialFilter(kind: OfficialFilterKind, value: string | number) {
@@ -577,18 +591,24 @@ function selectAtlasCityFilter(value: string) {
   selectedAtlasCityFilter.value = value
 }
 
+function selectAtlasEmploymentType(value: number) {
+  atlasPage.value = 1
+  selectedAtlasEmploymentTypeFilter.value = value
+}
+
 function selectAtlasGraduationYear(value: number) {
   atlasPage.value = 1
   selectedAtlasGraduationYearFilter.value = value
 }
 
-function selectAtlasSelectValue(kind: AtlasSelectKind, value: string | number | null) {
+function selectAtlasEducationLevel(value: number) {
   atlasPage.value = 1
+  selectedAtlasEducationLevelFilter.value = value
+}
 
-  if (kind === 'education')
-    selectedAtlasEducationLevelFilter.value = Number(value || 0)
-  else
-    selectedAtlasPublisherTypeFilter.value = Number(value || 0)
+function selectAtlasPublisherType(value: string | number | null) {
+  atlasPage.value = 1
+  selectedAtlasPublisherTypeFilter.value = Number(value || 0)
 }
 
 function findAreaName(code?: string | null) {
@@ -1047,8 +1067,18 @@ async function copyAnnouncementLink(item: RcTalentAnnouncementItem) {
             <button v-for="item in displayedCityFilters" :key="item" type="button" class="filter-option" :class="{ 'is-selected': selectedAtlasCityFilter === item }" @click="selectAtlasCityFilter(item)">
               {{ item }}
             </button>
-            <button type="button" class="filter-option is-more" @click="goCitySelect">
+            <button type="button" class="filter-option is-more" @click="goAtlasCityStations">
               更多城市 <span class="i-carbon-caret-right" />
+            </button>
+          </div>
+        </div>
+        <div class="filter-row">
+          <div class="filter-label">
+            招聘类型
+          </div>
+          <div class="filter-options">
+            <button v-for="item in atlasEmploymentTypeFilters" :key="item.value" type="button" class="filter-option" :class="{ 'is-selected': selectedAtlasEmploymentTypeFilter === item.value }" @click="selectAtlasEmploymentType(item.value)">
+              {{ item.label }}
             </button>
           </div>
         </div>
@@ -1064,21 +1094,11 @@ async function copyAnnouncementLink(item: RcTalentAnnouncementItem) {
         </div>
         <div class="filter-row">
           <div class="filter-label">
-            视图结构
+            学历要求
           </div>
           <div class="filter-options">
-            <button v-for="item in viewFilters" :key="item" type="button" class="filter-option" :class="{ 'is-selected': item === '卡片' }">
-              {{ item }}
-            </button>
-          </div>
-        </div>
-        <div class="filter-row">
-          <div class="filter-label">
-            排序方式
-          </div>
-          <div class="filter-options">
-            <button v-for="item in sortFilters" :key="item" type="button" class="filter-option" :class="{ 'is-selected': item === '综合排序' }">
-              {{ item }}
+            <button v-for="item in atlasEducationLevelFilters" :key="item.value" type="button" class="filter-option" :class="{ 'is-selected': selectedAtlasEducationLevelFilter === item.value }" @click="selectAtlasEducationLevel(item.value)">
+              {{ item.label }}
             </button>
           </div>
         </div>
@@ -1090,25 +1110,15 @@ async function copyAnnouncementLink(item: RcTalentAnnouncementItem) {
             <ClientOnly>
               <NSelect
                 class="filter-select"
-                :class="{ 'is-selected': selectedAtlasEducationLevelFilter !== 0 }"
-                :value="selectedAtlasEducationLevelFilter"
-                :options="atlasEducationLevelSelectOptions"
-                size="small"
-                :consistent-menu-width="false"
-                @update:value="selectAtlasSelectValue('education', $event)"
-              />
-              <NSelect
-                class="filter-select"
                 :class="{ 'is-selected': selectedAtlasPublisherTypeFilter !== 0 }"
                 :value="selectedAtlasPublisherTypeFilter"
                 :options="atlasPublisherTypeSelectOptions"
                 size="small"
                 filterable
                 :consistent-menu-width="false"
-                @update:value="selectAtlasSelectValue('publisherType', $event)"
+                @update:value="selectAtlasPublisherType"
               />
               <template #fallback>
-                <span class="filter-select-placeholder">学历要求</span>
                 <span class="filter-select-placeholder">发布类型</span>
               </template>
             </ClientOnly>
