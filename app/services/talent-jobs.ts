@@ -69,7 +69,7 @@ export interface TalentJobListResponse {
   last_page: number
 }
 
-export async function getRecommendedJobs(query: { city_code?: string, per_page?: number }, authorization?: string) {
+export async function getRecommendedJobs(query: { city_code?: string, page?: number, per_page?: number }, authorization?: string) {
   const response = await getJson<ApiResponse<TalentJobListResponse>>(
     '/rc/talent/jobs/recommend',
     query as Record<string, string | number | undefined>,
