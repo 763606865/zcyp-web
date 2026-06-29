@@ -1,21 +1,22 @@
 <script setup lang="ts">
+import type { CompanyProfile } from '~/types/company'
+import { NDatePicker, NSelect } from 'naive-ui'
+import { getCompanyProfile, updateCompanyProfile } from '~/services/company'
+import { upload } from '~/services/upload'
+import { useMetaStore } from '~/stores/meta'
+import { pushGlobalNotice } from '~/utils/notice'
+
 definePageMeta({
   layout: 'default',
   middleware: ['auth', 'identity-required'],
 })
 
-import type { CompanyProfile } from '~/types/company'
-import { NDatePicker, NSelect } from 'naive-ui'
-import { getCompanyProfile, updateCompanyProfile } from '~/services/company'
-import { useMetaStore } from '~/stores/meta'
-import { pushGlobalNotice } from '~/utils/notice'
-
-const router = useRouter()
 const userStore = useUserStore()
 const metaStore = useMetaStore()
 
 const profile = ref<CompanyProfile | null>(null)
 const isSaving = ref(false)
+const isUploadingLogo = ref(false)
 const errorMessage = ref('')
 
 const scaleTypeOptions = [
@@ -67,6 +68,8 @@ watch(provinceCode, () => {
 
 const form = reactive({
   shortName: '',
+  logo: null as string | null,
+  displayLogo: null as string | null,
   cityCode: '',
   scaleType: null as number | null,
   natureType: null as number | null,
@@ -84,6 +87,8 @@ watch(cityCode, (code) => {
 
 function loadProfileToForm(p: CompanyProfile) {
   form.shortName = p.short_name || ''
+  form.logo = p.logo
+  form.displayLogo = p.display_logo
   form.cityCode = p.city_code || ''
   form.scaleType = p.scale_type
   form.natureType = p.nature_type
@@ -154,6 +159,7 @@ async function handleSave() {
   try {
     const result = await updateCompanyProfile({
       short_name: form.shortName || null,
+      logo: form.logo || null,
       city_code: form.cityCode || null,
       scale_type: form.scaleType,
       nature_type: form.natureType,
@@ -173,6 +179,34 @@ async function handleSave() {
   finally {
     isSaving.value = false
   }
+}
+
+async function uploadCompanyLogo() {
+  if (!userStore.authHeader || isUploadingLogo.value)
+    return
+
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = 'image/*'
+  input.onchange = async () => {
+    const file = input.files?.[0]
+    if (!file)
+      return
+
+    isUploadingLogo.value = true
+    try {
+      const result = await upload(file, 'file', userStore.authHeader!)
+      form.logo = result.path
+      form.displayLogo = result.url
+    }
+    catch (e) {
+      pushGlobalNotice(e instanceof Error ? e.message : '上传失败')
+    }
+    finally {
+      isUploadingLogo.value = false
+    }
+  }
+  input.click()
 }
 
 const foundedAtTimestamp = computed(() => form.foundedAt
@@ -271,6 +305,31 @@ const creditCode = computed(() => {
             <input v-model="form.shortName" placeholder="如：中测" class="h-[46px] w-full border border-[#ecd8a9] rounded-[14px] bg-white px-4 text-[14px] text-[#24180c] outline-none transition focus:border-[#d79a19] focus:shadow-[0_0_0_3px_rgba(255,165,0,0.14)]">
           </div>
           <div class="text-[13px] text-[#8a6b34] space-y-2">
+            <span>企业 Logo</span>
+            <div class="flex items-center gap-4">
+              <button
+                type="button"
+                class="h-[72px] w-[72px] flex shrink-0 cursor-pointer items-center justify-center overflow-hidden border-2 border-[#ecd8a9] rounded-[16px] border-dashed bg-[#fef7e8] text-[12px] text-[#b89243] transition hover:border-[#d79a19] hover:bg-[#fdeece]"
+                :disabled="isUploadingLogo"
+                @click="uploadCompanyLogo"
+              >
+                <template v-if="isUploadingLogo">
+                  <span class="i-carbon-loop animate-spin text-[20px]" />
+                </template>
+                <template v-else-if="form.displayLogo">
+                  <img :src="form.displayLogo" alt="企业 Logo" class="h-full w-full object-contain">
+                </template>
+                <template v-else>
+                  <div class="text-center">
+                    <span class="i-carbon-camera text-[20px]" />
+                    <div>上传</div>
+                  </div>
+                </template>
+              </button>
+              <span class="text-[12px] text-[#b89243]">建议 200×200px，支持 JPG/PNG</span>
+            </div>
+          </div>
+          <div class="text-[13px] text-[#8a6b34] space-y-2">
             <span>公司规模</span>
             <div class="flex flex-wrap gap-2">
               <label
@@ -312,13 +371,32 @@ const creditCode = computed(() => {
           <div class="text-[13px] text-[#8a6b34] space-y-2">
             <span>主办公城市</span>
             <div class="flex gap-2">
-              <NSelect v-model:value="provinceCode" :options="metaStore.provinceOptions as any" placeholder="选择省份" filterable clearable class="flex-1" />
-              <NSelect v-model:value="cityCode" :options="cityOptions as any" placeholder="选择城市" filterable clearable class="flex-1" />
+              <div class="flex-1">
+                <ClientOnly>
+                  <NSelect v-model:value="provinceCode" :options="metaStore.provinceOptions as any" placeholder="选择省份" filterable clearable class="w-full" />
+                  <template #fallback>
+                    <div class="h-[34px] w-full rounded-[3px] bg-white ring-1 ring-[#e0e0e6]" />
+                  </template>
+                </ClientOnly>
+              </div>
+              <div class="flex-1">
+                <ClientOnly>
+                  <NSelect v-model:value="cityCode" :options="cityOptions as any" placeholder="选择城市" filterable clearable class="w-full" />
+                  <template #fallback>
+                    <div class="h-[34px] w-full rounded-[3px] bg-white ring-1 ring-[#e0e0e6]" />
+                  </template>
+                </ClientOnly>
+              </div>
             </div>
           </div>
           <div class="text-[13px] text-[#8a6b34] space-y-2">
             <span>成立日期</span>
-            <NDatePicker :value="foundedAtTimestamp" type="date" placeholder="选择成立日期" class="w-full" @update:value="onFoundedAtChange" />
+            <ClientOnly>
+              <NDatePicker :value="foundedAtTimestamp" type="date" placeholder="选择成立日期" class="w-full" @update:value="onFoundedAtChange" />
+              <template #fallback>
+                <div class="h-[34px] w-full rounded-[3px] bg-white ring-1 ring-[#e0e0e6]" />
+              </template>
+            </ClientOnly>
           </div>
         </div>
 

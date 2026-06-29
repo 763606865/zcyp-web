@@ -1,4 +1,6 @@
-import { getJson } from './http'
+import type { CompanyProfile } from '~/types/company'
+import type { CmsAdSlot } from '~/types/recruitment'
+import { delJson, getJson, postJson } from './http'
 
 interface ApiResponse<T> {
   code: number
@@ -53,12 +55,27 @@ export interface TalentJobItem {
   education_level_label: string | null
   status: number
   status_label: string | null
+  is_hot?: boolean
+  is_urgent?: boolean
   published_at: string | null
   keywords: string[]
-  company: { id: number, name: string } | null
+  company: { id: number, name: string, profile?: CompanyProfile | null } | null
+  creator?: {
+    id: number
+    mask_name: string
+    display_avatar: string | null
+    last_login_at: string | null
+    job_title: string | null
+  } | null
   position: { code: string, name: string } | null
-  is_applied: boolean
+  is_applied?: boolean
   is_favorited?: boolean
+}
+
+export interface TalentJobRecommendation {
+  strategy: 'guest_local' | 'intention'
+  applied_filters: Record<string, unknown>
+  sort: Record<string, unknown>
 }
 
 export interface TalentJobListResponse {
@@ -67,6 +84,12 @@ export interface TalentJobListResponse {
   total: number
   per_page: number
   last_page: number
+  recommendation?: TalentJobRecommendation
+  ad_slots?: CmsAdSlot[]
+}
+
+export interface TalentJobFavoriteResponse {
+  is_favorited: boolean
 }
 
 export async function getRecommendedJobs(query: { city_code?: string, page?: number, per_page?: number }, authorization?: string) {
@@ -92,6 +115,24 @@ export async function getTalentJobDetail(id: number, authorization?: string) {
     `/rc/talent/jobs/${id}`,
     undefined,
     authorization ? createAuthHeaders(authorization) : undefined,
+  )
+  return response.data
+}
+
+export async function favoriteTalentJob(id: number, authorization: string) {
+  const response = await postJson<ApiResponse<TalentJobFavoriteResponse>>(
+    `/rc/talent/jobs/${id}/favorite`,
+    undefined,
+    createAuthHeaders(authorization),
+  )
+  return response.data
+}
+
+export async function unfavoriteTalentJob(id: number, authorization: string) {
+  const response = await delJson<ApiResponse<TalentJobFavoriteResponse>>(
+    `/rc/talent/jobs/${id}/favorite`,
+    undefined,
+    createAuthHeaders(authorization),
   )
   return response.data
 }
