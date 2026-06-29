@@ -6,3 +6,4 @@ dist
 .nuxt
 .idea/
 public/assets/fonts
+.hbuilderx/uni-agent/mcps/
