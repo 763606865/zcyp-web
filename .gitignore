@@ -7,3 +7,4 @@ dist
 .idea/
 public/assets/fonts
 .hbuilderx/uni-agent/mcps/
+.env.local
