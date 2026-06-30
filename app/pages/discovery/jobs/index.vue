@@ -908,25 +908,6 @@ async function handleFavorite(job: TalentJobItem) {
     favoritingJobIds.value = favoritingJobIds.value.filter(id => id !== job.id)
   }
 }
-
-async function copyAnnouncementLink(item: RcTalentAnnouncementItem) {
-  if (!import.meta.client)
-    return
-
-  const link = getAtlasLink(item)
-  if (!link) {
-    pushGlobalNotice('暂无可复制链接', 'error')
-    return
-  }
-
-  try {
-    await navigator.clipboard.writeText(resolvePortalLinkUrl(link))
-    pushGlobalNotice('链接已复制')
-  }
-  catch {
-    pushGlobalNotice('复制失败，请手动复制', 'error')
-  }
-}
 </script>
 
 <template>
@@ -1281,9 +1262,18 @@ async function copyAnnouncementLink(item: RcTalentAnnouncementItem) {
               </div>
             </div>
           </div>
-          <button type="button" class="copy-button" @click="copyAnnouncementLink(item)">
-            复制链接
-          </button>
+          <a
+            v-if="getAtlasLink(item)"
+            class="copy-button"
+            :href="resolvePortalLinkUrl(getAtlasLink(item))"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            查看详情
+          </a>
+          <span v-else class="copy-button is-disabled">
+            暂无链接
+          </span>
         </article>
       </template>
 
@@ -1938,14 +1928,24 @@ async function copyAnnouncementLink(item: RcTalentAnnouncementItem) {
   position: absolute;
   top: 18px;
   right: 36px;
+  display: inline-flex;
   width: 94px;
   height: 32px;
+  align-items: center;
+  justify-content: center;
   border: 1px solid #ff9700;
   border-radius: 4px;
   background: #fff;
   color: #ff9700;
   cursor: pointer;
   font-size: 13px;
+  text-decoration: none;
+}
+
+.copy-button.is-disabled {
+  border-color: #ddd;
+  color: #aaa;
+  cursor: not-allowed;
 }
 
 .state-card {
