@@ -36,6 +36,7 @@ export const pwa: ModuleOptions = {
   },
   workbox: {
     globPatterns: ['**/*.{js,css,html,txt,png,ico,svg}'],
+    globIgnores: ['**/assets/images/login/background.png'],
     navigateFallbackDenylist: [/^\/api\//],
     navigateFallback: '/',
     cleanupOutdatedCaches: true,
