@@ -17,7 +17,11 @@ function hasApprovedEmployerWorkspace(identity: AuthCurrentIdentity) {
   )
 }
 
-export function resolveProfileWorkspaceRedirect(mode: 'index' | 'workspace') {
+interface ProfileWorkspaceRedirectOptions {
+  getFallbackRedirectTo?: () => string | null | undefined
+}
+
+export function resolveProfileWorkspaceRedirect(mode: 'index' | 'workspace', options: ProfileWorkspaceRedirectOptions = {}) {
   const userStore = useUserStore()
 
   if (mode === 'index') {
@@ -35,22 +39,43 @@ export function resolveProfileWorkspaceRedirect(mode: 'index' | 'workspace') {
   if (hasApprovedEmployerWorkspace(userStore.currentIdentityInfo))
     return '/employer/dashboard'
 
-  return null
+  return options.getFallbackRedirectTo?.() || null
 }
 
-export async function useProfileWorkspaceRedirect(mode: 'index' | 'workspace', key: string) {
-  await useAsyncData(
-    key,
-    async () => {
-      const target = resolveProfileWorkspaceRedirect(mode)
-      if (target)
-        await navigateTo(target, { replace: true })
+export function useProfileWorkspaceRedirect(mode: 'index' | 'workspace', _key: string, options: ProfileWorkspaceRedirectOptions = {}) {
+  if (!import.meta.client)
+    return
 
-      return target
+  const route = useRoute()
+  const userStore = useUserStore()
+  const isRedirecting = ref(false)
+
+  async function redirectIfNeeded() {
+    if (isRedirecting.value)
+      return
+
+    const target = resolveProfileWorkspaceRedirect(mode, options)
+    if (!target || route.path === target)
+      return
+
+    isRedirecting.value = true
+    try {
+      await navigateTo(target, { replace: true })
+    }
+    finally {
+      isRedirecting.value = false
+    }
+  }
+
+  onMounted(() => {
+    void redirectIfNeeded()
+  })
+
+  watch(
+    () => [userStore.currentIdentity, userStore.currentIdentityInfo],
+    () => {
+      void redirectIfNeeded()
     },
-    {
-      server: false,
-      default: () => null,
-    },
+    { deep: true },
   )
 }

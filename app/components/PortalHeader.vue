@@ -9,7 +9,6 @@ const props = defineProps<{
   activeCity?: string
 }>()
 
-const route = useRoute()
 const router = useRouter()
 const siteStore = useSiteStore()
 const userStore = useUserStore()
@@ -24,7 +23,7 @@ const { isRefreshingIdentity, switchingIdentityCode, errorMessage: identityError
     isIdentityDropdownOpen.value = false
     await ensureHomePageData({ authorization: userStore.authHeader || undefined, force: true })
   },
-  getRedirectTo: () => '/profile',
+  getRedirectTo: identity => resolveIdentityProfileRoute(identity),
 })
 const panelRef = ref<HTMLElement | null>(null)
 

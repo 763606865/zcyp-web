@@ -2045,6 +2045,8 @@ body {
 }
 
 .home-gold-block {
+  display: grid;
+  gap: 10px;
   margin-top: 14px;
   border-radius: 6px;
   overflow: hidden;
@@ -2053,10 +2055,12 @@ body {
 .home-gold-row-1 {
   display: flex;
   flex-direction: column;
+  gap: 10px;
 }
 
 .home-gold-row-2 {
   display: grid;
+  gap: 10px;
   grid-template-columns: 1fr 1fr;
 }
 
@@ -2065,7 +2069,7 @@ body {
   align-items: center;
   justify-content: center;
   min-height: 80px;
-  border-radius: 0;
+  border-radius: 6px;
   background: transparent;
   color: #fff;
   font-size: 18px;

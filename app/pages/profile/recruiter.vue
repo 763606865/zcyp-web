@@ -6,5 +6,5 @@ definePageMeta({
 </script>
 
 <template>
-  <ProfileWorkspaceView variant="recruiter" redirect-mode="workspace" redirect-key="profile-recruiter-redirect" />
+  <ProfileWorkspaceView variant="recruiter" redirect-mode="workspace" redirect-key="profile-recruiter-redirect" auto-redirect-first-card />
 </template>

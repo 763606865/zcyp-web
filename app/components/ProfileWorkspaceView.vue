@@ -1,13 +1,19 @@
 <script setup lang="ts">
+import { resolveComponent } from 'vue'
+
 const props = withDefaults(defineProps<{
   variant?: 'default' | 'recruiter' | 'campus-manager'
   redirectMode?: 'index' | 'workspace'
   redirectKey?: string
+  autoRedirectFirstCard?: boolean
 }>(), {
   variant: 'default',
   redirectMode: 'workspace',
   redirectKey: 'profile-workspace-redirect',
+  autoRedirectFirstCard: false,
 })
+
+const NuxtLinkComponent = resolveComponent('NuxtLink')
 
 const userStore = useUserStore()
 const {
@@ -23,7 +29,11 @@ const {
   switchIdentity,
 } = useProfileWorkspacePage(props.variant)
 
-await useProfileWorkspaceRedirect(props.redirectMode, props.redirectKey)
+const firstWorkspaceCardTo = computed(() => props.autoRedirectFirstCard ? workspaceCards.value[0]?.to : null)
+
+useProfileWorkspaceRedirect(props.redirectMode, props.redirectKey, {
+  getFallbackRedirectTo: () => firstWorkspaceCardTo.value,
+})
 </script>
 
 <template>
@@ -89,7 +99,7 @@ await useProfileWorkspaceRedirect(props.redirectMode, props.redirectKey)
 
               <div class="grid mt-6 gap-4 lg:grid-cols-3">
                 <component
-                  :is="card.to ? 'NuxtLink' : 'article'"
+                  :is="card.to ? NuxtLinkComponent : 'article'"
                   v-for="card in workspaceCards"
                   :key="card.title"
                   :to="card.to"
