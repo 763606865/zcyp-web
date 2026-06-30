@@ -1,13 +1,8 @@
+import process from 'node:process'
 import { pwa } from './app/config/pwa'
 import { appDescription } from './app/constants/index'
 
 export default defineNuxtConfig({
-  css: [
-    '@unocss/reset/tailwind.css',
-    '~/styles/main.css',
-    'uno.css',
-  ],
-
   modules: [
     '@vueuse/nuxt',
     '@unocss/nuxt',
@@ -19,16 +14,6 @@ export default defineNuxtConfig({
 
   devtools: {
     enabled: true,
-  },
-
-  devServer: {
-    host: '127.0.0.1',
-  },
-
-  vite: {
-    server: {
-      allowedHosts: ['local-web.zcyp.com'],
-    },
   },
 
   app: {
@@ -47,6 +32,15 @@ export default defineNuxtConfig({
       ],
     },
   },
+  css: [
+    '@unocss/reset/tailwind.css',
+    '~/styles/main.css',
+    'uno.css',
+  ],
+
+  colorMode: {
+    classSuffix: '',
+  },
 
   runtimeConfig: {
     public: {
@@ -58,8 +52,8 @@ export default defineNuxtConfig({
     },
   },
 
-  colorMode: {
-    classSuffix: '',
+  devServer: {
+    host: '127.0.0.1',
   },
 
   future: {
@@ -84,8 +78,23 @@ export default defineNuxtConfig({
     },
     prerender: {
       crawlLinks: false,
-      routes: ['/'],
+      routes: [
+        '/',
+        '/announcements',
+        '/assessment',
+        '/campus',
+        '/city-stations',
+        '/companies',
+        '/discovery/jobs',
+        '/jobs',
+      ],
       ignore: ['/hi'],
+    },
+  },
+
+  vite: {
+    server: {
+      allowedHosts: ['local-web.zcyp.com'],
     },
   },
 

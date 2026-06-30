@@ -16,11 +16,15 @@ export function usePortalNavigation(menus: Ref<CmsMenuItem[]>, activeNav?: Ref<s
     return [
       ...fallbackHomeNavItems,
       ...menus.value
-        .filter(menu => menu.name !== '首页' && menu.link_url !== '/')
-        .slice(0, 7)
         .map(menu => ({
+          menu,
+          to: normalizePortalLinkUrl(menu.link_url),
+        }))
+        .filter(({ menu, to }) => menu.name !== '首页' && to && to !== '/')
+        .slice(0, 7)
+        .map(({ menu, to }) => ({
           label: menu.name,
-          to: menu.link_url || '/',
+          to,
           target: menu.target,
         })),
     ]
