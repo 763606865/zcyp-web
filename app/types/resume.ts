@@ -108,6 +108,7 @@ export interface ResumeSavePayload {
   file_name?: string | null
   file_ext?: string | null
   is_primary?: boolean | null
+  extra?: Record<string, unknown> | null
 }
 
 // ---------------------------------------------------------------------------

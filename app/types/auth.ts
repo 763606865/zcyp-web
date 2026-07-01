@@ -37,7 +37,7 @@ export interface AuthIdentityInfo {
   is_default: number
   status: number
   extra: AuthIdentityExtra | null
-  has_basic_info: boolean
+  has_basic_info: boolean | 0 | 1
 }
 
 export interface AuthOrganization {
@@ -88,6 +88,7 @@ export interface SendVerificationCodePayload {
 export interface PhoneLoginPayload {
   phone: string
   code: string
+  rc_user_identity_type: 1 | 2
 }
 
 export interface EmailLoginPayload {

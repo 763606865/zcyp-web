@@ -29,7 +29,7 @@ export interface CompanyBindResponse {
     is_default: number
     status: number
     extra: unknown
-    has_basic_info: boolean
+    has_basic_info: boolean | 0 | 1
     created_at: string | null
     updated_at: string | null
   }

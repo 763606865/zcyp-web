@@ -11,6 +11,22 @@ interface ApiResponse<T> {
   }
 }
 
+export interface BusinessLicenseOcrResponse {
+  name?: string | null
+  company_name?: string | null
+  credit_code?: string | null
+  social_credit_code?: string | null
+  unified_social_credit_code?: string | null
+  legal_person?: string | null
+  address?: string | null
+  contact_phone?: string | null
+}
+
+interface BusinessLicenseOcrPayload {
+  file?: string
+  url?: string
+}
+
 function createAuthHeaders(authorization: string) {
   return authorization ? { Authorization: authorization } : undefined
 }
@@ -39,6 +55,16 @@ export async function registerAndBindCompany(payload: CompanyRegisterPayload, au
   const response = await postJson<ApiResponse<CompanyBindResponse>>(
     '/rc/companies',
     payload,
+    createAuthHeaders(authorization),
+  )
+
+  return response.data
+}
+
+export async function recognizeBusinessLicense(source: BusinessLicenseOcrPayload, authorization: string) {
+  const response = await postJson<ApiResponse<BusinessLicenseOcrResponse>>(
+    '/rc/tools/ocr/business-license',
+    source.url ? { url: source.url } : { file: source.file },
     createAuthHeaders(authorization),
   )
 

@@ -132,14 +132,20 @@ export async function delJson<T>(path: string, body?: unknown, headers?: Record<
   return requestJson<T>('DELETE', path, { body, headers })
 }
 
-export async function uploadFile<T>(path: string, file: File, type?: string, headers?: Record<string, string>) {
+export async function uploadFile<T>(
+  path: string,
+  file: File,
+  type?: string,
+  headers?: Record<string, string>,
+  method: 'POST' | 'PATCH' = 'POST',
+) {
   const formData = new FormData()
   formData.append('file', file)
   if (type)
     formData.append('type', type)
 
   const response = await fetch(createUrl(path), {
-    method: 'POST',
+    method,
     headers: { Accept: 'application/json', ...headers },
     body: formData,
   })
@@ -160,6 +166,9 @@ export async function uploadFile<T>(path: string, file: File, type?: string, hea
 
     throw new ApiRequestError(message, response.status)
   }
+
+  if (payload?.code !== undefined && payload.code !== 200)
+    throw new ApiRequestError(payload?.message || `Upload failed: ${payload.code}`, payload.code)
 
   return payload as T
 }

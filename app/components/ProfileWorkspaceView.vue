@@ -90,7 +90,7 @@ useProfileWorkspaceRedirect(props.redirectMode, props.redirectKey, {
                   </div>
                 </div>
                 <div class="rounded-full bg-[#fff4dc] px-4 py-2 text-[13px] text-[#8d6517] ring-1 ring-[#eed39a]">
-                  {{ userStore.hasBasicInfo === true ? '资料完整，可进入正式流程' : '资料检查待接入，当前先展示承接入口' }}
+                  {{ userStore.hasBasicInfo === true ? '资料完整，可进入正式流程' : '资料未完整时会先引导填写基础信息' }}
                 </div>
               </div>
               <p class="mt-4 text-[15px] text-[#6f6556] leading-7">
@@ -173,7 +173,7 @@ useProfileWorkspaceRedirect(props.redirectMode, props.redirectKey, {
             </div>
 
             <div class="mt-6 rounded-[18px] bg-[#fff4dc] px-4 py-4 text-[14px] text-[#855f17] leading-7 ring-1 ring-[#f0dca9]">
-              当前仍不强制分流 `has_basic_info`。拿到真实资料检查接口后，可直接在这里把“承接入口卡片”切成真实跳转。
+              若当前身份的基础资料未完善，系统会优先进入基础信息填写流程，完成后再返回个人中心。
             </div>
 
             <div class="grid mt-6 gap-3">

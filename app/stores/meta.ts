@@ -56,7 +56,7 @@ function writeLocalCache<T>(key: string, data: T) {
 }
 
 function unwrapAreaRoot(list: RcAreaNode[]): RcAreaNode[] {
-  if (list.length === 1 && list[0]!.level === 0 && list[0]!.children?.length > 0)
+  if (list.length === 1 && Number(list[0]!.level) === 0 && list[0]!.children?.length > 0)
     return list[0]!.children as RcAreaNode[]
 
   return list
@@ -72,6 +72,7 @@ export const useMetaStore = defineStore('meta', () => {
   const articleTags = ref<ArticleTagItem[]>([])
   const isLoading = ref(false)
   const loadError = ref('')
+  const normalizedAreas = computed(() => unwrapAreaRoot(areas.value))
 
   async function ensureAreasLoaded(authorization: string) {
     if (areas.value.length > 0)
@@ -259,20 +260,20 @@ export const useMetaStore = defineStore('meta', () => {
   }
 
   const provinceOptions = computed(() =>
-    areas.value
+    normalizedAreas.value
       .filter(a => Number(a.level) === 1)
       .map(a => ({ label: a.name, value: a.code })),
   )
 
   function getCitiesByProvinceCode(provinceCode: string) {
-    const province = areas.value.find(a => a.code === provinceCode)
+    const province = normalizedAreas.value.find(a => a.code === provinceCode)
 
     return (province?.children || [])
       .map(a => ({ label: a.name, value: a.code }))
   }
 
   function getDistrictsByCityCode(cityCode: string) {
-    for (const province of areas.value) {
+    for (const province of normalizedAreas.value) {
       const city = province.children?.find(c => c.code === cityCode)
 
       if (city?.children)
@@ -283,7 +284,7 @@ export const useMetaStore = defineStore('meta', () => {
   }
 
   function getAreaByCode(code: string): RcAreaNode | null {
-    for (const province of areas.value) {
+    for (const province of normalizedAreas.value) {
       if (province.code === code)
         return province
 
@@ -307,7 +308,7 @@ export const useMetaStore = defineStore('meta', () => {
 
     const parts: string[] = []
 
-    for (const province of areas.value) {
+    for (const province of normalizedAreas.value) {
       for (const city of province.children || []) {
         if (city.code === code) {
           parts.push(province.name, city.name)

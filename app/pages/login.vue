@@ -3,7 +3,6 @@ import { computed, ref, watch } from 'vue'
 import { phoneLogin, sendVerificationCode } from '~/services/auth'
 import { ApiRequestError, resolveAssetUrl } from '~/services/http'
 import { useUserStore } from '~/stores/user'
-import { createAuthRedirectQuery, resolveAuthRedirectTarget } from '~/utils/auth-redirect'
 import { pushGlobalNotice } from '~/utils/notice'
 
 definePageMeta({
@@ -16,7 +15,6 @@ type LoginPanelMode = 'code' | 'wechat'
 
 const PHONE_RE = /^1\d{10}$/
 const SMS_CODE_RE = /^\d{6}$/
-const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const pageDataStore = usePageDataStore()
@@ -30,20 +28,25 @@ const codeCountdown = ref(0)
 const siteConfig = computed(() => pageDataStore.siteConfig)
 const isSendingCode = ref(false)
 const isSubmitting = ref(false)
+const isTermsModalOpen = ref(false)
+const isPrivacyModalOpen = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 
 const loginAudienceTabs = [
   { label: '我要求职', value: 'jobseeker' },
-  { label: '我要招人', value: 'recruiter' },
+  { label: '我是招聘方', value: 'recruiter' },
 ] as const
+const loginAudienceIdentityTypeMap = {
+  jobseeker: 1,
+  recruiter: 2,
+} satisfies Record<LoginAudience, 1 | 2>
 const canRequestCode = computed(() => PHONE_RE.test(phone.value))
 const codeButtonText = computed(() => codeCountdown.value > 0 ? `${codeCountdown.value}s后重试` : '获取验证码')
 const canSubmit = computed(() => PHONE_RE.test(phone.value) && SMS_CODE_RE.test(smsCode.value) && agreed.value && !isSubmitting.value)
 const siteName = computed(() => siteConfig.value?.name || '中测易聘')
 const logoUrl = computed(() => resolveAssetUrl(siteConfig.value?.logo))
 const displayLogoUrl = computed(() => logoUrl.value || '/assets/images/login-lanhu-logo.png')
-const postAuthRedirect = computed(() => resolveAuthRedirectTarget(route.query.redirect))
 
 function selectLoginAudience(value: LoginAudience) {
   loginAudience.value = value
@@ -53,6 +56,19 @@ function switchLoginPanel(mode: LoginPanelMode) {
   loginPanelMode.value = mode
   errorMessage.value = ''
   successMessage.value = ''
+}
+
+function openTermsModal() {
+  isTermsModalOpen.value = true
+}
+
+function openPrivacyModal() {
+  isPrivacyModalOpen.value = true
+}
+
+function closeLegalModals() {
+  isTermsModalOpen.value = false
+  isPrivacyModalOpen.value = false
 }
 
 async function requestCode() {
@@ -104,21 +120,14 @@ async function submitAuth() {
     const authData = await phoneLogin({
       phone: phone.value,
       code: smsCode.value,
+      rc_user_identity_type: loginAudienceIdentityTypeMap[loginAudience.value],
     })
 
     userStore.setAuthSession(authData)
     successMessage.value = '登录成功，正在跳转...'
     pushGlobalNotice('登录成功')
 
-    if (userStore.needsIdentitySelection) {
-      await router.push({
-        path: '/identity/select',
-        query: createAuthRedirectQuery(postAuthRedirect.value, { from: 'login' }),
-      })
-      return
-    }
-
-    await router.push(postAuthRedirect.value || '/')
+    await router.push('/profile')
   }
   catch (error) {
     errorMessage.value = error instanceof ApiRequestError ? error.message : '登录失败，请稍后重试。'
@@ -257,9 +266,9 @@ onBeforeUnmount(() => {
             <input v-model="agreed" type="checkbox">
             <span>
               我已阅读并同意
-              <a href="#" @click.prevent>《用户协议》</a>
+              <a href="#" @click.prevent="openTermsModal">《用户协议》</a>
               和
-              <a href="#" @click.prevent>《隐私政策》</a>
+              <a href="#" @click.prevent="openPrivacyModal">《隐私政策》</a>
             </span>
           </label>
         </div>
@@ -275,6 +284,40 @@ onBeforeUnmount(() => {
         </div>
       </section>
     </main>
+
+    <div v-if="isTermsModalOpen" class="legal-modal-mask" @click.self="closeLegalModals">
+      <section class="legal-modal" role="dialog" aria-modal="true" aria-labelledby="terms-modal-title">
+        <button type="button" class="legal-modal-close" aria-label="关闭用户协议" @click="closeLegalModals">
+          <span class="i-carbon-close" />
+        </button>
+        <h2 id="terms-modal-title">
+          用户协议
+        </h2>
+        <div class="legal-modal-body">
+          <LoginUserAgreementContent />
+        </div>
+        <button type="button" class="legal-modal-confirm" @click="closeLegalModals">
+          我知道了
+        </button>
+      </section>
+    </div>
+
+    <div v-if="isPrivacyModalOpen" class="legal-modal-mask" @click.self="closeLegalModals">
+      <section class="legal-modal" role="dialog" aria-modal="true" aria-labelledby="privacy-modal-title">
+        <button type="button" class="legal-modal-close" aria-label="关闭隐私政策" @click="closeLegalModals">
+          <span class="i-carbon-close" />
+        </button>
+        <h2 id="privacy-modal-title">
+          隐私政策
+        </h2>
+        <div class="legal-modal-body">
+          <LoginPrivacyPolicyContent />
+        </div>
+        <button type="button" class="legal-modal-confirm" @click="closeLegalModals">
+          我知道了
+        </button>
+      </section>
+    </div>
   </div>
 </template>
 
@@ -595,6 +638,80 @@ onBeforeUnmount(() => {
   margin-top: 14px;
 }
 
+.legal-modal-mask {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 24, 54, 0.42);
+  padding: 24px;
+}
+
+.legal-modal {
+  position: relative;
+  width: min(100%, 720px);
+  max-height: min(84vh, 760px);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 1);
+  box-shadow: 0 28px 80px rgba(8, 24, 54, 0.2);
+  color: rgba(8, 24, 54, 1);
+  padding: 30px 32px 28px;
+}
+
+.legal-modal h2 {
+  margin: 0;
+  color: rgba(8, 24, 54, 1);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.legal-modal-close {
+  position: absolute;
+  top: 22px;
+  right: 22px;
+  display: flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(245, 246, 250, 1);
+  color: rgba(153, 153, 153, 1);
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.legal-modal-body {
+  min-height: 220px;
+  max-height: 56vh;
+  overflow-y: auto;
+  margin-top: 20px;
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(248, 250, 253, 1) 0%, rgba(244, 247, 251, 1) 100%);
+  color: rgba(102, 102, 102, 1);
+  font-size: 14px;
+  line-height: 1.8;
+  padding: 18px 20px;
+}
+
+.legal-modal-confirm {
+  display: block;
+  width: 148px;
+  height: 42px;
+  margin: 22px auto 0;
+  border: 0;
+  border-radius: 5px;
+  background: rgba(255, 153, 0, 1);
+  color: rgba(255, 255, 255, 1);
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 500;
+}
+
 @media (max-width: 1180px) {
   .login-shell {
     padding-right: 64px;
@@ -681,6 +798,20 @@ onBeforeUnmount(() => {
 
   .login-agreement {
     align-items: flex-start;
+  }
+
+  .legal-modal {
+    padding: 26px 20px 24px;
+  }
+
+  .legal-modal-close {
+    top: 18px;
+    right: 18px;
+  }
+
+  .legal-modal-body {
+    min-height: 180px;
+    padding: 16px;
   }
 }
 </style>

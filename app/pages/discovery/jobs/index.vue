@@ -915,10 +915,10 @@ async function handleFavorite(job: TalentJobItem) {
     <section class="filter-panel">
       <div class="filter-tabs">
         <button type="button" class="filter-tab" :class="{ 'is-active': activeTab === 'official' }" @click="setActiveTab('official')">
-          易聘官方
+          职位列表
         </button>
         <button type="button" class="filter-tab" :class="{ 'is-active': activeTab === 'atlas' }" @click="setActiveTab('atlas')">
-          易聘大全
+          招聘公告
         </button>
       </div>
 

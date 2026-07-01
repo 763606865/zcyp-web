@@ -4,12 +4,6 @@ import { useSiteStore } from '~/stores/site'
 import { dateZhCN, naiveThemeOverrides, zhCN } from '~/utils/naive-theme'
 import { setGlobalNotify } from '~/utils/notice'
 
-const { message } = createDiscreteApi(['message'])
-
-setGlobalNotify((msg: string, type = 'success') => {
-  message[type](msg, { closable: true, duration: 3000 })
-})
-
 const route = useRoute()
 const siteStore = useSiteStore()
 
@@ -21,6 +15,22 @@ await callOnce(async () => {
 
 onMounted(() => {
   siteStore.detectLocation()
+
+  const { message } = createDiscreteApi(['message'], {
+    configProviderProps: {
+      dateLocale: dateZhCN,
+      locale: zhCN,
+      themeOverrides: naiveThemeOverrides,
+    },
+  })
+
+  setGlobalNotify((msg: string, type = 'success') => {
+    message[type](msg, { closable: true, duration: 3000 })
+  })
+})
+
+onBeforeUnmount(() => {
+  setGlobalNotify(null)
 })
 </script>
 

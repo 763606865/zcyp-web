@@ -17,15 +17,22 @@ function hasApprovedEmployerWorkspace(identity: AuthCurrentIdentity) {
   )
 }
 
+function needsBasicInfoRedirect(identity: AuthIdentityCode | null, hasBasicInfo: boolean | null) {
+  return (identity === 'jobseeker' || identity === 'employer') && hasBasicInfo === false
+}
+
 interface ProfileWorkspaceRedirectOptions {
   getFallbackRedirectTo?: () => string | null | undefined
 }
 
 export function resolveProfileWorkspaceRedirect(mode: 'index' | 'workspace', options: ProfileWorkspaceRedirectOptions = {}) {
   const userStore = useUserStore()
+  const currentIdentity = userStore.currentIdentity
+
+  if (needsBasicInfoRedirect(currentIdentity, userStore.hasBasicInfo))
+    return '/base_info'
 
   if (mode === 'index') {
-    const currentIdentity = userStore.currentIdentity
     if (currentIdentity) {
       const targetRoute = profileRouteMap[currentIdentity]
       if (targetRoute && targetRoute !== '/profile')

@@ -62,6 +62,18 @@ export async function uploadResumeAttachment(id: number, file: File, authorizati
   )
 }
 
+export async function uploadResumeAvatar(id: number, file: File, authorization: string) {
+  const response = await uploadFile<ApiResponse<ResumeRecord>>(
+    `/rc/resume/${id}/avatar/upload`,
+    file,
+    undefined,
+    { Authorization: authorization },
+    'PATCH',
+  )
+
+  return response.data
+}
+
 export async function createResume(payload: ResumeSavePayload, authorization: string) {
   const response = await postJson<ApiResponse<ResumeRecord>>(
     '/rc/resumes',

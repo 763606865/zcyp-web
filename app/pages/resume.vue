@@ -1,14 +1,10 @@
 <script setup lang="ts">
-definePageMeta({
-  layout: 'home',
-  middleware: ['auth', 'identity-required'],
-})
-
 /* eslint-disable ts/no-use-before-define */
 import type { MajorNode } from '~/services/meta'
 import type { RcPositionNode } from '~/types/meta'
 import type { ResumeEducation, ResumeEducationSavePayload, ResumeIntention, ResumeIntentionSavePayload, ResumeRecord, ResumeSavePayload, ResumeWork, ResumeWorkSavePayload } from '~/types/resume'
-import { NCascader, NDatePicker, NInputNumber, NSelect } from 'naive-ui'
+import { NCascader as NaiveCascader, NDatePicker as NaiveDatePicker, NInputNumber as NaiveInputNumber, NSelect as NaiveSelect } from 'naive-ui'
+import { defineComponent, h } from 'vue'
 import ResumeField from '~/components/ResumeField.vue'
 import ResumeTextarea from '~/components/ResumeTextarea.vue'
 import { ApiRequestError } from '~/services/http'
@@ -34,6 +30,24 @@ import {
 import { upload } from '~/services/upload'
 import { useMetaStore } from '~/stores/meta'
 import { pushGlobalNotice } from '~/utils/notice'
+
+const ResumeNaivePlaceholder = defineComponent({
+  name: 'ResumeNaivePlaceholder',
+  inheritAttrs: false,
+  setup(_, { attrs }) {
+    return () => h('div', { class: ['resume-naive-placeholder', attrs.class] })
+  },
+})
+
+const NCascader = import.meta.client ? NaiveCascader : ResumeNaivePlaceholder
+const NDatePicker = import.meta.client ? NaiveDatePicker : ResumeNaivePlaceholder
+const NInputNumber = import.meta.client ? NaiveInputNumber : ResumeNaivePlaceholder
+const NSelect = import.meta.client ? NaiveSelect : ResumeNaivePlaceholder
+
+definePageMeta({
+  layout: 'home',
+  middleware: ['auth', 'identity-required'],
+})
 
 const CACHE_VERSION = 1
 function readCache<T>(key: string): T | null {
@@ -68,7 +82,6 @@ interface SelectOption {
   value: string | number
 }
 
-const router = useRouter()
 const userStore = useUserStore()
 const metaStore = useMetaStore()
 
@@ -2460,6 +2473,13 @@ await useAsyncData(
 </template>
 
 <style scoped>
+.resume-naive-placeholder {
+  min-height: 34px;
+  border: 1px solid #ecd8a9;
+  border-radius: 12px;
+  background: #fffdf7;
+}
+
 .n-date-picker--error :deep(.n-input__border),
 .n-input-number--error :deep(.n-input__border) {
   border-color: #c24d2c !important;

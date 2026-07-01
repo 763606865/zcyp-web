@@ -67,7 +67,10 @@ export const useUserStore = defineStore('user', () => {
     if (!identity || typeof identity !== 'object')
       return null
 
-    return identity.has_basic_info ?? null
+    if (identity.has_basic_info === undefined || identity.has_basic_info === null)
+      return null
+
+    return identity.has_basic_info === true || identity.has_basic_info === 1
   }
 
   function normalizeIdentities(identities: AuthIdentityInfo[] | undefined): AuthIdentityInfo[] {
