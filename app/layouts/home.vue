@@ -8,6 +8,7 @@ const route = useRoute()
 const siteStore = useSiteStore()
 
 const activeNav = computed(() => route.meta.activeNav as string | undefined)
+const hidePortalSearchRow = computed(() => route.meta.hidePortalSearchRow === true)
 
 await callOnce(async () => {
   await siteStore.loadAreas()
@@ -37,7 +38,7 @@ onBeforeUnmount(() => {
 <template>
   <NConfigProvider :theme-overrides="naiveThemeOverrides" :locale="zhCN" :date-locale="dateZhCN">
     <main class="portal-home-layout min-h-screen">
-      <PortalHeader :active-nav="activeNav" />
+      <PortalHeader :active-nav="activeNav" :hide-search-row="hidePortalSearchRow" />
       <slot />
       <PortalFooter />
     </main>

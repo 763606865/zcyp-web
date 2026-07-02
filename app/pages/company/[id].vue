@@ -1,8 +1,4 @@
 <script setup lang="ts">
-definePageMeta({
-  layout: 'home',
-})
-
 import type { TalentJobItem } from '~/services/talent-jobs'
 import { NCascader, NSelect } from 'naive-ui'
 import { createApplication, withdrawApplication } from '~/services/application'
@@ -10,6 +6,10 @@ import { ApiRequestError, delJson, getJson, postJson } from '~/services/http'
 import { getResumeList } from '~/services/resume'
 import { useMetaStore } from '~/stores/meta'
 import { pushGlobalNotice } from '~/utils/notice'
+
+definePageMeta({
+  layout: 'home',
+})
 
 const route = useRoute()
 const router = useRouter()
@@ -184,7 +184,7 @@ async function handleApply(jobId: number) {
     const resumeId = resumeData.data?.[0]?.id
     if (!resumeId) {
       pushGlobalNotice('请先创建简历')
-      await navigateTo('/resume')
+      await navigateTo('/profile/jobseeker')
       return
     }
     await createApplication({ job_id: jobId, resume_id: resumeId }, userStore.authHeader!)

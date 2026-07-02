@@ -40,7 +40,7 @@ const baseWorkspaceCards: Record<AuthIdentityCode, IdentityWorkspaceCard[]> = {
       description: '补齐教育经历、项目经历与求职标签，后续这里会直接检查 `resume` 是否存在。',
       cta: '进入简历页',
       tone: 'from-[#fff7e6] to-[#fff1d1]',
-      to: '/resume',
+      to: '/profile/jobseeker',
     },
     {
       title: '管理投递进度',

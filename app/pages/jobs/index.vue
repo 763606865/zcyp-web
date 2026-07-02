@@ -1,9 +1,4 @@
 <script setup lang="ts">
-definePageMeta({
-  layout: 'home',
-})
-
-/* eslint-disable style/max-statements-per-line */
 import type { TalentJobItem } from '~/services/talent-jobs'
 import { createApplication } from '~/services/application'
 import { ApiRequestError } from '~/services/http'
@@ -11,6 +6,10 @@ import { getResumeList } from '~/services/resume'
 import { searchTalentJobs } from '~/services/talent-jobs'
 import { useMetaStore } from '~/stores/meta'
 import { pushGlobalNotice } from '~/utils/notice'
+
+definePageMeta({
+  layout: 'home',
+})
 
 const userStore = useUserStore()
 const router = useRouter()
@@ -141,14 +140,6 @@ const salaryOptions = [
   { label: '20k以上', value: '999999' },
 ]
 
-const pageNumbers = computed(() => {
-  const pages: number[] = []
-  const start = Math.max(1, currentPage.value - 2)
-  const end = Math.min(lastPage.value, start + 4)
-  for (let i = start; i <= end; i++) pages.push(i)
-  return pages
-})
-
 async function loadJobs() {
   try {
     return await searchTalentJobs({
@@ -186,17 +177,36 @@ const { data: talentJobsData, pending: isLoading, refresh: refreshJobs } = await
 )
 
 const jobList = computed<TalentJobItem[]>(() => talentJobsData.value?.data || [])
-const total = computed(() => talentJobsData.value?.total || 0)
 const lastPage = computed(() => talentJobsData.value?.last_page || 1)
+
+const pageNumbers = computed(() => {
+  const pages: number[] = []
+  const start = Math.max(1, currentPage.value - 2)
+  const end = Math.min(lastPage.value, start + 4)
+  for (let i = start; i <= end; i++)
+    pages.push(i)
+  return pages
+})
 
 watch(talentJobsData, (value) => {
   if (value?.current_page)
     currentPage.value = value.current_page
 })
 
-async function handleSearch() { currentPage.value = 1; await refreshJobs() }
-function goToPage(p: number) { if (p >= 1 && p <= lastPage.value) currentPage.value = p }
-function handleFilterChange() { currentPage.value = 1; refreshJobs() }
+async function handleSearch() {
+  currentPage.value = 1
+  await refreshJobs()
+}
+
+function goToPage(p: number) {
+  if (p >= 1 && p <= lastPage.value)
+    currentPage.value = p
+}
+
+function handleFilterChange() {
+  currentPage.value = 1
+  refreshJobs()
+}
 function clearFilters() {
   keyword.value = ''
   employmentType.value = 0
@@ -216,7 +226,7 @@ async function navigateToLogin() {
 
 async function navigateToResume() {
   pushGlobalNotice('请先创建简历')
-  await navigateTo('/resume')
+  await navigateTo('/profile/jobseeker')
 }
 
 async function handleApply(jobId: number) {

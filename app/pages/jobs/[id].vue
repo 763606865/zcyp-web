@@ -1,27 +1,31 @@
 <script setup lang="ts">
-definePageMeta({
-  layout: 'home',
-})
-
 import type { TalentJobItem } from '~/services/talent-jobs'
 import { createApplication, withdrawApplication } from '~/services/application'
-import { ApiRequestError } from '~/services/http'
+import { ApiRequestError, resolveAssetUrl } from '~/services/http'
 import { getResumeList } from '~/services/resume'
-import { getTalentJobDetail } from '~/services/talent-jobs'
+import { favoriteTalentJob, getTalentJobDetail, searchTalentJobs, unfavoriteTalentJob } from '~/services/talent-jobs'
 import { useMetaStore } from '~/stores/meta'
 import { pushGlobalNotice } from '~/utils/notice'
 
+definePageMeta({
+  layout: 'home',
+  activeNav: '职位推荐',
+  hidePortalSearchRow: true,
+})
+
 const route = useRoute()
-const router = useRouter()
 const userStore = useUserStore()
 const metaStore = useMetaStore()
 
 const jobId = computed(() => Number((route.params as Record<string, string>).id))
 const job = ref<TalentJobItem | null>(null)
 const errorMessage = ref('')
+const recommendedJobs = ref<TalentJobItem[]>([])
+const isFavoriteOperating = ref(false)
 
 const employmentTypeMap: Record<number, string> = { 1: '全职', 2: '兼职', 3: '实习', 4: '校招', 5: '外包' }
 const salaryUnitMap: Record<number, string> = { 1: '元/月', 2: '元/日', 3: '元/时' }
+const hotCities = ['北京', '上海', '广州', '深圳', '杭州', '重庆', '武汉', '郑州', '成都', '西安', '大连', '厦门', '南京', '苏州', '无锡', '南昌', '惠州', '珠海', '金华', '宁波']
 
 async function loadDetail() {
   errorMessage.value = ''
@@ -49,9 +53,109 @@ const { data: jobDetailData, pending: isLoading } = await useAsyncData(
   },
 )
 
-watch(jobDetailData, (value) => {
+watch(jobDetailData, async (value) => {
   job.value = value
+  if (value)
+    await loadRecommendedJobs(value)
 }, { immediate: true })
+
+const areaLabel = computed(() => job.value?.city_code ? metaStore.buildAreaLabel(job.value.city_code) : '')
+const companyProfile = computed(() => job.value?.company?.profile || null)
+const companyName = computed(() => job.value?.company?.name || '未知企业')
+const companyLogo = computed(() => resolveAssetUrl(companyProfile.value?.display_logo || companyProfile.value?.logo || ''))
+const benefitTags = computed(() => {
+  const profileTags = companyProfile.value?.benefit_tag_labels || []
+  const jobTags = job.value?.keywords || []
+  return [...new Set([...profileTags, ...jobTags])].filter(Boolean).slice(0, 10)
+})
+const jobInfoTags = computed(() => {
+  if (!job.value)
+    return []
+  return [
+    areaLabel.value || '南昌',
+    formatExperience(job.value),
+    job.value.education_level_label || '学历不限',
+  ].filter(Boolean)
+})
+const companyInfoItems = computed(() => [
+  companyProfile.value?.funding_stage_label || 'c轮融资',
+  companyProfile.value?.scale_type_label || '10000人以上',
+  companyProfile.value?.nature_type_label || '互联网',
+].filter(Boolean))
+
+async function loadRecommendedJobs(sourceJob: TalentJobItem) {
+  try {
+    const payload = await searchTalentJobs({
+      city_code: sourceJob.city_code || undefined,
+      position_code: sourceJob.position?.code,
+      per_page: 6,
+    }, userStore.authHeader || '')
+    recommendedJobs.value = (payload.data || []).filter(item => item.id !== sourceJob.id).slice(0, 6)
+  }
+  catch {
+    recommendedJobs.value = []
+  }
+}
+
+function getSalaryLabel(j: TalentJobItem) {
+  if (!j.salary_min && !j.salary_max)
+    return '薪资面议'
+  return `${j.salary_min || '面议'}-${j.salary_max || '面议'}${salaryUnitMap[j.salary_unit] || j.salary_unit_label || '元/月'}`
+}
+
+function formatExperience(j: TalentJobItem) {
+  if (!j.experience_min && !j.experience_max)
+    return '经验不限'
+  if (j.experience_min && !j.experience_max)
+    return `${j.experience_min}年以上`
+  if (!j.experience_min && j.experience_max)
+    return `${j.experience_max}年以内`
+  return `${j.experience_min}-${j.experience_max}年`
+}
+
+function getCreatorName(j: TalentJobItem) {
+  return j.creator?.mask_name || '招聘联系人'
+}
+
+function getCreatorTitle(j: TalentJobItem) {
+  return j.creator?.job_title || '招聘负责人'
+}
+
+function getCreatorAvatar(j: TalentJobItem) {
+  return resolveAssetUrl(j.creator?.display_avatar || '')
+}
+
+function getCreatorInitial(j: TalentJobItem) {
+  return getCreatorName(j).trim().charAt(0) || '招'
+}
+
+function getCreatorActiveLabel(j: TalentJobItem) {
+  const lastLoginAt = j.creator?.last_login_at
+  if (!lastLoginAt)
+    return '刚刚在线'
+  const ts = new Date(lastLoginAt).getTime()
+  if (!Number.isFinite(ts))
+    return '刚刚在线'
+  const days = Math.floor((Date.now() - ts) / 86400000)
+  if (days <= 0)
+    return '刚刚在线'
+  if (days <= 7)
+    return '本周活跃'
+  return '近期活跃'
+}
+
+function formatPublishedAt(value: string | null) {
+  if (!value)
+    return '职位更新'
+  const date = new Date(value)
+  if (!Number.isFinite(date.getTime()))
+    return `职位更新 ${value}`
+  return `职位更新 ${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+function plainText(value: string | null | undefined, fallback: string) {
+  return value?.trim() || fallback
+}
 
 async function navigateToLogin() {
   pushGlobalNotice('请先登录')
@@ -60,12 +164,18 @@ async function navigateToLogin() {
 
 async function navigateToResume() {
   pushGlobalNotice('请先创建简历')
-  await navigateTo('/resume')
+  await navigateTo('/profile/jobseeker')
 }
 
 async function handleApply() {
+  if (!job.value)
+    return
   if (!userStore.isLoggedIn) {
     await navigateToLogin()
+    return
+  }
+  if (job.value.is_applied) {
+    await handleWithdraw()
     return
   }
   try {
@@ -76,27 +186,23 @@ async function handleApply() {
       return
     }
     await createApplication({ job_id: jobId.value, resume_id: resumeId }, userStore.authHeader!)
-    if (job.value)
-      job.value.is_applied = true
+    job.value.is_applied = true
     pushGlobalNotice('简历已投递')
   }
   catch (error) {
     const msg = error instanceof ApiRequestError ? error.message : '投递失败'
-    if (msg.includes('重复') && job.value)
+    if (msg.includes('重复'))
       job.value.is_applied = true
     pushGlobalNotice(msg)
   }
 }
 
 async function handleWithdraw() {
-  if (!userStore.isLoggedIn) {
-    pushGlobalNotice('请先登录')
+  if (!job.value || !userStore.isLoggedIn)
     return
-  }
   try {
     await withdrawApplication(jobId.value, userStore.authHeader!)
-    if (job.value)
-      job.value.is_applied = false
+    job.value.is_applied = false
     pushGlobalNotice('已撤回投递')
   }
   catch (error) {
@@ -104,125 +210,300 @@ async function handleWithdraw() {
   }
 }
 
-function getSalaryLabel(j: TalentJobItem) {
-  if (!j.salary_min && !j.salary_max)
-    return '薪资面议'
-  return `${j.salary_min || '面议'}-${j.salary_max || '面议'}${salaryUnitMap[j.salary_unit] || '元/月'}`
+async function handleFavorite() {
+  if (!job.value)
+    return
+  if (!userStore.isLoggedIn) {
+    await navigateToLogin()
+    return
+  }
+  if (isFavoriteOperating.value)
+    return
+
+  isFavoriteOperating.value = true
+  try {
+    const result = job.value.is_favorited
+      ? await unfavoriteTalentJob(job.value.id, userStore.authHeader!)
+      : await favoriteTalentJob(job.value.id, userStore.authHeader!)
+    job.value.is_favorited = result.is_favorited
+    pushGlobalNotice(result.is_favorited ? '已收藏职位' : '已取消收藏')
+  }
+  catch (error) {
+    pushGlobalNotice(error instanceof Error ? error.message : '操作失败')
+  }
+  finally {
+    isFavoriteOperating.value = false
+  }
+}
+
+function handleQuickCommunicate() {
+  if (!job.value?.creator?.id) {
+    pushGlobalNotice('暂无招聘官信息，暂不能发起沟通', 'warning')
+    return
+  }
+  pushGlobalNotice(`${getCreatorName(job.value)}的沟通入口即将开放`, 'info')
 }
 </script>
 
 <template>
-  <div class="mx-auto max-w-7xl w-full px-5 py-10 lg:px-8 lg:py-12">
-    <NuxtLink to="/jobs" class="mb-6 inline-flex items-center gap-1 text-sm text-slate-500 no-underline hover:text-slate-800">
-      ← 返回职位列表
-    </NuxtLink>
-
-    <div v-if="errorMessage" class="border border-red-200 rounded-[1.5rem] bg-red-50 px-6 py-12 text-center text-sm text-red-600">
-      {{ errorMessage }}
-    </div>
-    <div v-if="isLoading" class="border border-slate-200 rounded-[1.5rem] bg-white px-6 py-16 text-center text-sm text-slate-500">
-      加载中...
+  <div class="bg-[#f2f4f8]">
+    <div v-if="errorMessage" class="mx-auto max-w-[1100px] px-5 py-12">
+      <div class="rounded-[6px] bg-white px-6 py-16 text-center text-[14px] text-red-500">
+        {{ errorMessage }}
+      </div>
     </div>
 
-    <template v-if="job">
-      <div class="rounded-[2rem] bg-white p-6 shadow-[0_24px_80px_rgba(15,23,42,0.08)] lg:p-8">
-        <div class="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <h1 class="text-3xl text-slate-950 font-bold lg:text-4xl">
-              {{ job.title }}
-            </h1>
-            <div class="mt-3 flex flex-wrap gap-3">
-              <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs text-emerald-700 font-medium">{{ job.employment_type_label || employmentTypeMap[job.employment_type] || '全职' }}</span>
-              <span v-if="job.education_level_label" class="rounded-full bg-sky-50 px-3 py-1 text-xs text-sky-700">{{ job.education_level_label }}</span>
-              <span v-if="metaStore.buildAreaLabel(job.city_code || '')" class="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">📍 {{ metaStore.buildAreaLabel(job.city_code || '') }}</span>
+    <div v-else-if="isLoading" class="mx-auto max-w-[1100px] px-5 py-12">
+      <div class="rounded-[6px] bg-white px-6 py-16 text-center text-[14px] text-slate-500">
+        加载中...
+      </div>
+    </div>
+
+    <template v-else-if="job">
+      <section class="bg-[radial-gradient(circle_at_78%_50%,rgba(202,224,250,0.82),rgba(239,246,255,0.92)_38%,#eef5fd_68%)]">
+        <div class="mx-auto max-w-[1100px] px-5 py-7">
+          <div class="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
+            <div class="min-w-0">
+              <div class="flex items-center gap-2 text-[13px] text-slate-400">
+                <span class="i-carbon-time" />
+                <span>{{ formatPublishedAt(job.published_at) }}</span>
+              </div>
+              <h1 class="mt-5 text-[28px] text-slate-950 font-semibold leading-tight">
+                {{ job.title }}
+              </h1>
+              <div class="mt-3 text-[24px] text-[#ff9f00] font-semibold">
+                {{ getSalaryLabel(job) }}
+              </div>
+              <div class="mt-5 flex flex-wrap items-center gap-6 text-[14px] text-slate-600">
+                <span v-for="tag in jobInfoTags" :key="tag" class="inline-flex items-center gap-1.5">
+                  <span class="i-carbon-location" />
+                  {{ tag }}
+                </span>
+              </div>
             </div>
-            <p class="mt-4 text-sm text-slate-500">
-              <NuxtLink v-if="job.company_id" :to="`/company/${job.company_id}`" class="text-amber-600 no-underline hover:underline">
-                {{ job.company?.name || '未知企业' }}
+            <div class="flex flex-col items-start gap-16 md:items-end">
+              <div class="flex items-center gap-7 text-[13px] text-slate-400">
+                <button type="button" class="border-none bg-transparent text-[#ff9f00] cursor-pointer inline-flex items-center gap-1" @click="pushGlobalNotice('微信扫码分享即将开放', 'info')">
+                  <span class="i-carbon-chat" /> 微信扫码分享
+                </button>
+                <button type="button" class="border-none bg-transparent cursor-pointer inline-flex items-center gap-1 hover:text-slate-600" @click="pushGlobalNotice('举报入口即将开放', 'info')">
+                  <span class="i-carbon-warning-alt" /> 举报
+                </button>
+              </div>
+              <div class="flex gap-4">
+                <button type="button" class="h-10 rounded-[6px] border border-[#ff9f00] bg-white px-6 text-[16px] text-[#ff9f00] font-semibold cursor-pointer inline-flex items-center gap-2" :disabled="isFavoriteOperating" @click="handleFavorite">
+                  <span :class="job.is_favorited ? 'i-carbon-star-filled' : 'i-carbon-star'" />
+                  {{ job.is_favorited ? '已收藏' : '收藏' }}
+                </button>
+                <button type="button" class="h-10 rounded-[6px] border-none bg-[#ff9f00] px-8 text-[16px] text-white font-semibold cursor-pointer hover:bg-[#f08f00]" @click="handleApply">
+                  {{ job.is_applied ? '撤回投递' : '立即投递' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="mx-auto grid max-w-[1100px] gap-4 px-5 py-5 lg:grid-cols-[minmax(0,1fr)_240px]">
+        <main class="space-y-4">
+          <section class="rounded-[6px] bg-white px-6 py-6">
+            <h2 class="text-[18px] text-slate-900 font-semibold">
+              职位描述
+            </h2>
+            <div v-if="benefitTags.length" class="mt-4 flex flex-wrap gap-3">
+              <span v-for="tag in benefitTags" :key="tag" class="rounded bg-slate-100 px-4 py-1.5 text-[13px] text-slate-500">{{ tag }}</span>
+            </div>
+            <div class="mt-6 space-y-5 text-[14px] text-slate-600 leading-7">
+              <div>
+                <h3 class="text-[15px] text-slate-700 font-semibold">
+                  岗位职责：
+                </h3>
+                <p class="mt-1 whitespace-pre-wrap">
+                  {{ plainText(job.description, '暂无岗位职责') }}
+                </p>
+              </div>
+              <div>
+                <h3 class="text-[15px] text-slate-700 font-semibold">
+                  岗位要求：
+                </h3>
+                <p class="mt-1 whitespace-pre-wrap">
+                  {{ plainText(job.requirement, '暂无岗位要求') }}
+                </p>
+              </div>
+              <div>
+                <h3 class="text-[15px] text-slate-700 font-semibold">
+                  其他说明：
+                </h3>
+                <p class="mt-1 whitespace-pre-wrap">
+                  {{ plainText(job.benefit, '公司提供完善福利，具体以面试沟通为准。') }}
+                </p>
+              </div>
+            </div>
+
+            <div class="mt-8">
+              <h2 class="text-[18px] text-slate-900 font-semibold">
+                工作地址
+              </h2>
+              <div class="mt-4 flex items-center gap-2 text-[14px] text-slate-700">
+                <span class="i-carbon-location-filled text-slate-400" />
+                <span>{{ job.workplace || areaLabel || '地址待完善' }}</span>
+              </div>
+              <div class="relative mt-3 h-[108px] overflow-hidden rounded-[6px] bg-[#dfeaf4]">
+                <div class="absolute inset-0 opacity-80 [background-image:linear-gradient(25deg,transparent_0_44%,#c9d9e8_45%_47%,transparent_48%),linear-gradient(155deg,transparent_0_52%,#c9d9e8_53%_55%,transparent_56%),linear-gradient(90deg,#eef4f8_1px,transparent_1px),linear-gradient(0deg,#eef4f8_1px,transparent_1px)] [background-size:180px_80px,220px_90px,48px_48px,48px_48px]" />
+                <span class="absolute left-1/2 top-1/2 h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-500 shadow-[0_6px_12px_rgba(239,68,68,0.35)]" />
+              </div>
+            </div>
+          </section>
+
+          <div class="flex items-center justify-between rounded-[6px] bg-white px-5 py-3 text-[13px] text-slate-500">
+            <span class="inline-flex items-center gap-2">
+              <span class="i-carbon-warning-alt" />
+              以担保或任何理由索要财物，扣押证照，均涉嫌违法。一经发现，
+              <button type="button" class="border-none bg-transparent px-0 text-[#ff9f00] cursor-pointer" @click="pushGlobalNotice('举报入口即将开放', 'info')">立即举报</button>
+            </span>
+            <span class="text-[16px]">×</span>
+          </div>
+
+          <section class="rounded-[6px] bg-white px-6 py-6">
+            <h2 class="text-[18px] text-slate-900 font-semibold">
+              公司信息
+            </h2>
+            <div class="mt-5 flex items-center gap-4">
+              <div class="h-12 w-12 flex shrink-0 items-center justify-center overflow-hidden rounded bg-slate-100 text-[11px] text-blue-600 font-bold">
+                <img v-if="companyLogo" :src="companyLogo" :alt="`${companyName}logo`" class="h-full w-full object-contain">
+                <span v-else>{{ companyName.slice(0, 2) }}</span>
+              </div>
+              <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-3">
+                  <NuxtLink :to="`/company/${job.company_id}`" class="text-[18px] text-slate-900 font-semibold no-underline hover:text-[#ff9f00]">
+                    {{ companyName }}
+                  </NuxtLink>
+                  <span class="text-[13px] text-[#ff9f00] inline-flex items-center gap-1">
+                    <span class="i-carbon-checkmark-filled" /> 已认证
+                  </span>
+                </div>
+                <div class="mt-2 flex flex-wrap gap-2 text-[13px] text-slate-500">
+                  <span v-for="item in companyInfoItems" :key="item">{{ item }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="mt-6 border-t border-slate-100 pt-5">
+              <h3 class="text-[15px] text-slate-900 font-semibold">
+                公司介绍
+              </h3>
+              <p class="mt-3 text-[14px] text-slate-600 leading-7">
+                {{ plainText(companyProfile?.introduction, '公司介绍暂未完善。') }}
+              </p>
+            </div>
+            <div class="mt-6 grid gap-5 text-[14px] sm:grid-cols-3">
+              <div>
+                <div class="text-slate-400">公司名称</div>
+                <div class="mt-2 text-slate-700">{{ companyName }}</div>
+              </div>
+              <div>
+                <div class="text-slate-400">企业类型</div>
+                <div class="mt-2 text-slate-700">{{ companyProfile?.nature_type_label || '股份有限公司' }}</div>
+              </div>
+              <div>
+                <div class="text-slate-400">成立时间</div>
+                <div class="mt-2 text-slate-700">{{ companyProfile?.founded_at || '暂未填写' }}</div>
+              </div>
+            </div>
+            <div class="mt-7 text-center">
+              <NuxtLink :to="`/company/${job.company_id}`" class="inline-flex h-9 items-center rounded-[6px] border border-[#ff9f00] px-8 text-[14px] text-[#ff9f00] no-underline">
+                查看更多
               </NuxtLink>
-              <span v-else>{{ job.company?.name || '未知企业' }}</span>
-            </p>
-          </div>
-          <div class="text-left lg:text-right">
-            <div class="text-3xl text-amber-600 font-bold">
-              {{ getSalaryLabel(job) }}
             </div>
-            <button v-if="job.is_applied" class="w-full border border-red-300 rounded-full bg-white px-8 py-3 text-sm text-red-600 no-underline transition lg:w-auto hover:bg-red-50" @click="handleWithdraw">
-              撤回投递
+          </section>
+
+          <section class="rounded-[6px] bg-white px-6 py-6">
+            <h2 class="text-[18px] text-slate-900 font-semibold">
+              精选职位
+            </h2>
+            <div class="mt-5 grid gap-4 md:grid-cols-3">
+              <NuxtLink
+                v-for="item in recommendedJobs"
+                :key="item.id"
+                :to="`/jobs/${item.id}`"
+                class="rounded-[4px] border border-slate-100 px-4 py-4 no-underline hover:border-[#ff9f00]"
+              >
+                <div class="flex items-center justify-between gap-3">
+                  <span class="truncate text-[16px] text-slate-900 font-semibold">{{ item.title }}</span>
+                  <span class="shrink-0 text-[15px] text-[#ff9f00] font-semibold">{{ getSalaryLabel(item) }}</span>
+                </div>
+                <div class="mt-3 flex gap-2">
+                  <span class="rounded bg-slate-100 px-2 py-1 text-[12px] text-slate-500">{{ formatExperience(item) }}</span>
+                  <span class="rounded bg-slate-100 px-2 py-1 text-[12px] text-slate-500">{{ item.education_level_label || '不限' }}</span>
+                </div>
+                <div class="mt-4 flex items-center gap-2 text-[13px] text-slate-500">
+                  <span class="h-5 w-8 flex items-center justify-center rounded bg-slate-100 text-[10px] text-blue-600">logo</span>
+                  <span class="truncate">{{ item.company?.name || '公司名称' }}</span>
+                </div>
+              </NuxtLink>
+              <div v-if="recommendedJobs.length === 0" class="col-span-full py-8 text-center text-[14px] text-slate-400">
+                暂无精选职位
+              </div>
+            </div>
+          </section>
+
+          <section class="rounded-[6px] bg-white px-6 py-5">
+            <div class="flex flex-wrap gap-8 border-b border-slate-100 pb-4 text-[16px]">
+              <span class="text-[#ff9f00] font-semibold">热门城市</span>
+              <span class="text-slate-600">热门职位</span>
+              <span class="text-slate-600">热门公司</span>
+              <span class="text-slate-600">推荐职位</span>
+            </div>
+            <div class="mt-5 flex flex-wrap gap-x-8 gap-y-4 text-[14px] text-slate-700">
+              <NuxtLink v-for="city in hotCities" :key="city" to="/jobs" class="text-slate-700 no-underline hover:text-[#ff9f00]">
+                {{ city }}
+              </NuxtLink>
+            </div>
+          </section>
+        </main>
+
+        <aside class="space-y-4">
+          <section class="rounded-[6px] bg-white px-5 py-5">
+            <h2 class="text-[17px] text-slate-900 font-semibold">
+              职位招聘官
+            </h2>
+            <div class="mt-5 flex items-center gap-3">
+              <div class="h-12 w-12 flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#6f54ff] text-white">
+                <img v-if="getCreatorAvatar(job)" :src="getCreatorAvatar(job)" :alt="getCreatorName(job)" class="h-full w-full object-cover">
+                <span v-else>{{ getCreatorInitial(job) }}</span>
+              </div>
+              <div>
+                <div class="text-[17px] text-slate-900 font-semibold">{{ getCreatorName(job) }}</div>
+                <div class="mt-1 text-[13px] text-slate-500">{{ getCreatorTitle(job) }}　{{ getCreatorActiveLabel(job) }}</div>
+              </div>
+            </div>
+            <button type="button" class="mt-6 h-9 w-full rounded-[6px] border border-[#ff9f00] bg-white text-[14px] text-[#ff9f00] cursor-pointer inline-flex items-center justify-center gap-1" @click="handleQuickCommunicate">
+              <span class="i-carbon-chat" />
+              继续沟通
             </button>
-            <button v-else class="w-full rounded-full bg-slate-950 px-8 py-3 text-sm text-white no-underline transition lg:w-auto hover:bg-slate-800" @click="handleApply">
-              投递简历
-            </button>
-          </div>
-        </div>
+          </section>
 
-        <div class="grid mt-8 gap-4 sm:grid-cols-3">
-          <div class="rounded-xl bg-slate-50 px-4 py-3">
-            <div class="text-xs text-slate-400">
-              工作性质
+          <section class="rounded-[6px] bg-white px-5 py-5">
+            <h2 class="text-[17px] text-slate-900 font-semibold">
+              公司信息
+            </h2>
+            <div class="mt-5 flex gap-3">
+              <div class="h-10 w-10 flex shrink-0 items-center justify-center overflow-hidden rounded bg-slate-100 text-[10px] text-blue-600 font-bold">
+                <img v-if="companyLogo" :src="companyLogo" :alt="`${companyName}logo`" class="h-full w-full object-contain">
+                <span v-else>{{ companyName.slice(0, 2) }}</span>
+              </div>
+              <div class="text-[15px] text-slate-900 font-medium leading-6">{{ companyName }}</div>
             </div>
-            <div class="mt-1 text-sm text-slate-900 font-medium">
-              {{ job.employment_type_label || employmentTypeMap[job.employment_type] || '—' }}
+            <div class="mt-5 space-y-4 text-[14px] text-slate-500">
+              <div v-for="item in companyInfoItems" :key="item" class="flex items-center gap-2">
+                <span class="i-carbon-enterprise" />
+                {{ item }}
+              </div>
             </div>
-          </div>
-          <div class="rounded-xl bg-slate-50 px-4 py-3">
-            <div class="text-xs text-slate-400">
-              学历要求
-            </div>
-            <div class="mt-1 text-sm text-slate-900 font-medium">
-              {{ job.education_level_label || '不限' }}
-            </div>
-          </div>
-          <div class="rounded-xl bg-slate-50 px-4 py-3">
-            <div class="text-xs text-slate-400">
-              经验要求
-            </div>
-            <div class="mt-1 text-sm text-slate-900 font-medium">
-              {{ job.experience_min || 0 }}-{{ job.experience_max || '不限' }} 年
-            </div>
-          </div>
-          <div class="rounded-xl bg-slate-50 px-4 py-3 sm:col-span-3">
-            <div class="text-xs text-slate-400">
-              工作地址
-            </div>
-            <div class="mt-1 text-sm text-slate-900 font-medium">
-              {{ job.workplace || '未填写' }} <span v-if="metaStore.buildAreaLabel(job.city_code || '')" class="text-slate-500">({{ metaStore.buildAreaLabel(job.city_code || '') }})</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="mt-6 border-t border-slate-200 pt-6">
-          <h2 class="text-lg text-slate-950 font-semibold">
-            职位描述
-          </h2>
-          <div class="mt-3 max-w-3xl whitespace-pre-wrap text-sm text-slate-600 leading-7">
-            {{ job.description || '暂无描述' }}
-          </div>
-        </div>
-        <div v-if="job.requirement" class="mt-6 border-t border-slate-200 pt-6">
-          <h2 class="text-lg text-slate-950 font-semibold">
-            职位要求
-          </h2>
-          <div class="mt-3 max-w-3xl whitespace-pre-wrap text-sm text-slate-600 leading-7">
-            {{ job.requirement }}
-          </div>
-        </div>
-        <div v-if="job.benefit" class="mt-6 border-t border-slate-200 pt-6">
-          <h2 class="text-lg text-slate-950 font-semibold">
-            福利待遇
-          </h2>
-          <div class="mt-3 max-w-3xl whitespace-pre-wrap text-sm text-slate-600 leading-7">
-            {{ job.benefit }}
-          </div>
-        </div>
-
-        <div v-if="job.keywords?.length" class="mt-6 flex flex-wrap gap-2">
-          <span v-for="kw in job.keywords" :key="kw" class="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">{{ kw }}</span>
-        </div>
-
-        <div v-if="job.published_at" class="mt-6 text-xs text-slate-400">
-          发布于 {{ job.published_at }}
-        </div>
+            <NuxtLink :to="`/company/${job.company_id}`" class="mt-6 flex h-9 items-center justify-center rounded-[6px] border border-[#ff9f00] text-[14px] text-[#ff9f00] no-underline">
+              查看在招职位
+            </NuxtLink>
+          </section>
+        </aside>
       </div>
     </template>
   </div>

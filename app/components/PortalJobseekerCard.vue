@@ -25,10 +25,10 @@ const avatarUrl = computed(() => {
   </div>
 
   <div class="home-user-actions">
-    <NuxtLink to="/resume">
+    <NuxtLink to="/profile/jobseeker">
       在线简历
     </NuxtLink>
-    <NuxtLink to="/resume">
+    <NuxtLink to="/profile/jobseeker">
       简历附件
     </NuxtLink>
   </div>

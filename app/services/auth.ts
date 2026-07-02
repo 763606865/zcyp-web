@@ -1,5 +1,5 @@
 import type { AuthLoginResponse, AuthMeResponse, EmailLoginPayload, ForgotPasswordPayload, OrganizationsResponse, PhoneLoginPayload, RefreshTokenPayload, SendVerificationCodePayload } from '~/types/auth'
-import { getJson, postJson } from './http'
+import { getJson, postJson, putJson } from './http'
 
 interface ApiResponse<T> {
   code: number
@@ -9,6 +9,26 @@ interface ApiResponse<T> {
     timestamp?: number
     response_time?: number
   }
+}
+
+export interface PhoneLookupResponse {
+  phone: string
+  exists: boolean
+  available: boolean
+  is_current_user: boolean
+}
+
+export interface UpdateUserPhonePayload {
+  phone: string
+  code: string
+}
+
+export interface UpdateUserPhoneResponse {
+  phone: string
+}
+
+function createAuthHeaders(authorization: string) {
+  return authorization ? { Authorization: authorization } : undefined
 }
 
 export async function sendVerificationCode(payload: SendVerificationCodePayload) {
@@ -35,18 +55,18 @@ export async function refreshToken(payload: RefreshTokenPayload, authorization: 
   const response = await postJson<ApiResponse<AuthLoginResponse>>(
     '/rc/auth/refresh-token',
     payload,
-    authorization ? { Authorization: authorization } : undefined,
+    createAuthHeaders(authorization),
   )
   return response.data
 }
 
 export async function getAuthMe(authorization: string) {
-  const response = await getJson<ApiResponse<AuthMeResponse>>('/rc/auth/me', undefined, authorization ? { Authorization: authorization } : undefined)
+  const response = await getJson<ApiResponse<AuthMeResponse>>('/rc/auth/me', undefined, createAuthHeaders(authorization))
   return response.data
 }
 
 export async function logout(authorization: string) {
-  const response = await postJson<ApiResponse<unknown[]>>('/rc/auth/logout', undefined, authorization ? { Authorization: authorization } : undefined)
+  const response = await postJson<ApiResponse<unknown[]>>('/rc/auth/logout', undefined, createAuthHeaders(authorization))
   return response.data
 }
 
@@ -54,7 +74,34 @@ export async function getAuthOrganizations(authorization: string) {
   const response = await getJson<ApiResponse<OrganizationsResponse>>(
     '/rc/auth/organizations',
     undefined,
-    authorization ? { Authorization: authorization } : undefined,
+    createAuthHeaders(authorization),
+  )
+  return response.data
+}
+
+export async function lookupUserPhone(phone: string, authorization: string) {
+  const response = await getJson<ApiResponse<PhoneLookupResponse>>(
+    '/rc/users/phone/lookup',
+    { phone },
+    createAuthHeaders(authorization),
+  )
+  return response.data
+}
+
+export async function sendPhoneChangeVerificationCode(phone: string, authorization: string) {
+  const response = await postJson<ApiResponse<Record<string, never>>>(
+    '/rc/users/phone/verification-code',
+    { phone },
+    createAuthHeaders(authorization),
+  )
+  return response.data
+}
+
+export async function updateUserPhone(payload: UpdateUserPhonePayload, authorization: string) {
+  const response = await putJson<ApiResponse<UpdateUserPhoneResponse>>(
+    '/rc/users/phone',
+    payload,
+    createAuthHeaders(authorization),
   )
   return response.data
 }

@@ -62,6 +62,21 @@ export interface ApplicationItem {
     experience_max: number | null
     employment_type_label: string | null
     position: { name: string } | null
+    creator?: {
+      id: number
+      mask_name: string
+      display_avatar: string | null
+      last_login_at: string | null
+      job_title: string | null
+    } | null
+    company?: {
+      id: number
+      name: string
+      profile?: {
+        display_logo?: string | null
+        logo?: string | null
+      } | null
+    } | null
   } | null
   company: { id: number, name: string } | null
   resume: ResumeRecord | null

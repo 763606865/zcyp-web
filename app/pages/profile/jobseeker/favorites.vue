@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { TalentJobItem } from '~/services/talent-jobs'
-import { getJson } from '~/services/http'
+import { getJson, resolveAssetUrl } from '~/services/http'
 
 definePageMeta({
   layout: 'home',
@@ -11,6 +11,7 @@ const userStore = useUserStore()
 const activeTab = ref<'companies' | 'jobs'>('companies')
 const favoriteJobs = ref<TalentJobItem[]>([])
 const favoriteCompanies = ref<any[]>([])
+const favoriteJobTags = ['2年及以上', '本科', '五险一金']
 
 const { pending: isLoading } = await useAsyncData(
   'profile-jobseeker-favorites',
@@ -42,7 +43,75 @@ const { pending: isLoading } = await useAsyncData(
 function getSalaryLabel(job: TalentJobItem) {
   if (!job.salary_min && !job.salary_max)
     return '薪资面议'
-  return `${job.salary_min || '面议'}-${job.salary_max || '面议'}${job.salary_unit_label || '月'}`
+  return `${formatSalaryAmount(job.salary_min)}-${formatSalaryAmount(job.salary_max)}${job.salary_unit_label || '月'}`
+}
+
+function formatSalaryAmount(value: string | null | undefined) {
+  if (!value)
+    return '面议'
+
+  const amount = Number(value)
+  if (!Number.isFinite(amount))
+    return value
+
+  return `${amount / 1000}k`
+}
+
+function getCompanyName(job: TalentJobItem) {
+  return job.company?.name || '未知企业'
+}
+
+function getCompanyLogo(job: TalentJobItem) {
+  return resolveAssetUrl(job.company?.profile?.display_logo || job.company?.profile?.logo || '')
+}
+
+function getCompanyInitial(job: TalentJobItem) {
+  return (getCompanyName(job) || '企').slice(0, 2)
+}
+
+function getCreatorName(job: TalentJobItem) {
+  return job.creator?.mask_name || '招聘联系人'
+}
+
+function getCreatorTitle(job: TalentJobItem) {
+  return job.creator?.job_title || '招聘负责人'
+}
+
+function getCreatorAvatar(job: TalentJobItem) {
+  return resolveAssetUrl(job.creator?.display_avatar || '')
+}
+
+function getCreatorInitial(job: TalentJobItem) {
+  return getCreatorName(job).trim().charAt(0) || '招'
+}
+
+function getCreatorActiveLabel(job: TalentJobItem) {
+  const lastLoginAt = job.creator?.last_login_at
+  if (!lastLoginAt)
+    return '近期活跃'
+
+  const lastLoginTime = new Date(lastLoginAt).getTime()
+  if (!Number.isFinite(lastLoginTime))
+    return '近期活跃'
+
+  const days = Math.floor((Date.now() - lastLoginTime) / 86400000)
+  if (days <= 0)
+    return '今日活跃'
+  if (days <= 7)
+    return '本周活跃'
+  if (days <= 30)
+    return '近期活跃'
+  return '最近活跃'
+}
+
+function getCreatorInfo(job: TalentJobItem) {
+  return {
+    name: getCreatorName(job),
+    title: getCreatorTitle(job),
+    avatar: getCreatorAvatar(job),
+    initial: getCreatorInitial(job),
+    activeLabel: getCreatorActiveLabel(job),
+  }
 }
 </script>
 
@@ -115,29 +184,20 @@ function getSalaryLabel(job: TalentJobItem) {
           暂无收藏职位
         </div>
         <div v-else class="mt-5 space-y-4">
-          <article v-for="job in favoriteJobs" :key="job.id" class="rounded-[6px] bg-white px-8 py-6">
-            <div class="flex items-start justify-between gap-6">
-              <NuxtLink :to="`/jobs/${job.id}`" class="min-w-0 flex-1 no-underline">
-                <div class="flex flex-wrap items-center gap-4">
-                  <h2 class="text-[18px] text-slate-900 font-semibold">
-                    {{ job.title }}
-                  </h2>
-                  <span class="text-[16px] text-[#ff9f00] font-semibold">{{ getSalaryLabel(job) }}</span>
-                </div>
-                <div class="mt-4 flex flex-wrap gap-2">
-                  <span class="rounded bg-slate-100 px-3 py-1 text-[13px] text-slate-500">2年及以上</span>
-                  <span class="rounded bg-slate-100 px-3 py-1 text-[13px] text-slate-500">本科</span>
-                  <span class="rounded bg-slate-100 px-3 py-1 text-[13px] text-slate-500">五险一金</span>
-                </div>
-                <div class="mt-5 text-[16px] text-slate-800">
-                  {{ job.company?.name || '未知企业' }}
-                </div>
-              </NuxtLink>
-              <div class="shrink-0 rounded-full bg-slate-50 px-4 py-1 text-[13px] text-slate-600">
-                <span class="i-carbon-star-filled text-[#ff9f00]" /> 已收藏
-              </div>
-            </div>
-          </article>
+          <JobseekerJobCard
+            v-for="job in favoriteJobs"
+            :key="job.id"
+            :job-to="`/jobs/${job.id}`"
+            :title="job.title"
+            :salary-label="getSalaryLabel(job)"
+            :tags="favoriteJobTags"
+            :company-name="getCompanyName(job)"
+            :company-logo="getCompanyLogo(job)"
+            :company-initial="getCompanyInitial(job)"
+            :creator="getCreatorInfo(job)"
+            status-label="已收藏"
+            communicate-label="立即沟通"
+          />
         </div>
         <div class="my-8 text-center text-[13px] text-slate-400">
           收藏的职位将保留三个月，最多收藏100个职位

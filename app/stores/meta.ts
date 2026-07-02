@@ -395,16 +395,21 @@ export const useMetaStore = defineStore('meta', () => {
     return null
   }
 
-  function getPositionById(id: number): RcPositionNode | null {
-    for (const parent of positions.value) {
-      if (parent.id === id)
-        return parent
-      for (const child of parent.children || []) {
-        if (child.id === id)
-          return child
+  function findPositionById(nodes: RcPositionNode[], id: number): RcPositionNode | null {
+    for (const node of nodes) {
+      if (node.id === id)
+        return node
+      if (node.children?.length) {
+        const matched = findPositionById(node.children, id)
+        if (matched)
+          return matched
       }
     }
     return null
+  }
+
+  function getPositionById(id: number): RcPositionNode | null {
+    return findPositionById(positions.value, id)
   }
 
   function buildIndustryLabel(id: number): string {
@@ -419,16 +424,22 @@ export const useMetaStore = defineStore('meta', () => {
     return ''
   }
 
-  function buildPositionLabel(id: number): string {
-    for (const parent of positions.value) {
-      if (parent.id === id)
-        return parent.name
-      for (const child of parent.children || []) {
-        if (child.id === id)
-          return `${parent.name} / ${child.name}`
+  function findPositionPath(nodes: RcPositionNode[], id: number, parentPath: string[] = []): string[] | null {
+    for (const node of nodes) {
+      const nextPath = [...parentPath, node.name]
+      if (node.id === id)
+        return nextPath
+      if (node.children?.length) {
+        const matched = findPositionPath(node.children, id, nextPath)
+        if (matched)
+          return matched
       }
     }
-    return ''
+    return null
+  }
+
+  function buildPositionLabel(id: number): string {
+    return findPositionPath(positions.value, id)?.join(' / ') || ''
   }
 
   function ensureAllLoaded(authorization: string) {

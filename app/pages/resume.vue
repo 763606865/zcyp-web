@@ -568,7 +568,7 @@ const intentionForm = ref({
   employmentType: 0,
   expectedCityCode: '',
   selectedIndustryCodes: [] as string[],
-  expectedPositionCode: '',
+  expectedPositionId: null as number | null,
   salaryMin: '',
   salaryMax: '',
   salaryUnit: 1,
@@ -590,8 +590,8 @@ const panelChildIndustryItems = computed(() =>
 )
 
 const intentionPositionCascader = computed(() => {
-  const _mapPos = (n: RcPositionNode): { value: string, label: string, children?: any[] } => ({
-    value: n.code,
+  const _mapPos = (n: RcPositionNode): { value: number, label: string, children?: any[] } => ({
+    value: n.id,
     label: n.name,
     children: n.children?.length ? n.children.map(_mapPos) : undefined,
   })
@@ -632,7 +632,7 @@ function resetIntentionForm() {
     employmentType: 0,
     expectedCityCode: '',
     selectedIndustryCodes: [],
-    expectedPositionCode: '',
+    expectedPositionId: null,
     salaryMin: '',
     salaryMax: '',
     salaryUnit: 1,
@@ -655,14 +655,12 @@ function openEditIntention(item: ResumeIntention) {
   editingIntentionId.value = item.id
 
   const industryCodes: string[] = Array.isArray(item.expected_industry_codes) ? item.expected_industry_codes : []
-  const posCode = typeof item.expected_position_code === 'string' ? item.expected_position_code : ''
-
   intentionForm.value = {
     jobStatus: item.job_status,
     employmentType: item.employment_type ?? 0,
     expectedCityCode: item.expected_city_code || '',
     selectedIndustryCodes: industryCodes,
-    expectedPositionCode: posCode,
+    expectedPositionId: item.expected_position_id || null,
     salaryMin: item.salary_min ? String(Math.round(Number(item.salary_min) / 1000)) : '',
     salaryMax: item.salary_max ? String(Math.round(Number(item.salary_max) / 1000)) : '',
     salaryUnit: item.salary_unit,
@@ -694,7 +692,7 @@ function buildIntentionPayload(): ResumeIntentionSavePayload {
     employment_type: intentionForm.value.employmentType || null,
     expected_city_code: intentionForm.value.expectedCityCode || null,
     expected_industry_codes: intentionForm.value.selectedIndustryCodes.length > 0 ? [...intentionForm.value.selectedIndustryCodes] : null,
-    expected_position_code: intentionForm.value.expectedPositionCode || null,
+    expected_position_id: intentionForm.value.expectedPositionId || null,
     salary_min: intentionForm.value.salaryMin ? Number(intentionForm.value.salaryMin) * 1000 : null,
     salary_max: intentionForm.value.salaryMax ? Number(intentionForm.value.salaryMax) * 1000 : null,
     salary_unit: intentionForm.value.salaryUnit,
@@ -1225,6 +1223,7 @@ await useAsyncData(
 </script>
 
 <template>
+  <!-- eslint-disable vue/no-multiple-template-root -->
   <div class="portal-page pb-12">
     <section class="mx-auto mt-6 max-w-[1320px] px-4 lg:px-6">
       <div
@@ -2388,7 +2387,7 @@ await useAsyncData(
             <span>期望职位</span>
             <div class="flex gap-2">
               <NCascader
-                v-model:value="intentionForm.expectedPositionCode"
+                v-model:value="intentionForm.expectedPositionId"
                 :options="intentionPositionCascader as any"
                 placeholder="请选择期望职位（支持搜索）"
                 filterable

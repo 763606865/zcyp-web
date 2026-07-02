@@ -9,7 +9,7 @@ const navItems = [
 
 <template>
   <div class="profile-jobseeker-page">
-    <section class="mx-auto grid max-w-[1240px] grid-cols-[142px_minmax(0,1fr)] gap-5 px-4 py-6 lg:px-6">
+    <section class="mx-auto px-4 py-6 gap-5 grid grid-cols-[142px_minmax(0,1fr)] max-w-[1240px] lg:px-6">
       <aside class="profile-jobseeker-nav">
         <NuxtLink
           v-for="item in navItems"
@@ -37,8 +37,6 @@ const navItems = [
 }
 
 .profile-jobseeker-nav {
-  position: sticky;
-  top: 88px;
   align-self: start;
   overflow: hidden;
   border-radius: 4px;

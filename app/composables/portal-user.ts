@@ -13,12 +13,6 @@ const identityLabels: Record<AuthIdentityCode, string> = {
   headhunter: '猎头',
 }
 
-const accountMenuItems: PortalAccountMenuItem[] = [
-  { label: '个人中心', to: '/profile' },
-  { label: '消息通知', to: '/notifications' },
-  { label: '我的收藏', to: '/profile' },
-]
-
 export function usePortalUser() {
   const userStore = useUserStore()
 
@@ -29,6 +23,11 @@ export function usePortalUser() {
   })
   const avatarText = computed(() => displayName.value.slice(0, 1).toUpperCase())
   const profileRoute = computed(() => resolveIdentityProfileRoute(userStore.currentIdentity))
+  const accountMenuItems = computed<PortalAccountMenuItem[]>(() => [
+    { label: '个人中心', to: profileRoute.value },
+    { label: '消息通知', to: '/notifications' },
+    { label: '我的收藏', to: '/profile' },
+  ])
 
   return {
     displayName,

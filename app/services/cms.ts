@@ -1,4 +1,5 @@
 import type { CmsTagCategory, CmsTagGroup, RcAreaNode } from '~/types/meta'
+import type { CmsAdItem } from '~/types/recruitment'
 import { appEnv } from '~/config/env'
 import { getJson, postJson } from './http'
 
@@ -97,6 +98,23 @@ async function withMockFallback<T>(request: () => Promise<T>, fallback: T): Prom
   catch {
     return fallback
   }
+}
+
+type CmsAdsPayload = CmsAdItem[] | { data?: CmsAdItem[], ads?: CmsAdItem[] } | null
+
+function normalizeCmsAdsPayload(payload: CmsAdsPayload) {
+  if (Array.isArray(payload))
+    return payload
+  if (payload?.data && Array.isArray(payload.data))
+    return payload.data
+  if (payload?.ads && Array.isArray(payload.ads))
+    return payload.ads
+  return []
+}
+
+export async function getCmsAds(query: { code: string }) {
+  const response = await getJson<ApiResponse<CmsAdsPayload>>('/cms/ads', query)
+  return normalizeCmsAdsPayload(response.data)
 }
 
 export function getCmsMeta(): Promise<CmsMetaPayload> {

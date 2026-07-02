@@ -7,6 +7,7 @@ import { useSiteStore } from '~/stores/site'
 const props = defineProps<{
   activeNav?: string
   activeCity?: string
+  hideSearchRow?: boolean
 }>()
 
 const router = useRouter()
@@ -156,7 +157,7 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <div class="portal-search-row">
+    <div v-if="!props.hideSearchRow" class="portal-search-row">
       <div class="portal-container portal-search-inner">
         <NuxtLink to="/" class="portal-brand no-underline">
           <img v-if="logoUrl" :src="logoUrl" :alt="siteName" class="portal-brand-logo">
@@ -185,13 +186,13 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="portal-download">
-          <!-- <div>
+          <div>
             <span>扫码进公众号</span>
             <strong>扫码下载APP</strong>
           </div>
           <div class="portal-mini-qr" aria-hidden="true">
             <span v-for="cell in 25" :key="cell" :class="{ dark: cell % 2 === 0 || cell % 7 === 0 }" />
-          </div> -->
+          </div>
         </div>
       </div>
     </div>

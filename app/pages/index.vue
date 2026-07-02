@@ -1,12 +1,12 @@
 <script setup lang="ts">
-definePageMeta({
-  layout: 'home',
-})
-
 import type { HomePageData } from '~/types/recruitment'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { mockCompanies, mockJobs, mockPositionTree } from '~/mock/recruitment'
 import { resolveAssetUrl } from '~/services/http'
+
+definePageMeta({
+  layout: 'home',
+})
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -139,7 +139,7 @@ onBeforeUnmount(() => {
           @focus="selectCategory(item.id)"
           @click="selectCategory(item.id)"
         >
-          <span>{{ item.name }}</span>
+          <span class="min-w-0 flex-1 truncate text-left">{{ item.name }}</span>
           <span class="i-carbon-chevron-right" />
         </button>
       </aside>

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { ApplicationItem } from '~/services/application'
 import { acceptInterview, getApplications, rejectInterview } from '~/services/application'
+import { getCmsAds } from '~/services/cms'
+import { resolveAssetUrl } from '~/services/http'
 import { pushGlobalNotice } from '~/utils/notice'
 
 definePageMeta({
@@ -11,6 +13,8 @@ definePageMeta({
 const userStore = useUserStore()
 const activeTab = ref<'all' | 'viewed' | 'interview' | 'rejected'>('all')
 const applicationList = ref<ApplicationItem[]>([])
+const rightSideAdCode = 'profile.jobseeker.right-side-1'
+const applicationJobTags = ['2年及以上', '本科', '五险一金']
 
 const tabs = [
   { key: 'all', label: '投递成功' },
@@ -57,11 +61,106 @@ const { pending: isLoading } = await useAsyncData(
   },
 )
 
+const { data: rightSideAds } = await useAsyncData(
+  'profile-jobseeker-right-side-ads',
+  () => getCmsAds({ code: rightSideAdCode }).catch(() => []),
+  {
+    server: false,
+    default: () => [],
+  },
+)
+
+const rightSideAd = computed(() => {
+  return rightSideAds.value.find(item => item.status !== 0 && (item.image_url || item.image || item.text_content || item.title)) || null
+})
+
+const rightSideAdImage = computed(() => {
+  const image = rightSideAd.value?.image_url || rightSideAd.value?.image || ''
+  return resolveAssetUrl(image)
+})
+
 function getSalaryLabel(app: ApplicationItem) {
   const job = app.job
   if (!job?.salary_min && !job?.salary_max)
     return '薪资面议'
-  return `${job.salary_min || '面议'}-${job.salary_max || '面议'}${job.salary_unit_label || '月'}`
+  return `${formatSalaryAmount(job.salary_min)}-${formatSalaryAmount(job.salary_max)}${job.salary_unit_label || '月'}`
+}
+
+function formatSalaryAmount(value: string | null | undefined) {
+  if (!value)
+    return '面议'
+
+  const amount = Number(value)
+  if (!Number.isFinite(amount))
+    return value
+
+  return `${amount / 1000}k`
+}
+
+function getCompanyName(app: ApplicationItem) {
+  return app.job?.company?.name || app.company?.name || ''
+}
+
+function getCompanyLogo(app: ApplicationItem) {
+  return resolveAssetUrl(app.job?.company?.profile?.display_logo || '')
+}
+
+function getCompanyInitial(app: ApplicationItem) {
+  return (getCompanyName(app) || '企').slice(0, 2)
+}
+
+function getCreatorName(app: ApplicationItem) {
+  return app.job?.creator?.mask_name || '招聘联系人'
+}
+
+function getCreatorTitle(app: ApplicationItem) {
+  return app.job?.creator?.job_title || '招聘负责人'
+}
+
+function getCreatorAvatar(app: ApplicationItem) {
+  return resolveAssetUrl(app.job?.creator?.display_avatar || '')
+}
+
+function getCreatorInitial(app: ApplicationItem) {
+  return getCreatorName(app).trim().charAt(0) || '招'
+}
+
+function getCreatorActiveLabel(app: ApplicationItem) {
+  const lastLoginAt = app.job?.creator?.last_login_at
+  if (!lastLoginAt)
+    return '近期活跃'
+
+  const lastLoginTime = new Date(lastLoginAt).getTime()
+  if (!Number.isFinite(lastLoginTime))
+    return '近期活跃'
+
+  const days = Math.floor((Date.now() - lastLoginTime) / 86400000)
+  if (days <= 0)
+    return '今日活跃'
+  if (days <= 7)
+    return '本周活跃'
+  if (days <= 30)
+    return '近期活跃'
+  return '最近活跃'
+}
+
+function getCreatorInfo(app: ApplicationItem) {
+  return {
+    name: getCreatorName(app),
+    title: getCreatorTitle(app),
+    avatar: getCreatorAvatar(app),
+    initial: getCreatorInitial(app),
+    activeLabel: getCreatorActiveLabel(app),
+  }
+}
+
+function handleQuickCommunicate(app: ApplicationItem) {
+  if (!app.job?.creator?.id) {
+    pushGlobalNotice('暂无联系人信息，暂不能发起沟通', 'warning')
+    return
+  }
+
+  pushGlobalNotice(`${getCreatorName(app)}的沟通入口即将开放`, 'info')
 }
 
 function statusLabel(status: number) {
@@ -112,79 +211,82 @@ async function handleRejectInterview(appId: number) {
 
 <template>
   <ProfileJobseekerShell>
-    <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+    <div class="gap-5 grid lg:grid-cols-[minmax(0,1fr)_300px]">
       <section>
-        <div class="rounded-[4px] bg-white px-8">
+        <div class="px-8 rounded-[4px] bg-white">
           <button
             v-for="tab in tabs"
             :key="tab.key"
             type="button"
-            class="relative h-[54px] border-none bg-transparent px-6 text-[15px]"
+            class="text-[15px] px-6 border-none bg-transparent h-[54px] relative"
             :class="activeTab === tab.key ? 'text-[#ff9f00]' : 'text-slate-800'"
             @click="activeTab = tab.key"
           >
             {{ tab.label }}({{ tabCount(tab.key) }})
-            <span v-if="activeTab === tab.key" class="absolute bottom-0 left-6 right-6 h-[2px] bg-[#ff9f00]" />
+            <span v-if="activeTab === tab.key" class="bg-[#ff9f00] h-[2px] bottom-0 left-6 right-6 absolute" />
           </button>
         </div>
 
         <div v-if="isLoading" class="mt-5 space-y-4">
-          <div v-for="item in 4" :key="item" class="h-[132px] animate-pulse rounded-[6px] bg-white" />
+          <div v-for="item in 4" :key="item" class="rounded-[6px] bg-white h-[132px] animate-pulse" />
         </div>
-        <div v-else-if="filteredApplications.length === 0" class="mt-5 rounded-[6px] bg-white py-16 text-center text-[14px] text-slate-500">
+        <div v-else-if="filteredApplications.length === 0" class="text-[14px] text-slate-500 mt-5 py-16 text-center rounded-[6px] bg-white">
           暂无求职记录
         </div>
         <div v-else class="mt-5 space-y-4">
-          <article v-for="app in filteredApplications" :key="app.id" class="rounded-[6px] bg-white px-8 py-6">
-            <div class="flex items-start justify-between gap-6">
-              <div class="min-w-0 flex-1">
-                <div class="flex flex-wrap items-center gap-4">
-                  <NuxtLink :to="`/jobs/${app.job_id}`" class="text-[18px] text-slate-900 font-semibold no-underline">
-                    {{ app.job?.title || '未知职位' }}
-                  </NuxtLink>
-                  <span class="text-[16px] text-[#ff9f00] font-semibold">{{ getSalaryLabel(app) }}</span>
-                </div>
-                <div class="mt-4 flex flex-wrap gap-2">
-                  <span class="rounded bg-slate-100 px-3 py-1 text-[13px] text-slate-500">2年及以上</span>
-                  <span class="rounded bg-slate-100 px-3 py-1 text-[13px] text-slate-500">本科</span>
-                  <span class="rounded bg-slate-100 px-3 py-1 text-[13px] text-slate-500">五险一金</span>
-                </div>
-                <div class="mt-5 flex items-center gap-4">
-                  <div class="h-8 w-8 flex items-center justify-center rounded bg-slate-100 text-[11px] text-blue-600 font-bold">
-                    {{ (app.company?.name || '企').slice(0, 2) }}
-                  </div>
-                  <span class="text-[16px] text-slate-800">{{ app.company?.name || '' }}</span>
-                </div>
-                <div v-if="(app as any).pending_interview_invitation" class="mt-4 rounded bg-blue-50 p-4 text-[13px] text-blue-700">
-                  面试邀请：{{ formatInterviewTime((app as any).pending_interview_invitation.interview_at) }}
-                  <div class="mt-3 flex gap-2">
-                    <button class="rounded bg-emerald-600 px-4 py-1.5 text-white border-none" @click="handleAcceptInterview(app.id)">
-                      接受
-                    </button>
-                    <button class="rounded bg-white px-4 py-1.5 text-red-600 border border-red-200" @click="handleRejectInterview(app.id)">
-                      拒绝
-                    </button>
-                  </div>
+          <JobseekerJobCard
+            v-for="app in filteredApplications"
+            :key="app.id"
+            :job-to="`/jobs/${app.job_id}`"
+            :title="app.job?.title || '未知职位'"
+            :salary-label="getSalaryLabel(app)"
+            :tags="applicationJobTags"
+            :company-name="getCompanyName(app)"
+            :company-logo="getCompanyLogo(app)"
+            :company-initial="getCompanyInitial(app)"
+            :creator="getCreatorInfo(app)"
+            :status-label="app.status_label || statusLabel(app.status)"
+            communicate-label="继续沟通"
+            @communicate="handleQuickCommunicate(app)"
+          >
+            <template #main-extra>
+              <div v-if="(app as any).pending_interview_invitation" class="text-[13px] text-blue-700 mt-4 p-4 rounded bg-blue-50">
+                面试邀请：{{ formatInterviewTime((app as any).pending_interview_invitation.interview_at) }}
+                <div class="mt-3 flex gap-2">
+                  <button class="text-white px-4 py-1.5 rounded border-none bg-emerald-600" @click="handleAcceptInterview(app.id)">
+                    接受
+                  </button>
+                  <button class="text-red-600 px-4 py-1.5 border border-red-200 rounded bg-white" @click="handleRejectInterview(app.id)">
+                    拒绝
+                  </button>
                 </div>
               </div>
-              <div class="shrink-0 pt-16 text-[14px] text-slate-500">
-                {{ app.status_label || statusLabel(app.status) }}
-              </div>
-            </div>
-          </article>
+            </template>
+          </JobseekerJobCard>
         </div>
       </section>
 
       <aside class="hidden lg:block">
-        <div class="rounded-[6px] bg-[linear-gradient(135deg,#eff6ff,#f8fbff)] p-6 text-blue-600">
-          <div class="text-[20px] font-semibold">
-            岗位胜任力测评
+        <component
+          :is="rightSideAd?.link_url ? 'a' : 'div'"
+          :href="rightSideAd?.link_url ? resolvePortalLinkUrl(rightSideAd.link_url) : undefined"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="block overflow-hidden rounded-[6px] bg-white text-inherit no-underline ring-1 ring-slate-100"
+        >
+          <img v-if="rightSideAdImage" :src="rightSideAdImage" :alt="rightSideAd?.title || '广告'" class="block w-full object-cover">
+          <div v-else class="p-6 rounded-[6px] bg-[linear-gradient(135deg,#fff7e6,#fff1d1)]">
+            <div class="text-[12px] text-[#ff9f00] font-semibold tracking-[0.18em] uppercase">
+              广告位
+            </div>
+            <div class="text-[20px] text-slate-900 font-semibold mt-3">
+              {{ rightSideAd?.title || '广告位招租' }}
+            </div>
+            <div class="text-[13px] text-slate-500 leading-7 mt-4">
+              {{ rightSideAd?.text_content || '优质岗位与服务持续推荐，欢迎联系平台投放。' }}
+            </div>
           </div>
-          <div class="mt-4 text-[13px] leading-7">
-            心动 offer<br>
-            提升认知
-          </div>
-        </div>
+        </component>
       </aside>
     </div>
   </ProfileJobseekerShell>

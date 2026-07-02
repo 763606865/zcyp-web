@@ -124,7 +124,7 @@ export interface ResumeIntention {
   expected_city_code: string | null
   expected_industry_codes: string[] | null
   expected_position_id: number | null
-  expected_position_code: string | null
+  expected_position_code?: string | null
   salary_min: number | null
   salary_max: number | null
   salary_unit: number
@@ -141,7 +141,6 @@ export interface ResumeIntentionSavePayload {
   expected_city_code?: string | null
   expected_industry_codes?: string[] | null
   expected_position_id?: number | null
-  expected_position_code?: string | null
   salary_min?: number | null
   salary_max?: number | null
   salary_unit?: number | null
@@ -252,6 +251,7 @@ export interface ResumeProjectSavePayload {
   description?: string | null
   achievement?: string | null
   sort?: number
+  extra?: Record<string, unknown> | null
 }
 
 // ---------------------------------------------------------------------------
@@ -274,6 +274,16 @@ export interface ResumeTraining {
   deleted_at: string | null
 }
 
+export interface ResumeTrainingSavePayload {
+  institution_name: string
+  course_name: string
+  start_date: string
+  end_date?: string | null
+  description?: string | null
+  sort?: number
+  extra?: Record<string, unknown> | null
+}
+
 // ---------------------------------------------------------------------------
 // 语言能力 (rc_resume_languages)
 // ---------------------------------------------------------------------------
@@ -292,6 +302,14 @@ export interface ResumeLanguage {
   deleted_at: string | null
 }
 
+export interface ResumeLanguageSavePayload {
+  language: string
+  proficiency?: number | null
+  certificate?: string | null
+  sort?: number
+  extra?: Record<string, unknown> | null
+}
+
 // ---------------------------------------------------------------------------
 // 专业技能 (rc_resume_skills)
 // ---------------------------------------------------------------------------
@@ -308,6 +326,14 @@ export interface ResumeSkill {
   created_at: string | null
   updated_at: string | null
   deleted_at: string | null
+}
+
+export interface ResumeSkillSavePayload {
+  skill_name: string
+  proficiency?: number | null
+  description?: string | null
+  sort?: number
+  extra?: Record<string, unknown> | null
 }
 
 // ---------------------------------------------------------------------------
@@ -332,6 +358,18 @@ export interface ResumeCertificate {
   deleted_at: string | null
 }
 
+export interface ResumeCertificateSavePayload {
+  name: string
+  cert_type?: number | null
+  issuer?: string | null
+  issue_date?: string | null
+  expire_date?: string | null
+  cert_no?: string | null
+  description?: string | null
+  sort?: number
+  extra?: Record<string, unknown> | null
+}
+
 // ---------------------------------------------------------------------------
 // 个人作品 (rc_resume_portfolios)
 // ---------------------------------------------------------------------------
@@ -342,12 +380,25 @@ export interface ResumePortfolio {
   user_id: number
   title: string
   type: number
+  type_label?: string | null
   url: string | null
+  display_url?: string | null
   cover_url: string | null
+  display_cover_url?: string | null
   description: string | null
   sort: number
   extra: Record<string, unknown> | null
   created_at: string | null
   updated_at: string | null
   deleted_at: string | null
+}
+
+export interface ResumePortfolioSavePayload {
+  title: string
+  type?: number | null
+  url?: string | null
+  cover_url?: string | null
+  description?: string | null
+  sort?: number
+  extra?: Record<string, unknown> | null
 }

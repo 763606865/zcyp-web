@@ -54,7 +54,7 @@ type FieldName
     | 'jobStatus'
     | 'workStartYear'
     | 'educationLevel'
-    | 'expectedPositionCode'
+    | 'expectedPositionId'
     | 'expectedCityCodes'
     | 'salaryMin'
     | 'salaryMax'
@@ -148,7 +148,7 @@ const form = reactive({
   fileName: '',
   fileExt: '',
   intentionEmploymentType: 0,
-  expectedPositionCode: '',
+  expectedPositionId: null as number | null,
   expectedProvinceCode: '',
   expectedCityCode: '',
   expectedCityCodes: [] as string[],
@@ -277,7 +277,7 @@ watch(
     form.jobStatus,
     form.workStartYear,
     form.educationLevel,
-    form.expectedPositionCode,
+    form.expectedPositionId,
     form.expectedCityCodes.length,
     form.salaryMin,
     form.salaryMax,
@@ -503,7 +503,7 @@ function loadIntentionToForm(item: ResumeIntention) {
   intentionId.value = item.id
   form.jobStatus = item.job_status || 0
   form.intentionEmploymentType = item.employment_type ?? 0
-  form.expectedPositionCode = item.expected_position_code || ''
+  form.expectedPositionId = item.expected_position_id || null
   form.expectedCityCodes = item.expected_city_code ? [item.expected_city_code] : []
   form.expectedIndustryCodes = (item.expected_industry_codes || []).slice(0, 3)
   form.salaryMin = item.salary_min ? String(Math.round(Number(item.salary_min) / 1000)) : ''
@@ -590,8 +590,8 @@ function validateIntentionForm() {
     setFieldError('jobStatus')
     return '请选择目前求职状态。'
   }
-  if (!form.expectedPositionCode) {
-    setFieldError('expectedPositionCode')
+  if (!form.expectedPositionId) {
+    setFieldError('expectedPositionId')
     return '请选择期望职位。'
   }
   if (form.expectedCityCodes.length === 0) {
@@ -680,7 +680,7 @@ function buildIntentionPayload(): ResumeIntentionSavePayload {
     employment_type: form.intentionEmploymentType || null,
     expected_city_code: form.expectedCityCodes[0] || null,
     expected_industry_codes: form.expectedIndustryCodes.length > 0 ? form.expectedIndustryCodes.slice(0, 3) : null,
-    expected_position_code: form.expectedPositionCode || null,
+    expected_position_id: form.expectedPositionId || null,
     salary_min: form.salaryMin ? Number(form.salaryMin) * 1000 : null,
     salary_max: form.salaryMax ? Number(form.salaryMax) * 1000 : null,
     salary_unit: form.salaryUnit,
@@ -1165,13 +1165,14 @@ watch(
               />
             </label>
 
-            <label class="lanhu-field full" :class="{ 'is-error': fieldErrors.expectedPositionCode }">
+            <label class="lanhu-field full" :class="{ 'is-error': fieldErrors.expectedPositionId }">
               <span>期望职位</span>
               <TaxonomyCascaderSelect
-                v-model="form.expectedPositionCode"
+                v-model="form.expectedPositionId"
                 :nodes="metaStore.positions"
                 placeholder="请选择职位类别"
                 control-class="lanhu-naive-control"
+                value-key="id"
               />
             </label>
 

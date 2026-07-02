@@ -142,17 +142,19 @@ export interface CmsAdItem {
   city_code: string | null
   title: string
   type: number
+  type_label?: string | null
   image: string | null
+  image_url?: string | null
   text_content: string | null
   code_content: string | null
   link_url: string | null
   start_at: string | null
   end_at: string | null
-  status: number
+  status?: number
   sort: number
-  extra: unknown[]
-  created_at: string
-  updated_at: string
+  extra: unknown[] | Record<string, unknown> | null
+  created_at?: string
+  updated_at?: string
 }
 
 export interface CmsAdSlot {
