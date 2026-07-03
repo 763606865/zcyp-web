@@ -19,12 +19,14 @@ const siteStore = useSiteStore()
 
 const companyId = computed(() => Number((route.params as Record<string, string>).id))
 const company = ref<any>(null)
-const allJobs = ref<TalentJobItem[]>([])
+const hotJobItems = ref<TalentJobItem[]>([])
+const companyJobs = ref<TalentJobItem[]>([])
 const isFavorited = ref(false)
 const showFullIntro = ref(false)
 const activeTab = ref<'info' | 'jobs'>('info')
 const appliedIds = ref<number[]>([])
 const favoritedJobIds = ref<number[]>([])
+const jobsLoadError = ref('')
 const currentPage = ref(1)
 const pageSize = 10
 const jobsPagination = ref({
@@ -76,9 +78,19 @@ await callOnce(async () => {
     await metaStore.ensureAllLoaded(userStore.authHeader)
 })
 
-const { data: companyDetailData, pending: isLoading } = await useAsyncData(
+const { data: companyDetailData, pending: isCompanyLoading } = await useAsyncData(
   `company-detail-${companyId.value}`,
-  loadCompany,
+  loadCompanyDetail,
+  {
+    server: false,
+    watch: [companyId],
+    default: () => null,
+  },
+)
+
+const { data: companyJobsData, pending: isJobsLoading } = await useAsyncData(
+  `company-jobs-${companyId.value}`,
+  loadCompanyJobs,
   {
     server: false,
     watch: [companyId, currentPage, filterProvinceCode, filterCityCode, filterEmploymentType, filterExperience, filterSalary, customSalaryRange],
@@ -89,16 +101,21 @@ const { data: companyDetailData, pending: isLoading } = await useAsyncData(
 watch(companyDetailData, (value) => {
   company.value = value?.company || null
   const jobs = normalizeJobsPayload(value?.jobs)
-  allJobs.value = jobs.data.map((j: any) => ({ ...j, is_applied: j.is_applied ?? false }))
-  appliedIds.value = allJobs.value.filter((j: any) => j.is_applied).map((j: any) => j.id)
-  favoritedJobIds.value = allJobs.value.filter((j: any) => j.is_favorited).map((j: any) => j.id)
+  hotJobItems.value = normalizeJobItems(jobs.data)
+  updateJobStateIds()
+  isFavorited.value = value?.is_favorited || false
+}, { immediate: true })
+
+watch(companyJobsData, (value) => {
+  const jobs = normalizeJobsPayload(value)
+  companyJobs.value = normalizeJobItems(jobs.data)
   jobsPagination.value = {
     current_page: jobs.current_page,
     total: jobs.total,
     per_page: jobs.per_page,
     last_page: jobs.last_page,
   }
-  isFavorited.value = value?.is_favorited || false
+  updateJobStateIds()
 }, { immediate: true })
 
 watch(companyId, () => {
@@ -145,10 +162,12 @@ const benefitTags = computed(() => {
   return tags.length ? tags : []
 })
 const areaNodes = computed(() => metaStore.areas.length ? metaStore.areas : siteStore.areas)
-const hotJobs = computed(() => allJobs.value.slice(0, 3))
-const popularJobs = computed(() => allJobs.value.slice(0, 4))
+const isLoading = computed(() => isCompanyLoading.value && !company.value)
+const jobTotalCount = computed(() => jobsPagination.value.total)
+const hotJobs = computed(() => hotJobItems.value.slice(0, 3))
+const popularJobs = computed(() => hotJobItems.value.slice(0, 4))
 const lastPage = computed(() => Math.max(1, jobsPagination.value.last_page))
-const pagedJobs = computed(() => allJobs.value)
+const pagedJobs = computed(() => companyJobs.value)
 const pageNumbers = computed(() => {
   const pages: number[] = []
   const start = Math.max(1, currentPage.value - 1)
@@ -158,14 +177,14 @@ const pageNumbers = computed(() => {
   return pages
 })
 
-async function loadCompany() {
+async function loadCompanyDetail() {
   if (!companyId.value)
     return null
 
   try {
     const res = await getJson<{ code: number, data: any }>(
       `/rc/talent/companies/${companyId.value}`,
-      buildCompanyJobQuery() as Record<string, string | number | undefined>,
+      undefined,
       createAuthHeaders(),
     )
     return res.data
@@ -173,6 +192,45 @@ async function loadCompany() {
   catch {
     return null
   }
+}
+
+async function loadCompanyJobs() {
+  if (!companyId.value)
+    return createEmptyJobsPayload()
+
+  jobsLoadError.value = ''
+  try {
+    const res = await getJson<{ code: number, data: TalentJobListResponse }>(
+      `/rc/talent/companies/${companyId.value}/jobs`,
+      buildCompanyJobQuery() as Record<string, string | number | undefined>,
+      createAuthHeaders(),
+    )
+    return res.data
+  }
+  catch (error) {
+    jobsLoadError.value = error instanceof ApiRequestError ? error.message : '职位列表加载失败'
+    return createEmptyJobsPayload()
+  }
+}
+
+function createEmptyJobsPayload(): TalentJobListResponse {
+  return {
+    current_page: currentPage.value,
+    data: [],
+    total: 0,
+    per_page: pageSize,
+    last_page: 1,
+  }
+}
+
+function normalizeJobItems(items: TalentJobItem[]) {
+  return items.map(item => ({ ...item, is_applied: item.is_applied ?? false }))
+}
+
+function updateJobStateIds() {
+  const jobs = [...hotJobItems.value, ...companyJobs.value]
+  appliedIds.value = [...new Set(jobs.filter(item => item.is_applied).map(item => item.id))]
+  favoritedJobIds.value = [...new Set(jobs.filter(item => item.is_favorited).map(item => item.id))]
 }
 
 function normalizeJobsPayload(payload: TalentJobListResponse | TalentJobItem[] | null | undefined) {
@@ -532,7 +590,7 @@ async function handleJobFavorite(jobId: number) {
             </div>
             <div class="hidden pt-3 text-right md:block">
               <div class="text-[36px] text-[#ff9f00] font-semibold leading-none">
-                {{ allJobs.length || 0 }}<span class="align-middle text-[15px] text-slate-700 font-normal">个在招职位</span>
+                {{ jobTotalCount }}<span class="align-middle text-[15px] text-slate-700 font-normal">个在招职位</span>
               </div>
             </div>
           </div>
@@ -556,7 +614,7 @@ async function handleJobFavorite(jobId: number) {
             :class="activeTab === 'jobs' ? 'text-[#ff9f00] font-semibold' : 'text-slate-700'"
             @click="setTab('jobs')"
           >
-            在招职位({{ allJobs.length }})
+            在招职位({{ jobTotalCount }})
             <span v-if="activeTab === 'jobs'" class="absolute bottom-0 left-0 right-0 h-[2px] bg-[#ff9f00]" />
           </button>
         </div>
@@ -568,7 +626,7 @@ async function handleJobFavorite(jobId: number) {
                 热招职位
               </h2>
               <button type="button" class="border-none bg-transparent text-[13px] text-slate-400 cursor-pointer" @click="setTab('jobs')">
-                查看全部职位({{ allJobs.length }}) <span class="i-carbon-chevron-right inline-block align-middle" />
+                查看全部职位({{ jobTotalCount }}) <span class="i-carbon-chevron-right inline-block align-middle" />
               </button>
             </div>
             <div class="mt-4 grid gap-4 md:grid-cols-3">
@@ -753,27 +811,35 @@ async function handleJobFavorite(jobId: number) {
 
           <div class="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_250px]">
             <div class="space-y-4">
-              <div v-if="pagedJobs.length === 0" class="rounded-[6px] bg-white px-6 py-16 text-center text-[14px] text-slate-400">
+              <div v-if="isJobsLoading" class="rounded-[6px] bg-white px-6 py-16 text-center text-[14px] text-slate-400">
+                职位加载中...
+              </div>
+              <div v-else-if="jobsLoadError" class="rounded-[6px] bg-white px-6 py-16 text-center text-[14px] text-slate-400">
+                {{ jobsLoadError }}
+              </div>
+              <div v-else-if="pagedJobs.length === 0" class="rounded-[6px] bg-white px-6 py-16 text-center text-[14px] text-slate-400">
                 暂无在招职位
               </div>
-              <CompanyJobCard
-                v-for="job in pagedJobs"
-                :key="job.id"
-                :job="job"
-                :applied="appliedIds.includes(job.id)"
-                :favorited="favoritedJobIds.includes(job.id)"
-                :salary-label="getSalaryLabel(job)"
-                :tags="getJobTags(job)"
-                :creator-name="getCreatorName(job)"
-                :creator-title="getCreatorTitle(job)"
-                :creator-avatar="getCreatorAvatar(job)"
-                :creator-active-label="getCreatorActiveLabel(job)"
-                :address="job.workplace || getAreaLabel(job) || '工作地址待完善'"
-                @apply="handleApply(job.id)"
-                @favorite="handleJobFavorite(job.id)"
-              />
+              <template v-if="!isJobsLoading && !jobsLoadError">
+                <CompanyJobCard
+                  v-for="job in pagedJobs"
+                  :key="job.id"
+                  :job="job"
+                  :applied="appliedIds.includes(job.id)"
+                  :favorited="favoritedJobIds.includes(job.id)"
+                  :salary-label="getSalaryLabel(job)"
+                  :tags="getJobTags(job)"
+                  :creator-name="getCreatorName(job)"
+                  :creator-title="getCreatorTitle(job)"
+                  :creator-avatar="getCreatorAvatar(job)"
+                  :creator-active-label="getCreatorActiveLabel(job)"
+                  :address="job.workplace || getAreaLabel(job) || '工作地址待完善'"
+                  @apply="handleApply(job.id)"
+                  @favorite="handleJobFavorite(job.id)"
+                />
+              </template>
 
-              <div v-if="lastPage > 1" class="flex items-center justify-center gap-2 pt-4">
+              <div v-if="!isJobsLoading && !jobsLoadError && lastPage > 1" class="flex items-center justify-center gap-2 pt-4">
                 <button class="h-8 w-8 border border-slate-200 bg-white text-slate-500 disabled:opacity-40" :disabled="currentPage <= 1" @click="goToPage(currentPage - 1)">
                   ‹
                 </button>
