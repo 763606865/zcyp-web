@@ -22,6 +22,16 @@ export interface BusinessLicenseOcrResponse {
   contact_phone?: string | null
 }
 
+export interface CompanyLookupByNameItem {
+  id: number
+  name: string
+  credit_code: string | null
+}
+
+export interface CompanyLookupByNameResponse {
+  companies: CompanyLookupByNameItem[]
+}
+
 interface BusinessLicenseOcrPayload {
   file?: string
   url?: string
@@ -39,6 +49,20 @@ export async function lookupCompany(creditCode: string, authorization: string) {
   )
 
   return response.data
+}
+
+export async function lookupCompaniesByName(name: string, authorization: string, creditCode?: string) {
+  const query: Record<string, string> = { name }
+  if (creditCode)
+    query.credit_code = creditCode
+
+  const response = await getJson<ApiResponse<CompanyLookupByNameResponse>>(
+    '/rc/companies/lookup',
+    query,
+    createAuthHeaders(authorization),
+  )
+
+  return response.data.companies || []
 }
 
 export async function bindCompany(creditCode: string, jobTitle: string, authorization: string) {
@@ -87,6 +111,84 @@ export async function updateCompanyProfile(payload: CompanyProfileUpdatePayload,
     createAuthHeaders(authorization),
   )
   return response.data.profile
+}
+
+export interface CompanyAlbumItem {
+  id: number
+  company_id: number
+  title: string | null
+  image: string
+  display_image: string | null
+  description: string | null
+  type: number
+  type_label: string | null
+  sort: number
+  status: number
+  status_label: string
+  extra: Record<string, any> | null
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface CompanyAlbumPayload {
+  title?: string | null
+  image?: string
+  description?: string | null
+  type?: number
+  sort?: number
+  status?: number
+  extra?: Record<string, any> | null
+}
+
+export interface CompanyAlbumListParams {
+  keyword?: string
+  type?: number
+  status?: number
+  per_page?: number
+  page?: number
+}
+
+export interface CompanyAlbumListResponse {
+  data: CompanyAlbumItem[]
+  total: number
+  current_page: number
+  last_page: number
+  per_page: number
+}
+
+export async function getCompanyAlbums(authorization: string, params?: CompanyAlbumListParams) {
+  const response = await getJson<ApiResponse<CompanyAlbumListResponse>>(
+    '/rc/companies/albums',
+    params as Record<string, string | number | undefined>,
+    createAuthHeaders(authorization),
+  )
+  return response.data
+}
+
+export async function createCompanyAlbum(payload: CompanyAlbumPayload & { image: string }, authorization: string) {
+  const response = await postJson<ApiResponse<{ album: CompanyAlbumItem }>>(
+    '/rc/companies/albums',
+    payload as Record<string, any>,
+    createAuthHeaders(authorization),
+  )
+  return response.data.album
+}
+
+export async function updateCompanyAlbum(id: number, payload: CompanyAlbumPayload, authorization: string) {
+  const response = await putJson<ApiResponse<{ album: CompanyAlbumItem }>>(
+    `/rc/companies/albums/${id}`,
+    payload as Record<string, any>,
+    createAuthHeaders(authorization),
+  )
+  return response.data.album
+}
+
+export async function deleteCompanyAlbum(id: number, authorization: string) {
+  await delJson<ApiResponse<unknown>>(
+    `/rc/companies/albums/${id}`,
+    undefined,
+    createAuthHeaders(authorization),
+  )
 }
 
 export interface CompanyActivityItem {

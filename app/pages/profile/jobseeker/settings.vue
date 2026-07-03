@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import type { PhoneLookupResponse } from '~/services/auth'
-import { lookupUserPhone, sendPhoneChangeVerificationCode, updateUserPhone } from '~/services/auth'
+import type { PhoneLookupResponse, UserCompanyBlacklistItem } from '~/services/auth'
+import type { CompanyLookupByNameItem } from '~/services/company'
+import { createUserCompanyBlacklist, deleteUserCompanyBlacklist, getUserCompanyBlacklists, lookupUserPhone, sendPhoneChangeVerificationCode, updateUserCompanyBlacklistRemark, updateUserPhone } from '~/services/auth'
+import { lookupCompaniesByName } from '~/services/company'
 import { pushGlobalNotice } from '~/utils/notice'
 
 definePageMeta({
@@ -21,15 +23,30 @@ const isLookingUpPhone = ref(false)
 const isSendingPhoneCode = ref(false)
 const isUpdatingPhone = ref(false)
 const phoneCodeCountdown = ref(0)
-const blockedCompanies = ref([
-  '南昌时刻科技发展有限公司',
-  '南昌时刻科技科技发展有限公司',
-])
+const companyBlacklists = ref<UserCompanyBlacklistItem[]>([])
+const blacklistKeyword = ref('')
+const blacklistPage = ref(1)
+const blacklistTotal = ref(0)
+const blacklistError = ref('')
+const isBlacklistLoading = ref(false)
+const isBlacklistModalOpen = ref(false)
+const blacklistCompanyKeyword = ref('')
+const blacklistCompanyResults = ref<CompanyLookupByNameItem[]>([])
+const selectedBlacklistCompany = ref<CompanyLookupByNameItem | null>(null)
+const blacklistRemark = ref('')
+const blacklistFormError = ref('')
+const isSearchingCompanies = ref(false)
+const isAddingBlacklist = ref(false)
+const editingBlacklistId = ref<number | null>(null)
+const editingBlacklistRemark = ref('')
+const updatingBlacklistId = ref<number | null>(null)
+const deletingBlacklistId = ref<number | null>(null)
 
 let phoneCodeTimer: ReturnType<typeof setInterval> | undefined
 
 const PHONE_RE = /^1\d{10}$/
 const PHONE_CODE_RE = /^\d{6}$/
+const BLACKLIST_PER_PAGE = 15
 
 const tabs = [
   { key: 'account', label: '账号设置' },
@@ -56,9 +73,7 @@ const phoneLookupHint = computed(() => {
   return '该手机号已被其他账号使用'
 })
 
-function notifyPending(action: string) {
-  pushGlobalNotice(`${action}功能即将开放`, 'info')
-}
+const blacklistLastPage = computed(() => Math.max(1, Math.ceil(blacklistTotal.value / BLACKLIST_PER_PAGE)))
 
 function resetPhoneForm() {
   phoneForm.phone = ''
@@ -78,6 +93,128 @@ function closePhoneModal() {
 
   isPhoneModalOpen.value = false
   resetPhoneForm()
+}
+
+async function loadCompanyBlacklists() {
+  if (!userStore.authHeader)
+    return
+
+  isBlacklistLoading.value = true
+  blacklistError.value = ''
+
+  try {
+    const result = await getUserCompanyBlacklists({
+      page: blacklistPage.value,
+      per_page: BLACKLIST_PER_PAGE,
+      keyword: blacklistKeyword.value.trim() || undefined,
+    }, userStore.authHeader)
+    companyBlacklists.value = result.data || []
+    blacklistTotal.value = result.total || 0
+    blacklistPage.value = result.current_page || blacklistPage.value
+  }
+  catch (error) {
+    blacklistError.value = error instanceof Error ? error.message : '企业黑名单加载失败'
+    companyBlacklists.value = []
+    blacklistTotal.value = 0
+  }
+  finally {
+    isBlacklistLoading.value = false
+  }
+}
+
+function searchCompanyBlacklists() {
+  blacklistPage.value = 1
+  loadCompanyBlacklists()
+}
+
+function goBlacklistPage(page: number) {
+  if (page < 1 || page > blacklistLastPage.value || page === blacklistPage.value)
+    return
+
+  blacklistPage.value = page
+  loadCompanyBlacklists()
+}
+
+function resetBlacklistForm() {
+  blacklistCompanyKeyword.value = ''
+  blacklistCompanyResults.value = []
+  selectedBlacklistCompany.value = null
+  blacklistRemark.value = ''
+  blacklistFormError.value = ''
+}
+
+function openBlacklistModal() {
+  resetBlacklistForm()
+  isBlacklistModalOpen.value = true
+}
+
+function closeBlacklistModal() {
+  if (isSearchingCompanies.value || isAddingBlacklist.value)
+    return
+
+  isBlacklistModalOpen.value = false
+  resetBlacklistForm()
+}
+
+async function searchBlacklistCompanies() {
+  const keyword = blacklistCompanyKeyword.value.trim()
+  if (!keyword) {
+    blacklistFormError.value = '请输入企业名称或统一社会信用代码'
+    return
+  }
+  if (!userStore.authHeader)
+    return
+
+  isSearchingCompanies.value = true
+  blacklistFormError.value = ''
+  selectedBlacklistCompany.value = null
+
+  try {
+    blacklistCompanyResults.value = await lookupCompaniesByName(keyword, userStore.authHeader)
+    if (blacklistCompanyResults.value.length === 0)
+      blacklistFormError.value = '未找到匹配企业'
+  }
+  catch (error) {
+    blacklistFormError.value = error instanceof Error ? error.message : '企业查询失败'
+    blacklistCompanyResults.value = []
+  }
+  finally {
+    isSearchingCompanies.value = false
+  }
+}
+
+function selectBlacklistCompany(company: CompanyLookupByNameItem) {
+  selectedBlacklistCompany.value = company
+  blacklistFormError.value = ''
+}
+
+async function addCompanyBlacklist() {
+  if (!selectedBlacklistCompany.value) {
+    blacklistFormError.value = '请先选择要屏蔽的企业'
+    return
+  }
+  if (!userStore.authHeader)
+    return
+
+  isAddingBlacklist.value = true
+  blacklistFormError.value = ''
+
+  try {
+    await createUserCompanyBlacklist({
+      company_id: selectedBlacklistCompany.value.id,
+      remark: blacklistRemark.value.trim() || null,
+    }, userStore.authHeader)
+    pushGlobalNotice('已加入屏蔽公司')
+    isBlacklistModalOpen.value = false
+    resetBlacklistForm()
+    await loadCompanyBlacklists()
+  }
+  catch (error) {
+    blacklistFormError.value = error instanceof Error ? error.message : '新增屏蔽公司失败'
+  }
+  finally {
+    isAddingBlacklist.value = false
+  }
 }
 
 function handlePhoneInput() {
@@ -197,13 +334,73 @@ async function handleUpdatePhone() {
   }
 }
 
-function removeBlockedCompany(company: string) {
-  blockedCompanies.value = blockedCompanies.value.filter(item => item !== company)
-  pushGlobalNotice('已解除屏蔽')
+function startEditBlacklistRemark(item: UserCompanyBlacklistItem) {
+  editingBlacklistId.value = item.id
+  editingBlacklistRemark.value = item.remark || ''
 }
+
+function cancelEditBlacklistRemark() {
+  editingBlacklistId.value = null
+  editingBlacklistRemark.value = ''
+}
+
+async function saveBlacklistRemark(item: UserCompanyBlacklistItem) {
+  if (!userStore.authHeader)
+    return
+
+  updatingBlacklistId.value = item.id
+
+  try {
+    const updated = await updateUserCompanyBlacklistRemark(item.id, editingBlacklistRemark.value.trim() || null, userStore.authHeader)
+    companyBlacklists.value = companyBlacklists.value.map(current => current.id === updated.id ? updated : current)
+    cancelEditBlacklistRemark()
+    pushGlobalNotice('备注已更新')
+  }
+  catch (error) {
+    pushGlobalNotice(error instanceof Error ? error.message : '备注更新失败', 'error')
+  }
+  finally {
+    updatingBlacklistId.value = null
+  }
+}
+
+async function removeCompanyBlacklist(item: UserCompanyBlacklistItem) {
+  if (!userStore.authHeader)
+    return
+
+  deletingBlacklistId.value = item.id
+
+  try {
+    await deleteUserCompanyBlacklist(item.id, userStore.authHeader)
+    pushGlobalNotice('已解除屏蔽')
+    if (companyBlacklists.value.length === 1 && blacklistPage.value > 1)
+      blacklistPage.value -= 1
+    await loadCompanyBlacklists()
+  }
+  catch (error) {
+    pushGlobalNotice(error instanceof Error ? error.message : '解除屏蔽失败', 'error')
+  }
+  finally {
+    deletingBlacklistId.value = null
+  }
+}
+
+watch(activePanel, (value) => {
+  if (value === 'privacy' && companyBlacklists.value.length === 0 && !isBlacklistLoading.value)
+    loadCompanyBlacklists()
+})
+
+watch(blacklistKeyword, () => {
+  blacklistError.value = ''
+})
 
 onBeforeUnmount(() => {
   stopPhoneCodeCountdown()
+})
+
+onMounted(() => {
+  if (activePanel.value === 'privacy')
+    loadCompanyBlacklists()
 })
 </script>
 
@@ -271,34 +468,103 @@ onBeforeUnmount(() => {
         <!-- TODO: 个性化职位推荐开关暂未接入，隐私配置接口完成后恢复。 -->
 
         <div class="py-7">
-          <div class="flex items-center justify-between">
-            <h2 class="text-[16px] text-slate-900 font-semibold">
-              屏蔽公司
-            </h2>
-            <button type="button" class="border-none bg-transparent text-[14px] text-[#ff9f00] cursor-pointer inline-flex items-center gap-1" @click="notifyPending('新增屏蔽公司')">
+          <div class="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
+            <div>
+              <h2 class="text-[16px] text-slate-900 font-semibold">
+                屏蔽公司
+              </h2>
+              <p class="mt-4 text-[14px] text-slate-400">
+                公司屏蔽后，和你不再产生任何推荐关系，你的查看行为也不会通知对方。
+              </p>
+            </div>
+            <button type="button" class="border-none bg-transparent text-[14px] text-[#ff9f00] cursor-pointer inline-flex items-center gap-1" @click="openBlacklistModal">
               <span class="text-[18px] leading-none">+</span>
               新增屏蔽
             </button>
           </div>
-          <p class="mt-4 text-[14px] text-slate-400">
-            公司屏蔽后，和你不再产生任何推荐关系，你的查看行为也不会通知对方。
-          </p>
 
-          <div class="mt-5 space-y-0">
-            <div
-              v-for="(company, index) in blockedCompanies"
-              :key="company"
-              class="flex min-h-8 flex-col items-start justify-between gap-2 px-2 py-2 text-[15px] text-slate-900 md:h-8 md:flex-row md:items-center md:py-0"
-              :class="index % 2 === 1 ? 'bg-slate-50' : 'bg-white'"
+          <form class="mt-5 flex flex-col gap-3 md:flex-row" @submit.prevent="searchCompanyBlacklists">
+            <input
+              v-model.trim="blacklistKeyword"
+              type="text"
+              placeholder="搜索企业名称或统一社会信用代码"
+              class="h-10 min-w-0 flex-1 rounded-[8px] border border-slate-200 px-3 text-[14px] text-slate-900 outline-none transition focus:border-[#ff9f00]"
             >
-              <span>{{ company }}</span>
-              <button type="button" class="h-7 rounded-full border border-[#ff9f00] bg-white px-4 text-[13px] text-[#ff9f00] cursor-pointer" @click="removeBlockedCompany(company)">
-                解除
+            <div class="flex gap-2">
+              <button type="submit" class="h-10 rounded-[8px] border-none bg-[#ff9f00] px-5 text-[14px] text-white cursor-pointer">
+                搜索
+              </button>
+              <button type="button" class="h-10 rounded-[8px] border border-slate-200 bg-white px-5 text-[14px] text-slate-600 cursor-pointer" @click="blacklistKeyword = ''; searchCompanyBlacklists()">
+                重置
               </button>
             </div>
-            <div v-if="blockedCompanies.length === 0" class="py-8 text-center text-[14px] text-slate-400">
+          </form>
+
+          <div v-if="blacklistError" class="mt-5 rounded-[8px] bg-rose-50 px-3 py-2 text-[13px] text-rose-500">
+            {{ blacklistError }}
+          </div>
+
+          <div v-if="isBlacklistLoading" class="mt-5 space-y-2">
+            <div v-for="item in 3" :key="item" class="h-14 animate-pulse rounded-[8px] bg-slate-50" />
+          </div>
+
+          <div v-else class="mt-5 space-y-0">
+            <div
+              v-for="(item, index) in companyBlacklists"
+              :key="item.id"
+              class="flex min-h-[64px] flex-col items-start justify-between gap-3 px-2 py-3 text-[15px] text-slate-900 md:flex-row md:items-center"
+              :class="index % 2 === 1 ? 'bg-slate-50' : 'bg-white'"
+            >
+              <div class="min-w-0 flex-1">
+                <div class="font-medium">
+                  {{ item.company?.name || '未知企业' }}
+                </div>
+                <div class="mt-1 text-[13px] text-slate-400">
+                  {{ item.company?.credit_code || '暂无统一社会信用代码' }}
+                </div>
+                <div v-if="editingBlacklistId !== item.id" class="mt-1 text-[13px] text-slate-500">
+                  备注：{{ item.remark || '无' }}
+                </div>
+                <input
+                  v-else
+                  v-model.trim="editingBlacklistRemark"
+                  maxlength="255"
+                  placeholder="请输入备注，可留空"
+                  class="mt-2 h-9 w-full max-w-[360px] rounded-[8px] border border-slate-200 px-3 text-[13px] text-slate-900 outline-none transition focus:border-[#ff9f00]"
+                >
+              </div>
+              <div class="flex shrink-0 gap-2">
+                <template v-if="editingBlacklistId === item.id">
+                  <button type="button" class="h-8 rounded-full border border-[#ff9f00] bg-white px-4 text-[13px] text-[#ff9f00] cursor-pointer disabled:cursor-not-allowed disabled:opacity-60" :disabled="updatingBlacklistId === item.id" @click="saveBlacklistRemark(item)">
+                    保存
+                  </button>
+                  <button type="button" class="h-8 rounded-full border border-slate-200 bg-white px-4 text-[13px] text-slate-500 cursor-pointer" @click="cancelEditBlacklistRemark">
+                    取消
+                  </button>
+                </template>
+                <template v-else>
+                  <button type="button" class="h-8 rounded-full border border-slate-200 bg-white px-4 text-[13px] text-slate-600 cursor-pointer" @click="startEditBlacklistRemark(item)">
+                    编辑备注
+                  </button>
+                  <button type="button" class="h-8 rounded-full border border-[#ff9f00] bg-white px-4 text-[13px] text-[#ff9f00] cursor-pointer disabled:cursor-not-allowed disabled:opacity-60" :disabled="deletingBlacklistId === item.id" @click="removeCompanyBlacklist(item)">
+                    {{ deletingBlacklistId === item.id ? '解除中' : '解除' }}
+                  </button>
+                </template>
+              </div>
+            </div>
+            <div v-if="companyBlacklists.length === 0" class="py-8 text-center text-[14px] text-slate-400">
               暂无屏蔽公司
             </div>
+          </div>
+
+          <div v-if="blacklistLastPage > 1" class="mt-5 flex items-center justify-center gap-3 text-[13px] text-slate-500">
+            <button type="button" class="h-8 rounded-full border border-slate-200 bg-white px-4 cursor-pointer disabled:cursor-not-allowed disabled:text-slate-300" :disabled="blacklistPage <= 1" @click="goBlacklistPage(blacklistPage - 1)">
+              上一页
+            </button>
+            <span>{{ blacklistPage }} / {{ blacklistLastPage }}</span>
+            <button type="button" class="h-8 rounded-full border border-slate-200 bg-white px-4 cursor-pointer disabled:cursor-not-allowed disabled:text-slate-300" :disabled="blacklistPage >= blacklistLastPage" @click="goBlacklistPage(blacklistPage + 1)">
+              下一页
+            </button>
           </div>
         </div>
       </div>
@@ -369,6 +635,83 @@ onBeforeUnmount(() => {
             </button>
             <button type="submit" class="h-10 rounded-[8px] border-none bg-[#ff9f00] px-5 text-[14px] text-white cursor-pointer disabled:cursor-not-allowed disabled:bg-slate-300" :disabled="isUpdatingPhone">
               {{ isUpdatingPhone ? '提交中' : '确认修改' }}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div v-if="isBlacklistModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4" @click.self="closeBlacklistModal">
+        <form class="w-full max-w-[560px] rounded-[12px] bg-white p-6 shadow-[0_24px_70px_rgba(15,23,42,0.22)]" @submit.prevent="addCompanyBlacklist">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <h2 class="text-[20px] text-slate-900 font-semibold">
+                新增屏蔽公司
+              </h2>
+              <p class="mt-2 text-[13px] text-slate-500">
+                选择企业后加入黑名单，用于屏蔽企业推荐和曝光。
+              </p>
+            </div>
+            <button type="button" class="h-8 w-8 flex items-center justify-center rounded-full border-none bg-slate-100 text-slate-500 cursor-pointer" @click="closeBlacklistModal">
+              ×
+            </button>
+          </div>
+
+          <div class="mt-6 space-y-4">
+            <label class="block">
+              <span class="text-[14px] text-slate-700">企业名称或统一社会信用代码</span>
+              <div class="mt-2 flex gap-3">
+                <input
+                  v-model.trim="blacklistCompanyKeyword"
+                  type="text"
+                  placeholder="请输入企业名称或统一社会信用代码"
+                  class="h-11 min-w-0 flex-1 rounded-[8px] border border-slate-200 px-3 text-[15px] text-slate-900 outline-none transition focus:border-[#ff9f00]"
+                >
+                <button type="button" class="h-11 shrink-0 rounded-[8px] border border-[#ff9f00] bg-white px-4 text-[14px] text-[#ff9f00] cursor-pointer disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400" :disabled="isSearchingCompanies" @click="searchBlacklistCompanies">
+                  {{ isSearchingCompanies ? '查询中' : '查询' }}
+                </button>
+              </div>
+            </label>
+
+            <div v-if="blacklistCompanyResults.length" class="max-h-[210px] space-y-2 overflow-auto rounded-[8px] border border-slate-100 p-2">
+              <button
+                v-for="company in blacklistCompanyResults"
+                :key="company.id"
+                type="button"
+                class="w-full rounded-[8px] border bg-white px-3 py-3 text-left cursor-pointer transition"
+                :class="selectedBlacklistCompany?.id === company.id ? 'border-[#ff9f00] bg-orange-50' : 'border-slate-100 hover:border-orange-200'"
+                @click="selectBlacklistCompany(company)"
+              >
+                <div class="text-[14px] text-slate-900 font-medium">
+                  {{ company.name }}
+                </div>
+                <div class="mt-1 text-[12px] text-slate-400">
+                  {{ company.credit_code || '暂无统一社会信用代码' }}
+                </div>
+              </button>
+            </div>
+
+            <label class="block">
+              <span class="text-[14px] text-slate-700">备注</span>
+              <input
+                v-model.trim="blacklistRemark"
+                type="text"
+                maxlength="255"
+                placeholder="可填写屏蔽原因，例如：老东家"
+                class="mt-2 h-11 w-full rounded-[8px] border border-slate-200 px-3 text-[15px] text-slate-900 outline-none transition focus:border-[#ff9f00]"
+              >
+            </label>
+
+            <div v-if="blacklistFormError" class="rounded-[8px] bg-rose-50 px-3 py-2 text-[13px] text-rose-500">
+              {{ blacklistFormError }}
+            </div>
+          </div>
+
+          <div class="mt-7 flex justify-end gap-3">
+            <button type="button" class="h-10 rounded-[8px] border border-slate-200 bg-white px-5 text-[14px] text-slate-600 cursor-pointer" @click="closeBlacklistModal">
+              取消
+            </button>
+            <button type="submit" class="h-10 rounded-[8px] border-none bg-[#ff9f00] px-5 text-[14px] text-white cursor-pointer disabled:cursor-not-allowed disabled:bg-slate-300" :disabled="isAddingBlacklist">
+              {{ isAddingBlacklist ? '添加中' : '确认添加' }}
             </button>
           </div>
         </form>

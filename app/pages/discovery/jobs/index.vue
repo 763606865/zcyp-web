@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { RcTalentAnnouncementItem, RcTalentAnnouncementListResponse, RcTalentAnnouncementQuery } from '~/services/talent-announcements'
 import type { TalentJobItem, TalentJobListResponse, TalentJobQuery } from '~/services/talent-jobs'
-import type { CmsAdItem, CmsAdSlot } from '~/types/recruitment'
+import type { CmsAdSlot } from '~/types/recruitment'
 import { NInputNumber, NSelect } from 'naive-ui'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { createApplication } from '~/services/application'
@@ -24,11 +24,6 @@ type OfficialFilterKind = 'city' | 'salary' | 'experience' | 'employmentType' | 
 interface AtlasTag {
   label: string
   tone: TagTone
-}
-
-interface RightSideAd extends Pick<CmsAdItem, 'id' | 'title' | 'image' | 'link_url'> {
-  text_content?: string | null
-  code_content?: string | null
 }
 
 const OFFICIAL_PAGE_SIZE = 5
@@ -139,7 +134,7 @@ const atlasPublisherTypeSelectOptions = [
   { label: '军队', value: 16 },
   { label: '其他', value: 99 },
 ]
-const fallbackRightSideAds: RightSideAd[] = [
+const fallbackRightSideAds = [
   { id: -1, title: '在线发 OFFER', image: '/assets/images/discovery-jobs-offer-ad.png', link_url: null },
   { id: -2, title: '中测简历优化', image: '/assets/images/discovery-jobs-resume-ad.png', link_url: null },
 ]
@@ -468,10 +463,9 @@ const officialJobs = computed<TalentJobItem[]>(() => officialJobsData.value?.dat
 const officialLastPage = computed(() => officialJobsData.value?.last_page || 1)
 const atlasAnnouncements = computed<RcTalentAnnouncementItem[]>(() => atlasData.value?.data || [])
 const atlasLastPage = computed(() => atlasData.value?.last_page || 1)
-const rightSideAds = computed<RightSideAd[]>(() => {
+const rightSideSlotAds = computed(() => {
   const slot = officialAdSlots.value.find(item => item.code === RIGHT_SIDE_AD_SLOT_CODE)
-  const ads = slot?.ads?.filter(item => item.status === 1 && (item.image || item.text_content || item.code_content)) || []
-  return ads.length ? ads : fallbackRightSideAds
+  return slot?.ads || []
 })
 
 watch(officialJobsData, (value) => {
@@ -1135,24 +1129,7 @@ async function handleFavorite(job: TalentJobItem) {
         </div>
       </div>
 
-      <aside class="ad-column">
-        <component
-          :is="ad.link_url ? 'a' : 'div'"
-          v-for="(ad, index) in rightSideAds"
-          :key="ad.id"
-          class="side-ad"
-          :class="index === 0 ? 'offer-ad' : 'resume-ad'"
-          :href="ad.link_url ? resolvePortalLinkUrl(ad.link_url) : undefined"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img v-if="ad.image" :src="resolveAssetUrl(ad.image)" :alt="ad.title">
-          <div v-else class="side-ad-fallback">
-            <strong>{{ ad.title }}</strong>
-            <span>{{ ad.text_content || '查看更多推荐内容' }}</span>
-          </div>
-        </component>
-      </aside>
+      <CmsAdSlotStack class="ad-column" :ads="rightSideSlotAds" :fallback-ads="fallbackRightSideAds" />
     </section>
 
     <section v-else class="atlas-results">
@@ -1708,51 +1685,6 @@ async function handleFavorite(job: TalentJobItem) {
   display: grid;
   align-content: start;
   gap: 13px;
-}
-
-.side-ad {
-  position: relative;
-  display: block;
-  overflow: hidden;
-  color: inherit;
-  text-decoration: none;
-}
-
-.offer-ad {
-  height: 113px;
-}
-
-.resume-ad {
-  height: 119px;
-}
-
-.side-ad img {
-  display: block;
-  width: 248px;
-  height: 100%;
-  object-fit: cover;
-}
-
-.side-ad-fallback {
-  display: flex;
-  height: 100%;
-  flex-direction: column;
-  justify-content: center;
-  padding: 18px;
-  background: linear-gradient(135deg, #fff7e6 0%, #ffe3ad 100%);
-}
-
-.side-ad-fallback strong {
-  color: #24180c;
-  font-size: 18px;
-  font-weight: 700;
-}
-
-.side-ad-fallback span {
-  margin-top: 8px;
-  color: #8a6b34;
-  font-size: 13px;
-  line-height: 1.5;
 }
 
 .atlas-results {

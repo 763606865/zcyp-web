@@ -242,9 +242,15 @@ const creditCode = computed(() => {
     <h1 class="text-[24px] text-[#24180c] font-bold">
       企业信息
     </h1>
-    <p class="mt-2 text-[14px] text-[#6f6556]">
-      管理企业基本资料与招聘信息。
-    </p>
+    <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
+      <p class="text-[14px] text-[#6f6556]">
+        管理企业基本资料与招聘信息。
+      </p>
+      <NuxtLink to="/employer/company/albums" class="h-[38px] inline-flex items-center gap-2 rounded-[12px] bg-[#fff4dc] px-4 text-[13px] text-[#8b6418] font-medium no-underline ring-1 ring-[#eed39a] transition hover:bg-[#ffeebe]">
+        <span class="i-carbon-image" />
+        企业相册
+      </NuxtLink>
+    </div>
 
     <!-- 企业基础信息（只读） -->
     <div class="mt-8 rounded-[20px] bg-white p-6 shadow-[0_8px_24px_rgba(148,92,0,0.06)] ring-1 ring-[#f1e4c6]">

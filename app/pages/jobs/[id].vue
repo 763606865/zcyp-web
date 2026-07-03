@@ -23,9 +23,7 @@ const errorMessage = ref('')
 const recommendedJobs = ref<TalentJobItem[]>([])
 const isFavoriteOperating = ref(false)
 
-const employmentTypeMap: Record<number, string> = { 1: '全职', 2: '兼职', 3: '实习', 4: '校招', 5: '外包' }
 const salaryUnitMap: Record<number, string> = { 1: '元/月', 2: '元/日', 3: '元/时' }
-const hotCities = ['北京', '上海', '广州', '深圳', '杭州', '重庆', '武汉', '郑州', '成都', '西安', '大连', '厦门', '南京', '苏州', '无锡', '南昌', '惠州', '珠海', '金华', '宁波']
 
 async function loadDetail() {
   errorMessage.value = ''
@@ -416,49 +414,7 @@ function handleQuickCommunicate() {
             </div>
           </section>
 
-          <section class="rounded-[6px] bg-white px-6 py-6">
-            <h2 class="text-[18px] text-slate-900 font-semibold">
-              精选职位
-            </h2>
-            <div class="mt-5 grid gap-4 md:grid-cols-3">
-              <NuxtLink
-                v-for="item in recommendedJobs"
-                :key="item.id"
-                :to="`/jobs/${item.id}`"
-                class="rounded-[4px] border border-slate-100 px-4 py-4 no-underline hover:border-[#ff9f00]"
-              >
-                <div class="flex items-center justify-between gap-3">
-                  <span class="truncate text-[16px] text-slate-900 font-semibold">{{ item.title }}</span>
-                  <span class="shrink-0 text-[15px] text-[#ff9f00] font-semibold">{{ getSalaryLabel(item) }}</span>
-                </div>
-                <div class="mt-3 flex gap-2">
-                  <span class="rounded bg-slate-100 px-2 py-1 text-[12px] text-slate-500">{{ formatExperience(item) }}</span>
-                  <span class="rounded bg-slate-100 px-2 py-1 text-[12px] text-slate-500">{{ item.education_level_label || '不限' }}</span>
-                </div>
-                <div class="mt-4 flex items-center gap-2 text-[13px] text-slate-500">
-                  <span class="h-5 w-8 flex items-center justify-center rounded bg-slate-100 text-[10px] text-blue-600">logo</span>
-                  <span class="truncate">{{ item.company?.name || '公司名称' }}</span>
-                </div>
-              </NuxtLink>
-              <div v-if="recommendedJobs.length === 0" class="col-span-full py-8 text-center text-[14px] text-slate-400">
-                暂无精选职位
-              </div>
-            </div>
-          </section>
-
-          <section class="rounded-[6px] bg-white px-6 py-5">
-            <div class="flex flex-wrap gap-8 border-b border-slate-100 pb-4 text-[16px]">
-              <span class="text-[#ff9f00] font-semibold">热门城市</span>
-              <span class="text-slate-600">热门职位</span>
-              <span class="text-slate-600">热门公司</span>
-              <span class="text-slate-600">推荐职位</span>
-            </div>
-            <div class="mt-5 flex flex-wrap gap-x-8 gap-y-4 text-[14px] text-slate-700">
-              <NuxtLink v-for="city in hotCities" :key="city" to="/jobs" class="text-slate-700 no-underline hover:text-[#ff9f00]">
-                {{ city }}
-              </NuxtLink>
-            </div>
-          </section>
+          <FeaturedJobSection :jobs="recommendedJobs" />
         </main>
 
         <aside class="space-y-4">
@@ -473,7 +429,7 @@ function handleQuickCommunicate() {
               </div>
               <div>
                 <div class="text-[17px] text-slate-900 font-semibold">{{ getCreatorName(job) }}</div>
-                <div class="mt-1 text-[13px] text-slate-500">{{ getCreatorTitle(job) }}　{{ getCreatorActiveLabel(job) }}</div>
+                <div class="mt-1 text-[13px] text-slate-500">{{ getCreatorTitle(job) }} {{ getCreatorActiveLabel(job) }}</div>
               </div>
             </div>
             <button type="button" class="mt-6 h-9 w-full rounded-[6px] border border-[#ff9f00] bg-white text-[14px] text-[#ff9f00] cursor-pointer inline-flex items-center justify-center gap-1" @click="handleQuickCommunicate">

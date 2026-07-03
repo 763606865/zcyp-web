@@ -4,15 +4,17 @@ import { NCascader } from 'naive-ui'
 defineOptions({
   inheritAttrs: false,
 })
+
+const isMounted = ref(false)
+
+onMounted(() => {
+  isMounted.value = true
+})
 </script>
 
 <template>
-  <ClientOnly>
-    <NCascader v-bind="$attrs" />
-    <template #fallback>
-      <div class="naive-client-placeholder" :class="$attrs.class" />
-    </template>
-  </ClientOnly>
+  <NCascader v-if="isMounted" v-bind="$attrs" />
+  <div v-else class="naive-client-placeholder" :class="$attrs.class" />
 </template>
 
 <style scoped>
