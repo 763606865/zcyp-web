@@ -61,6 +61,13 @@ export interface UserCompanyBlacklistSavePayload {
   remark?: string | null
 }
 
+export interface JobseekerStats {
+  applications: number
+  pending_interviews: number
+  favorite_jobs: number
+  resume_views: number
+}
+
 function createAuthHeaders(authorization: string) {
   return authorization ? { Authorization: authorization } : undefined
 }
@@ -107,6 +114,15 @@ export async function logout(authorization: string) {
 export async function getAuthOrganizations(authorization: string) {
   const response = await getJson<ApiResponse<OrganizationsResponse>>(
     '/rc/auth/organizations',
+    undefined,
+    createAuthHeaders(authorization),
+  )
+  return response.data
+}
+
+export async function getJobseekerStats(authorization: string) {
+  const response = await getJson<ApiResponse<JobseekerStats>>(
+    '/rc/users/jobseeker/stats',
     undefined,
     createAuthHeaders(authorization),
   )

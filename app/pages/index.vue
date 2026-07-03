@@ -27,6 +27,7 @@ const {
   activeCategoryGroups,
   bannerSlides,
   currentSlide,
+  jobseekerAsideBanners,
   urgentJobs,
   hotJobs,
   famousCompanies,
@@ -36,6 +37,30 @@ const goldSlotRow1 = computed(() => homeData.value.adSlots.find(s => s.code === 
 const goldSlotRow2 = computed(() => homeData.value.adSlots.find(s => s.code === 'index.gold.row-2'))
 const sidePromoAd = computed(() => homeData.value.adSlots.flatMap(slot => slot.ads || []).find(ad => ad.link_url || ad.image || ad.text_content) || null)
 const showJobseekerCard = computed(() => userStore.isLoggedIn && userStore.currentIdentity === 'jobseeker')
+const serviceEcosystemRows = [
+  {
+    label: '中测在线',
+    className: 'is-online',
+    items: [
+      { label: '应用能力测评', to: '/assessment', icon: 'is-assessment' },
+      { label: '岗位胜任力测评', to: '/assessment', icon: 'is-evaluation' },
+      { label: '考试报名', to: '/assessment', icon: 'is-exam' },
+      { label: '简历优化', to: '/profile/jobseeker', icon: 'is-resume' },
+      { label: '在线学习', to: '/assessment', icon: 'is-learning' },
+    ],
+  },
+  {
+    label: '中测产品',
+    className: 'is-product',
+    items: [
+      { label: '中测智问云', to: '/assessment', icon: 'is-product' },
+      { label: '中测在线笔试', to: '/assessment', icon: 'is-product' },
+      { label: '无纸化面试评分', to: '/assessment', icon: 'is-product' },
+      { label: '中测防作弊平台', to: '/assessment', icon: 'is-product' },
+      { label: '中测在线面试', to: '/assessment', icon: 'is-product' },
+    ],
+  },
+]
 
 function openCategory(name: string) {
   router.push(`/jobs?keyword=${encodeURIComponent(name)}`)
@@ -128,6 +153,45 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="portal-page">
+    <section class="portal-container home-service-ecosystem" aria-labelledby="home-service-ecosystem-title">
+      <div class="home-service-ecosystem-title">
+        <span aria-hidden="true" />
+        <h2 id="home-service-ecosystem-title">
+          中测服务生态矩阵
+        </h2>
+        <span aria-hidden="true" />
+      </div>
+
+      <div class="home-service-ecosystem-body">
+        <div
+          v-for="row in serviceEcosystemRows"
+          :key="row.label"
+          class="home-service-ecosystem-row"
+        >
+          <NuxtLink to="/assessment" class="home-service-ecosystem-badge" :class="row.className">
+            {{ row.label }}
+          </NuxtLink>
+
+          <div class="home-service-ecosystem-grid">
+            <NuxtLink
+              v-for="item in row.items"
+              :key="item.label"
+              :to="item.to"
+              class="home-service-ecosystem-card"
+            >
+              <span class="home-service-ecosystem-icon" :class="item.icon" aria-hidden="true" />
+              <strong>{{ item.label }}</strong>
+            </NuxtLink>
+          </div>
+        </div>
+      </div>
+
+      <div class="home-service-ecosystem-dots" aria-hidden="true">
+        <span class="is-active" />
+        <span />
+      </div>
+    </section>
+
     <section class="portal-container portal-hero-grid" @mouseleave="hideCategoryPanel">
       <aside class="home-category-card">
         <button
@@ -190,27 +254,10 @@ onBeforeUnmount(() => {
       </div>
 
       <aside class="home-user-card">
-        <PortalJobseekerCard v-if="showJobseekerCard" />
-        <PortalSidePromoCard v-else :ad="sidePromoAd" />
-
-        <div class="home-side-services">
-          <section>
-            <h3><span class="home-title-icon" />中测在线</h3>
-            <div>
-              <NuxtLink v-for="item in onlineServices" :key="item" to="/assessment">
-                {{ item }}
-              </NuxtLink>
-            </div>
-          </section>
-          <section>
-            <h3><span class="home-title-icon" />中测产品</h3>
-            <div>
-              <NuxtLink v-for="item in productServices" :key="item" to="/assessment">
-                {{ item }}
-              </NuxtLink>
-            </div>
-          </section>
-        </div>
+        <template v-if="showJobseekerCard">
+          <PortalJobseekerCard :banners="jobseekerAsideBanners" />
+        </template>
+        <PortalHomeAdStack v-else :ad="sidePromoAd" />
       </aside>
     </section>
 

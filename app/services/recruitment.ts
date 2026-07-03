@@ -1,4 +1,4 @@
-import type { AnnouncementDetail, AnnouncementsPageData, CmsAdSlot, CmsBannerPosition, CmsFriendLink, CmsHomeRecommendation, CmsMenuItem, CmsSiteConfig, HomeAnnouncementsPageData, HomePageData, RcPositionNode } from '~/types/recruitment'
+import type { AnnouncementDetail, AnnouncementsPageData, CmsAdSlot, CmsBannerPosition, CmsBannerPositionSource, CmsFriendLink, CmsHomeRecommendation, CmsMenuItem, CmsSiteConfig, HomeAnnouncementsPageData, HomePageData, RcPositionNode } from '~/types/recruitment'
 import { appEnv } from '~/config/env'
 import { mockAnnouncementDetail, mockAnnouncementsPageData, mockCompanies, mockHomeAnnouncementsPageData, mockHomePageData, mockJobs, mockNotices, mockPositionTree } from '~/mock/recruitment'
 import { getJson } from './http'
@@ -14,7 +14,7 @@ interface ApiResponse<T> {
 
 interface CmsHomePayload {
   menus: CmsMenuItem[]
-  banner_position: CmsBannerPosition | null
+  banner_position: CmsBannerPositionSource
   ad_slot: CmsAdSlot[]
   site_config: CmsSiteConfig | null
   friend_links: CmsFriendLink[]

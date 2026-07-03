@@ -136,6 +136,8 @@ export interface CmsBannerPosition {
   banners: CmsBannerItem[]
 }
 
+export type CmsBannerPositionSource = CmsBannerPosition | CmsBannerPosition[] | Record<string, CmsBannerPosition> | null
+
 export interface CmsAdItem {
   id: number
   slot_id: number
@@ -292,7 +294,7 @@ export interface HomePageData {
   featuredJobs: JobSummary[]
   featuredCompanies: CompanyHighlight[]
   menus: CmsMenuItem[]
-  bannerPosition: CmsBannerPosition | null
+  bannerPosition: CmsBannerPositionSource
   adSlots: CmsAdSlot[]
   siteConfig: CmsSiteConfig | null
   friendLinks: CmsFriendLink[]
