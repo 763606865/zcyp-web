@@ -2,6 +2,19 @@
 import type { TalentJobItem } from '~/services/talent-jobs'
 import { getJson, resolveAssetUrl } from '~/services/http'
 
+interface FavoriteCompanyItem {
+  id: number | string
+  name?: string | null
+  display_name?: string | null
+  profile?: {
+    display_logo?: string | null
+    benefit_tag_labels?: string[] | null
+    nature_type_label?: string | null
+    scale_type_label?: string | null
+    funding_stage_label?: string | null
+  } | null
+}
+
 definePageMeta({
   layout: 'home',
   middleware: ['auth', 'identity-required'],
@@ -10,7 +23,7 @@ definePageMeta({
 const userStore = useUserStore()
 const activeTab = ref<'companies' | 'jobs'>('companies')
 const favoriteJobs = ref<TalentJobItem[]>([])
-const favoriteCompanies = ref<any[]>([])
+const favoriteCompanies = ref<FavoriteCompanyItem[]>([])
 const favoriteJobTags = ['2年及以上', '本科', '五险一金']
 
 const { pending: isLoading } = await useAsyncData(
@@ -21,7 +34,7 @@ const { pending: isLoading } = await useAsyncData(
 
     const [jobData, companyData] = await Promise.all([
       getJson<{ code: number, data: { data: TalentJobItem[] } }>('/rc/talent/favorites/jobs', { per_page: 20 }, { Authorization: userStore.authHeader }).catch(() => null),
-      getJson<{ code: number, data: { data: any[] } }>('/rc/talent/favorites/companies', { per_page: 20 }, { Authorization: userStore.authHeader }).catch(() => null),
+      getJson<{ code: number, data: { data: FavoriteCompanyItem[] } }>('/rc/talent/favorites/companies', { per_page: 20 }, { Authorization: userStore.authHeader }).catch(() => null),
     ])
 
     return {
@@ -113,6 +126,27 @@ function getCreatorInfo(job: TalentJobItem) {
     activeLabel: getCreatorActiveLabel(job),
   }
 }
+
+function getFavoriteCompanyName(company: FavoriteCompanyItem) {
+  return company.display_name || company.name || '未知企业'
+}
+
+function getFavoriteCompanyLogo(company: FavoriteCompanyItem) {
+  return resolveAssetUrl(company.profile?.display_logo || '')
+}
+
+function getFavoriteCompanyInitial(company: FavoriteCompanyItem) {
+  return getFavoriteCompanyName(company).slice(0, 2)
+}
+
+function getFavoriteCompanyMeta(company: FavoriteCompanyItem) {
+  const profile = company.profile
+  return [profile?.nature_type_label, profile?.scale_type_label, profile?.funding_stage_label].filter(Boolean).join(' ｜ ') || '暂无企业信息'
+}
+
+function getFavoriteCompanyTags(company: FavoriteCompanyItem) {
+  return company.profile?.benefit_tag_labels?.filter(Boolean) || []
+}
 </script>
 
 <template>
@@ -152,18 +186,19 @@ function getCreatorInfo(job: TalentJobItem) {
             <div class="flex items-start justify-between gap-6">
               <NuxtLink :to="`/company/${company.id}`" class="min-w-0 flex-1 no-underline">
                 <div class="flex items-start gap-5">
-                  <div class="h-10 w-10 flex shrink-0 items-center justify-center rounded bg-slate-100 text-[11px] text-blue-600 font-bold">
-                    {{ (company.display_name || company.name || '企').slice(0, 2) }}
+                  <div class="h-10 w-10 flex shrink-0 items-center justify-center overflow-hidden rounded bg-slate-100 text-[11px] text-blue-600 font-bold">
+                    <img v-if="getFavoriteCompanyLogo(company)" :src="getFavoriteCompanyLogo(company)" :alt="getFavoriteCompanyName(company)" class="h-full w-full object-contain">
+                    <span v-else>{{ getFavoriteCompanyInitial(company) }}</span>
                   </div>
                   <div class="min-w-0">
                     <h2 class="text-[18px] text-slate-900 font-semibold">
-                      {{ company.display_name || company.name }}
+                      {{ getFavoriteCompanyName(company) }}
                     </h2>
                     <div class="mt-3 text-[14px] text-slate-500">
-                      {{ company.industry_name || '互联网' }} ｜ {{ company.scale_label || '1000人以上' }} ｜ {{ company.financing_label || '上市公司' }}
+                      {{ getFavoriteCompanyMeta(company) }}
                     </div>
-                    <div class="mt-4 flex flex-wrap gap-2">
-                      <span v-for="tag in ['五险一金', '定期团建', '节日福利', '定期体检', '年终奖']" :key="tag" class="rounded bg-slate-100 px-3 py-1 text-[13px] text-slate-500">{{ tag }}</span>
+                    <div v-if="getFavoriteCompanyTags(company).length" class="mt-4 flex flex-wrap gap-2">
+                      <span v-for="tag in getFavoriteCompanyTags(company)" :key="tag" class="rounded bg-slate-100 px-3 py-1 text-[13px] text-slate-500">{{ tag }}</span>
                     </div>
                   </div>
                 </div>
