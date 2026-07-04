@@ -35,7 +35,6 @@ const {
 
 const goldSlotRow1 = computed(() => homeData.value.adSlots.find(s => s.code === 'index.gold.row-1'))
 const goldSlotRow2 = computed(() => homeData.value.adSlots.find(s => s.code === 'index.gold.row-2'))
-const sidePromoAd = computed(() => homeData.value.adSlots.flatMap(slot => slot.ads || []).find(ad => ad.link_url || ad.image || ad.text_content) || null)
 const showJobseekerCard = computed(() => userStore.isLoggedIn && userStore.currentIdentity === 'jobseeker')
 const serviceEcosystemRows = [
   {
@@ -203,7 +202,7 @@ onBeforeUnmount(() => {
           @focus="selectCategory(item.id)"
           @click="selectCategory(item.id)"
         >
-          <span class="min-w-0 flex-1 truncate text-left">{{ item.name }}</span>
+          <span class="text-left flex-1 min-w-0 truncate">{{ item.name }}</span>
           <span class="i-carbon-chevron-right" />
         </button>
       </aside>
@@ -257,7 +256,7 @@ onBeforeUnmount(() => {
         <template v-if="showJobseekerCard">
           <PortalJobseekerCard :banners="jobseekerAsideBanners" />
         </template>
-        <PortalHomeAdStack v-else :ad="sidePromoAd" />
+        <PortalHomeGuestAside v-else />
       </aside>
     </section>
 

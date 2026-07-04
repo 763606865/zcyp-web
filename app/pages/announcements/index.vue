@@ -24,16 +24,36 @@ const banners = computed(() => pageData.value.bannerPosition?.banners || [])
 const currentBanner = computed(() => banners.value[activeBannerIndex.value] || banners.value[0] || null)
 const bannerImage = computed(() => resolveAssetUrl(currentBanner.value?.image))
 const adItems = computed<CmsAdItem[]>(() => pageData.value.adSlots.flatMap(slot => slot.ads || []).slice(0, 3))
-const featuredProjects = computed(() => pageData.value.announcements.slice(0, 3))
-const latestAnnouncements = computed(() => pageData.value.announcements.slice(0, 10))
-const hotJobTags = [
-  { label: '销售/商务', className: 'top-[18%] left-[14%] h-[72px] w-[72px] bg-[#ffbf66]' },
-  { label: '运营/客服', className: 'top-[14%] right-[16%] h-[60px] w-[60px] bg-[#9aacff]' },
-  { label: '房地产/工程', className: 'top-[35%] left-[30%] h-[114px] w-[114px] bg-[#5877f2]' },
-  { label: '人事/行政', className: 'top-[58%] right-[11%] h-[92px] w-[92px] bg-[#ffbf47]' },
-  { label: '金融/保险', className: 'bottom-[10%] left-[12%] h-[70px] w-[70px] bg-[#ffc870]' },
-  { label: '产品/项目', className: 'bottom-[26%] left-[24%] h-[56px] w-[56px] bg-[#6d87ff]' },
-]
+const featuredProjects = computed(() => pageData.value.announcements.slice(0, 4))
+const latestAnnouncements = computed(() => pageData.value.announcements.slice(0, 5))
+const currentPage = ref(2)
+const pageNumbers = [1, 2, 3, 4, 5]
+const sideCards = computed(() => [
+  {
+    title: '政府单位招考信息',
+    desc: '集合了近期各地政府单位的招考信息',
+    action: '立即查看>>',
+    image: adItems.value[0]?.image ? resolveAssetUrl(adItems.value[0].image) : '',
+    tone: 'warm',
+  },
+  {
+    title: '国央企、事业单位招考',
+    desc: '集合了近期各国央企、事业单位的招考信息',
+    action: '立即查看>>',
+    image: adItems.value[1]?.image ? resolveAssetUrl(adItems.value[1].image) : '',
+    tone: 'blue',
+  },
+])
+
+function getAnnouncementStatus(index: number) {
+  return index < 2
+    ? { label: '即将截止', className: 'bg-[#ffecec] text-[#ff5c6c]' }
+    : { label: '正在报名', className: 'bg-[#e6f8ef] text-[#22b979]' }
+}
+
+function formatDate(value: string) {
+  return value?.slice(0, 10) || ''
+}
 
 function nextBanner() {
   if (banners.value.length <= 1)
@@ -64,9 +84,9 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="portal-page pb-10">
-    <section class="mx-auto mt-4 max-w-[1240px] px-4 lg:px-6">
-      <div class="relative h-[260px] overflow-hidden border border-[#ecd7aa] rounded-[22px] bg-white/90 shadow-[0_18px_36px_rgba(133,95,18,0.08)]">
+  <div class="bg-[#f1f3f8] pb-10">
+    <section class="relative h-[460px] overflow-hidden bg-[#d9ecff]">
+      <div class="h-full w-full">
         <component
           :is="currentBanner?.link_url ? 'a' : 'div'"
           :href="currentBanner?.link_url ? resolvePortalLinkUrl(currentBanner.link_url) : undefined"
@@ -91,136 +111,109 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <section v-if="adItems.length" class="mx-auto mt-4 max-w-[1240px] px-4 lg:px-6">
-      <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <component
-          :is="item.link_url ? 'a' : 'div'"
-          v-for="item in adItems"
-          :key="item.id"
-            :href="item.link_url ? resolvePortalLinkUrl(item.link_url) : undefined"
-            :target="item.link_url ? '_blank' : undefined"
-            :rel="item.link_url ? 'noopener noreferrer' : undefined"
-          class="overflow-hidden rounded-[18px] bg-white/96 no-underline shadow-[0_10px_26px_rgba(90,103,140,0.08)] ring-1 ring-[#eef1fb]"
-        >
-          <img v-if="resolveAssetUrl(item.image)" :src="resolveAssetUrl(item.image)" :alt="item.title" class="block h-[120px] w-full object-cover">
-          <div class="px-5 py-4">
-            <div class="text-[16px] text-[#1f2d52] font-semibold">
-              {{ item.title }}
-            </div>
-            <div v-if="item.text_content" class="mt-2 text-[13px] text-[#7f89a8] leading-6">
-              {{ item.text_content }}
-            </div>
-          </div>
-        </component>
-      </div>
-    </section>
-
-    <section class="grid mx-auto mt-5 max-w-[1240px] gap-4 px-4 lg:grid-cols-[minmax(0,1fr)_292px] lg:px-6">
-      <article class="rounded-[18px] bg-white/96 px-6 py-5 shadow-[0_10px_26px_rgba(90,103,140,0.08)] ring-1 ring-[#eef1fb]">
+    <section class="mx-auto mt-10 grid max-w-[1200px] gap-4 px-4 lg:grid-cols-[minmax(0,1fr)_412px] lg:px-0">
+      <article class="rounded-[6px] bg-white px-6 py-5">
         <div class="mb-4 flex items-center justify-between">
-          <h1 class="text-[24px] text-[#1d2b53] font-semibold tracking-[0.02em]">
+          <h1 class="text-[22px] text-[#222] font-semibold">
             招聘公告
           </h1>
-          <NuxtLink to="/announcements/list" class="text-[14px] text-[#8d93b0] no-underline hover:text-[#5c6fff] hover:underline">
-            更多 »
+          <NuxtLink to="/announcements/list" class="text-[14px] text-[#8d93b0] no-underline hover:text-[#ff9f00]">
+            更多招聘 <span class="i-carbon-chevron-right inline-block align-middle" />
           </NuxtLink>
         </div>
-        <div class="space-y-1">
+        <div class="mb-4 flex items-center justify-between rounded-[4px] bg-[#f4f5f8] px-4 py-2 text-[14px] text-[#666]">
+          <span class="inline-flex items-center gap-2">
+            <span class="i-carbon-information-filled text-[#666]" />
+            点击公告进入查看详细信息，可通过链接跳转直接报名
+          </span>
+          <span class="text-[18px] text-[#222]">×</span>
+        </div>
+        <div>
           <NuxtLink
-            v-for="item in latestAnnouncements"
+            v-for="(item, index) in latestAnnouncements"
             :key="item.id"
             :to="`/announcements/${item.id}`"
-            class="grid items-center gap-4 rounded-[14px] px-3 py-3 no-underline transition lg:grid-cols-[88px_minmax(0,1fr)_118px] hover:bg-[#f7f9ff]"
+            class="grid items-center gap-4 border-b border-[#eef0f3] px-0 py-4 no-underline transition lg:grid-cols-[96px_minmax(0,1fr)_116px] hover:bg-[#fffaf2]"
           >
-            <div class="h-[28px] flex items-center justify-center rounded-full text-[12px] font-medium" :class="item.is_top ? 'bg-[#fff1cc] text-[#ff9c00]' : 'bg-[#f4f6ff] text-[#7f89b0]'">
-              {{ item.is_top ? '置顶公告' : '最新公告' }}
+            <div class="h-8 flex items-center justify-center rounded-[4px] text-[14px]" :class="getAnnouncementStatus(index).className">
+              {{ getAnnouncementStatus(index).label }}
             </div>
-            <div>
-              <div class="text-[15px] text-[#1f2d52] font-medium leading-7">
-                {{ item.title }}
-              </div>
-              <div v-if="item.sub_title" class="mt-1 text-[13px] text-[#8d93b0] leading-6">
-                {{ item.sub_title }}
-              </div>
+            <div class="truncate text-[16px] text-[#222]">
+              {{ item.title }}
             </div>
-            <div class="text-right text-[13px] text-[#7f89a8]">
-              <div class="truncate">
-                {{ item.published_at.slice(0, 10) }}
-              </div>
+            <div class="text-right text-[14px] text-[#999]">
+              {{ formatDate(item.published_at) }}
             </div>
           </NuxtLink>
+        </div>
+        <div class="mt-6 flex items-center justify-end gap-2">
+          <button class="h-8 w-8 border border-[#d8dbe2] bg-white text-[#999]">‹</button>
+          <button
+            v-for="page in pageNumbers"
+            :key="page"
+            class="h-8 w-8 border text-[14px]"
+            :class="page === currentPage ? 'border-[#ff9f00] bg-[#ff9f00] text-white' : 'border-[#d8dbe2] bg-white text-[#666]'"
+            @click="currentPage = page"
+          >
+            {{ page }}
+          </button>
+          <button class="h-8 w-8 border border-[#d8dbe2] bg-white text-[#999]">›</button>
+          <span class="ml-4 text-[14px] text-[#666]">跳转</span>
+          <input class="h-8 w-[58px] border border-[#d8dbe2] px-2 text-center text-[14px]" value="5">
+          <span class="text-[14px] text-[#666]">页</span>
         </div>
       </article>
 
       <aside class="space-y-4">
-        <div class="rounded-[18px] bg-white/96 px-6 py-8 shadow-[0_10px_26px_rgba(90,103,140,0.08)] ring-1 ring-[#eef1fb]">
-          <div class="flex items-center gap-3 text-[#202c52] font-semibold">
-            <span class="i-carbon-building-government text-[26px] text-[#8ea3ff]" />
-            <span class="text-[20px]">政府单位招考</span>
-          </div>
-        </div>
-
-        <div class="rounded-[18px] bg-white/96 px-6 py-8 shadow-[0_10px_26px_rgba(90,103,140,0.08)] ring-1 ring-[#eef1fb]">
-          <div class="flex items-center gap-3 text-[#202c52] font-semibold">
-            <span class="i-carbon-document-export text-[26px] text-[#8ea3ff]" />
-            <span class="text-[20px]">国企公开招考</span>
-          </div>
-        </div>
-
-        <div class="rounded-[18px] bg-white/96 px-5 py-5 shadow-[0_10px_26px_rgba(90,103,140,0.08)] ring-1 ring-[#eef1fb]">
-          <div class="mb-4 flex items-center justify-between">
-            <h2 class="text-[18px] text-[#1f2d52] font-semibold">
-              热门职位
-            </h2>
-            <NuxtLink to="/jobs" class="text-[13px] text-[#8d93b0] no-underline hover:text-[#5c6fff]">
-              更多 »
-            </NuxtLink>
-          </div>
-          <div class="relative h-[268px] overflow-hidden rounded-[16px] bg-[linear-gradient(180deg,#fafbff_0%,#f2f5ff_100%)]">
-            <div
-              v-for="item in hotJobTags"
-              :key="item.label"
-              class="absolute flex items-center justify-center rounded-full text-center text-white font-medium shadow-[0_14px_24px_rgba(92,111,255,0.18)]"
-              :class="item.className"
-            >
-              <span class="max-w-[80%] text-[12px] leading-5">{{ item.label }}</span>
+        <div v-for="card in sideCards" :key="card.title" class="rounded-[6px] bg-white px-6 py-5">
+          <h2 class="text-[22px] text-[#222] font-semibold">
+            {{ card.title.includes('政府') ? '政府单位招考' : '国企、央企、事业单位公开招考' }}
+          </h2>
+          <div class="mt-5 flex min-h-[154px] items-center justify-between overflow-hidden rounded-[10px] px-8 py-6" :class="card.tone === 'warm' ? 'bg-[#fff3df]' : 'bg-[#e4f2ff]'">
+            <div class="max-w-[190px]">
+              <strong class="text-[20px]" :class="card.tone === 'warm' ? 'text-[#7a4e12]' : 'text-[#173a65]'">{{ card.title }}</strong>
+              <p class="mt-2 text-[16px] leading-7" :class="card.tone === 'warm' ? 'text-[#7a6142]' : 'text-[#3f5f82]'">{{ card.desc }}</p>
+              <NuxtLink to="/announcements/list" class="mt-4 inline-block text-[16px] text-[#ff9f00] no-underline">
+                {{ card.action }}
+              </NuxtLink>
             </div>
+            <img v-if="card.image" :src="card.image" :alt="card.title" class="h-[108px] w-[108px] object-contain">
+            <div v-else class="h-[104px] w-[104px] rounded-[16px]" :class="card.tone === 'warm' ? 'bg-[linear-gradient(135deg,#ffe2c2,#ffb58e)]' : 'bg-[linear-gradient(135deg,#b7d7ff,#6ea8ff)]'" />
           </div>
         </div>
       </aside>
     </section>
 
-    <section class="mx-auto mt-4 max-w-[1240px] px-4 lg:px-6">
-      <div class="rounded-[18px] bg-white/96 px-6 py-6 shadow-[0_10px_26px_rgba(90,103,140,0.08)] ring-1 ring-[#eef1fb]">
+    <section class="mx-auto mt-6 max-w-[1200px] px-4 lg:px-0">
+      <div class="rounded-[6px] bg-white px-6 py-5">
         <div class="mb-5 flex items-center justify-between">
-          <h2 class="text-center text-[24px] text-[#1d2b53] font-semibold lg:flex-1">
+          <h2 class="text-[22px] text-[#222] font-semibold">
             政府专项招聘
           </h2>
-          <NuxtLink to="/announcements/list" class="text-[14px] text-[#8d93b0] no-underline hover:text-[#5c6fff]">
-            更多 »
+          <NuxtLink to="/announcements/list" class="text-[14px] text-[#8d93b0] no-underline hover:text-[#ff9f00]">
+            更多招聘 <span class="i-carbon-chevron-right inline-block align-middle" />
           </NuxtLink>
         </div>
 
-        <div class="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
-          <article
+        <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <NuxtLink
             v-for="item in featuredProjects"
             :key="item.id"
-            class="overflow-hidden rounded-[16px] bg-[#f8faff] ring-1 ring-[#edf1ff]"
+            :to="`/announcements/${item.id}`"
+            class="block no-underline"
           >
-            <div class="h-[168px] bg-[linear-gradient(135deg,#5c6fff_0%,#7cb6ff_50%,#dcecff_100%)]" />
-            <div class="px-4 py-4">
-              <div class="line-clamp-2 text-[17px] text-[#1f2d52] font-medium leading-7">
+            <div class="h-[140px] overflow-hidden rounded-[4px] bg-[linear-gradient(135deg,#0044cc_0%,#1677ff_58%,#68d6ff_100%)]">
+              <img v-if="adItems[0]?.image" :src="resolveAssetUrl(adItems[0].image)" :alt="item.title" class="h-full w-full object-cover">
+            </div>
+            <div class="mt-3">
+              <div class="truncate text-[16px] text-[#222]">
                 {{ item.title }}
               </div>
-              <div class="mt-2 text-[13px] text-[#8d93b0] leading-6">
-                {{ item.sub_title || '专项招聘活动持续更新，点击查看详细公告内容。' }}
-              </div>
-              <div class="mt-3 flex items-center justify-between text-[13px] text-[#6e78a0]">
-                <span class="inline-flex items-center rounded-full bg-[#eef2ff] px-3 py-1 text-[#5c6fff]">{{ item.is_top ? '进行中' : '公告中' }}</span>
-                <span>{{ item.published_at.slice(0, 10) }}</span>
+              <div class="mt-1 text-[14px] text-[#999]">
+                {{ formatDate(item.published_at) }}
               </div>
             </div>
-          </article>
+          </NuxtLink>
         </div>
       </div>
     </section>

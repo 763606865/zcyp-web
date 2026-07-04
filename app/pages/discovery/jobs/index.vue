@@ -2,10 +2,9 @@
 import type { RcTalentAnnouncementItem, RcTalentAnnouncementListResponse, RcTalentAnnouncementQuery } from '~/services/talent-announcements'
 import type { TalentJobItem, TalentJobListResponse, TalentJobQuery } from '~/services/talent-jobs'
 import type { CmsAdSlot } from '~/types/recruitment'
-import { NInputNumber, NSelect } from 'naive-ui'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { createApplication } from '~/services/application'
-import { ApiRequestError, resolveAssetUrl } from '~/services/http'
+import { ApiRequestError } from '~/services/http'
 import { getResumeList } from '~/services/resume'
 import { getRecommendedTalentAnnouncements, searchTalentAnnouncements } from '~/services/talent-announcements'
 import { favoriteTalentJob, getRecommendedJobs, searchTalentJobs, unfavoriteTalentJob } from '~/services/talent-jobs'
@@ -592,55 +591,8 @@ function findAreaName(code?: string | null) {
   return code
 }
 
-function formatSalary(job: TalentJobItem) {
-  if (!job.salary_min && !job.salary_max)
-    return '薪资面议'
-
-  const min = formatSalaryValue(job.salary_min)
-  const max = formatSalaryValue(job.salary_max)
-
-  return min && max ? `${min}-${max}` : `${min || max}`
-}
-
-function formatSalaryValue(value?: string | null) {
-  if (!value)
-    return ''
-
-  const numberValue = Number.parseFloat(value)
-  if (!Number.isFinite(numberValue))
-    return value
-
-  return numberValue >= 1000 ? `${numberValue / 1000}K` : String(numberValue)
-}
-
 function resolveJobDetailTo(job: TalentJobItem) {
   return job.id > 0 ? `/jobs/${job.id}` : `/jobs?keyword=${encodeURIComponent(job.title)}`
-}
-
-function getJobPriorityTag(job: TalentJobItem) {
-  if (job.is_urgent)
-    return { label: '急聘', className: 'is-urgent' }
-  if (job.is_hot)
-    return { label: '热招', className: 'is-hot' }
-  return null
-}
-
-function getJobTags(job: TalentJobItem) {
-  const benefitTags = getCompanyProfile(job)?.benefit_tag_labels || []
-  const tags = benefitTags.length
-    ? benefitTags
-    : job.keywords?.length ? job.keywords : ['2年及以上', job.education_level_label || '本科', '五险一金', '补充公积金']
-  return tags.slice(0, 4)
-}
-
-function getCompanyMeta(job: TalentJobItem, index: number) {
-  const profile = getCompanyProfile(job)
-  const profileMeta = [profile?.nature_type_label, profile?.scale_type_label, profile?.funding_stage_label].filter(Boolean) as string[]
-  if (profileMeta.length)
-    return profileMeta
-
-  const stage = index === 1 ? 'c轮融资' : '上市公司'
-  return ['互联网', '10000人以上', stage]
 }
 
 function getRecruiter(job: TalentJobItem, index: number) {
@@ -655,47 +607,8 @@ function getRecruiter(job: TalentJobItem, index: number) {
   return index === 1 ? '王女士 人事专员' : '李思思 · 总经理'
 }
 
-function getRecruiterAvatar(job: TalentJobItem) {
-  return resolveAssetUrl(job.creator?.display_avatar)
-}
-
-function getRecruiterActiveLabel(job: TalentJobItem) {
-  if (!job.creator?.last_login_at)
-    return '本周活跃'
-
-  const lastLoginAt = new Date(job.creator.last_login_at).getTime()
-  if (!Number.isFinite(lastLoginAt))
-    return '近期活跃'
-
-  const days = Math.floor((Date.now() - lastLoginAt) / 86400000)
-  if (days <= 0)
-    return '今日活跃'
-  if (days <= 7)
-    return '本周活跃'
-  if (days <= 30)
-    return '近期活跃'
-  return '最近活跃'
-}
-
 function isJobApplied(job: TalentJobItem) {
   return Boolean(job.is_applied) || appliedJobs.value.includes(job.id)
-}
-
-function getCompanyProfile(job: TalentJobItem) {
-  return job.company?.profile || null
-}
-
-function getCompanyName(job: TalentJobItem) {
-  return job.company?.name || '***公司'
-}
-
-function getCompanyLogo(job: TalentJobItem) {
-  const profile = getCompanyProfile(job)
-  return resolveAssetUrl(profile?.display_logo || profile?.logo)
-}
-
-function getCompanyLogoInitial(job: TalentJobItem) {
-  return getCompanyName(job).trim().charAt(0) || '企'
 }
 
 function getAtlasTags(item: RcTalentAnnouncementItem): AtlasTag[] {
@@ -868,6 +781,10 @@ async function handleFavorite(job: TalentJobItem) {
     favoritingJobIds.value = favoritingJobIds.value.filter(id => id !== job.id)
   }
 }
+
+function handleCommunicate(job: TalentJobItem) {
+  pushGlobalNotice(`${getRecruiter(job, 0)}的沟通入口即将开放`, 'info')
+}
 </script>
 
 <template>
@@ -882,112 +799,35 @@ async function handleFavorite(job: TalentJobItem) {
         </button>
       </div>
 
-      <div v-if="activeTab === 'official'" class="filter-body">
-        <div class="filter-row">
-          <div class="filter-label">
-            工作地点
-          </div>
-          <div class="filter-options is-city-options">
-            <button v-for="item in displayedCityFilters" :key="item" type="button" class="filter-option" :class="{ 'is-selected': selectedCityFilter === item }" @click="selectOfficialFilter('city', item)">
-              {{ item }}
-            </button>
-            <button type="button" class="filter-option is-more" @click="goCitySelect">
-              更多城市 <span class="i-carbon-caret-right" />
-            </button>
-          </div>
-        </div>
-        <div class="filter-row">
-          <div class="filter-label">
-            薪资待遇
-          </div>
-          <div class="filter-options">
-            <button v-for="item in salaryFilters" :key="item" type="button" class="filter-option" :class="{ 'is-selected': selectedSalaryFilter === item }" @click="selectOfficialFilter('salary', item)">
-              {{ item }}
-            </button>
-            <div v-if="selectedSalaryFilter === '自定义'" class="salary-range-filter">
-              <ClientOnly>
-                <NInputNumber
-                  v-model:value="customSalaryMin"
-                  class="salary-range-input"
-                  size="small"
-                  placeholder="最低"
-                  :min="CUSTOM_SALARY_MIN"
-                  :max="CUSTOM_SALARY_MAX"
-                  :step="CUSTOM_SALARY_STEP"
-                  :show-button="false"
-                />
-                <span>至</span>
-                <NInputNumber
-                  v-model:value="customSalaryMax"
-                  class="salary-range-input"
-                  size="small"
-                  placeholder="最高"
-                  :min="CUSTOM_SALARY_MIN"
-                  :max="CUSTOM_SALARY_MAX"
-                  :step="CUSTOM_SALARY_STEP"
-                  :show-button="false"
-                />
-                <template #fallback>
-                  <span class="salary-range-placeholder">最低</span>
-                  <span>至</span>
-                  <span class="salary-range-placeholder">最高</span>
-                </template>
-              </ClientOnly>
-            </div>
-          </div>
-        </div>
-        <div class="filter-row">
-          <div class="filter-label">
-            经验要求
-          </div>
-          <div class="filter-options">
-            <button v-for="item in experienceFilters" :key="item.value" type="button" class="filter-option" :class="{ 'is-selected': selectedExperienceFilter === item.value }" @click="selectOfficialFilter('experience', item.value)">
-              {{ item.label }}
-            </button>
-          </div>
-        </div>
-        <div class="filter-row">
-          <div class="filter-label">
-            工作性质
-          </div>
-          <div class="filter-options is-employment-options">
-            <button v-for="item in employmentTypeFilters" :key="item.value" type="button" class="filter-option" :class="{ 'is-selected': selectedEmploymentTypeFilter === item.value }" @click="selectOfficialFilter('employmentType', item.value)">
-              {{ item.label }}
-            </button>
-          </div>
-        </div>
-        <div class="filter-row">
-          <div class="filter-label">
-            其他筛选
-          </div>
-          <div class="filter-options is-extra-options">
-            <ClientOnly>
-              <NSelect
-                class="filter-select"
-                :class="{ 'is-selected': selectedEducationLevelFilter !== 0 }"
-                :value="selectedEducationLevelFilter"
-                :options="educationLevelSelectOptions"
-                size="small"
-                :consistent-menu-width="false"
-                @update:value="selectOfficialSelectValue('education', $event)"
-              />
-              <NSelect
-                class="filter-select"
-                :class="{ 'is-selected': selectedCompanySizeFilter !== 0 }"
-                :value="selectedCompanySizeFilter"
-                :options="companySizeSelectOptions"
-                size="small"
-                :consistent-menu-width="false"
-                @update:value="selectOfficialSelectValue('companySize', $event)"
-              />
-              <template #fallback>
-                <span class="filter-select-placeholder">学历要求</span>
-                <span class="filter-select-placeholder">公司规模</span>
-              </template>
-            </ClientOnly>
-          </div>
-        </div>
-      </div>
+      <JobListFilterPanel
+        v-if="activeTab === 'official'"
+        :displayed-city-filters="displayedCityFilters"
+        :selected-city-filter="selectedCityFilter"
+        :salary-filters="salaryFilters"
+        :selected-salary-filter="selectedSalaryFilter"
+        :custom-salary-min="customSalaryMin"
+        :custom-salary-max="customSalaryMax"
+        :custom-salary-min-value="CUSTOM_SALARY_MIN"
+        :custom-salary-max-value="CUSTOM_SALARY_MAX"
+        :custom-salary-step="CUSTOM_SALARY_STEP"
+        :experience-filters="experienceFilters"
+        :selected-experience-filter="selectedExperienceFilter"
+        :employment-type-filters="employmentTypeFilters"
+        :selected-employment-type-filter="selectedEmploymentTypeFilter"
+        :education-level-select-options="educationLevelSelectOptions"
+        :selected-education-level-filter="selectedEducationLevelFilter"
+        :company-size-select-options="companySizeSelectOptions"
+        :selected-company-size-filter="selectedCompanySizeFilter"
+        @select-city="selectOfficialFilter('city', $event)"
+        @more-city="goCitySelect"
+        @select-salary="selectOfficialFilter('salary', $event)"
+        @update-custom-salary-min="customSalaryMin = $event"
+        @update-custom-salary-max="customSalaryMax = $event"
+        @select-experience="selectOfficialFilter('experience', $event)"
+        @select-employment-type="selectOfficialFilter('employmentType', $event)"
+        @select-education="selectOfficialSelectValue('education', $event)"
+        @select-company-size="selectOfficialSelectValue('companySize', $event)"
+      />
 
       <div v-else class="filter-body is-atlas">
         <div class="filter-row">
@@ -1048,74 +888,21 @@ async function handleFavorite(job: TalentJobItem) {
           暂无官方推荐职位。
         </div>
         <template v-else>
-          <article v-for="(job, index) in officialJobs" :key="`${job.id}-${job.title}-${index}`" class="job-card">
-            <button
-              type="button"
-              class="favorite-button"
-              :class="{ 'is-active': job.is_favorited }"
-              :disabled="favoritingJobIds.includes(job.id)"
-              :aria-label="job.is_favorited ? '取消收藏职位' : '收藏职位'"
-              :title="job.is_favorited ? '取消收藏' : '收藏职位'"
-              @click="handleFavorite(job)"
-            >
-              ★
-            </button>
-
-            <div class="job-main">
-              <div class="job-title-row">
-                <NuxtLink :to="resolveJobDetailTo(job)" class="job-title">
-                  {{ job.title }}
-                </NuxtLink>
-                <span v-if="getJobPriorityTag(job)" class="job-priority-tag" :class="getJobPriorityTag(job)?.className">
-                  {{ getJobPriorityTag(job)?.label }}
-                </span>
-                <span class="job-salary">{{ formatSalary(job) }}</span>
-              </div>
-              <div class="job-tags">
-                <span v-for="tag in getJobTags(job)" :key="tag">{{ tag }}</span>
-              </div>
-              <div class="job-address">
-                <span class="i-carbon-location-filled" />
-                <span>{{ job.workplace || findAreaName(job.city_code) || '南昌红谷滩区绿地中心I期-A座13' }}</span>
-              </div>
-            </div>
-
-            <div class="company-main">
-              <div class="company-head">
-                <div class="company-logo">
-                  <img v-if="getCompanyLogo(job)" :src="getCompanyLogo(job)" :alt="getCompanyName(job)">
-                  <strong v-else>{{ getCompanyLogoInitial(job) }}</strong>
-                </div>
-                <NuxtLink :to="job.company_id ? `/company/${job.company_id}` : resolveJobDetailTo(job)" class="company-name">
-                  {{ getCompanyName(job) }}
-                </NuxtLink>
-              </div>
-              <div class="company-meta">
-                <span v-for="item in getCompanyMeta(job, index)" :key="item">{{ item }}</span>
-              </div>
-              <div class="recruiter-row">
-                <span class="recruiter-avatar" aria-hidden="true">
-                  <img v-if="getRecruiterAvatar(job)" :src="getRecruiterAvatar(job)" :alt="getRecruiter(job, index)">
-                </span>
-                <span>{{ getRecruiter(job, index) }}</span>
-                <span>{{ getRecruiterActiveLabel(job) }}</span>
-                <button type="button" class="chat-button">
-                  <span class="i-carbon-chat" /> 立即沟通
-                </button>
-              </div>
-            </div>
-
-            <div class="job-actions">
-              <button
-                type="button"
-                class="apply-button"
-                :disabled="isJobApplied(job) || applyingJobId === job.id"
-                @click="handleApply(job)"
-              >
-                {{ isJobApplied(job) ? '已投递' : applyingJobId === job.id ? '投递中' : '立即投递' }}
-              </button>
-            </div>
-          </article>
+          <JobListItemCard
+            v-for="(job, index) in officialJobs"
+            :key="`${job.id}-${job.title}-${index}`"
+            :job="job"
+            :index="index"
+            :detail-to="resolveJobDetailTo(job)"
+            :company-to="job.company_id ? `/company/${job.company_id}` : resolveJobDetailTo(job)"
+            :address-label="job.workplace || findAreaName(job.city_code) || '南昌红谷滩区绿地中心I期-A座13'"
+            :applied="isJobApplied(job)"
+            :applying="applyingJobId === job.id"
+            :favoriting="favoritingJobIds.includes(job.id)"
+            @favorite="handleFavorite"
+            @apply="handleApply"
+            @communicate="handleCommunicate"
+          />
         </template>
 
         <div v-if="officialLastPage > 1" class="pager-row">
@@ -1360,93 +1147,6 @@ async function handleFavorite(job: TalentJobItem) {
   color: #6f737c;
 }
 
-.filter-select {
-  width: 156px;
-  --n-border: 1px solid transparent !important;
-  --n-border-active: 1px solid #ff9700 !important;
-  --n-border-focus: 1px solid #ff9700 !important;
-  --n-border-hover: 1px solid transparent !important;
-  --n-border-radius: 999px !important;
-  --n-box-shadow-active: none !important;
-  --n-box-shadow-focus: none !important;
-  --n-color: #f4f5f8 !important;
-  --n-color-active: #f4f5f8 !important;
-  --n-color-disabled: #f4f5f8 !important;
-  --n-font-size: 14px !important;
-  --n-height: 32px !important;
-  --n-placeholder-color: #6f737c !important;
-  --n-text-color: #6f737c !important;
-}
-
-.filter-select.is-selected {
-  --n-border: 1px solid #ff9700 !important;
-  --n-border-hover: 1px solid #ff9700 !important;
-  --n-text-color: #ff9700 !important;
-}
-
-.filter-select :deep(.n-base-selection-label) {
-  padding-right: 26px;
-  padding-left: 14px;
-}
-
-.filter-select :deep(.n-base-selection-input) {
-  cursor: pointer;
-}
-
-.filter-select-placeholder {
-  display: inline-flex;
-  width: 156px;
-  height: 32px;
-  align-items: center;
-  padding: 0 14px;
-  border-radius: 999px;
-  background: #f4f5f8;
-  color: #6f737c;
-  font-size: 14px;
-}
-
-.salary-range-filter {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: #6f737c;
-  font-size: 14px;
-}
-
-.salary-range-input {
-  width: 82px;
-  --n-border: 1px solid #eef0f4 !important;
-  --n-border-active: 1px solid #ff9700 !important;
-  --n-border-focus: 1px solid #ff9700 !important;
-  --n-border-hover: 1px solid #ff9700 !important;
-  --n-border-radius: 999px !important;
-  --n-box-shadow-active: none !important;
-  --n-box-shadow-focus: none !important;
-  --n-color: #f4f5f8 !important;
-  --n-color-active: #fff !important;
-  --n-font-size: 14px !important;
-  --n-height: 32px !important;
-  --n-placeholder-color: #9aa0aa !important;
-  --n-text-color: #222 !important;
-}
-
-.salary-range-input :deep(.n-input__input-el) {
-  text-align: center;
-}
-
-.salary-range-placeholder {
-  display: inline-flex;
-  width: 82px;
-  height: 32px;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid #eef0f4;
-  border-radius: 999px;
-  background: #f4f5f8;
-  color: #9aa0aa;
-  font-size: 14px;
-}
-
 .official-results {
   display: grid;
   margin-top: 24px;
@@ -1458,227 +1158,6 @@ async function handleFavorite(job: TalentJobItem) {
 .atlas-results {
   display: grid;
   gap: 16px;
-}
-
-.job-card {
-  position: relative;
-  display: grid;
-  min-height: 141px;
-  align-items: center;
-  padding: 21px 24px 19px 30px;
-  border: 1px solid #fff;
-  background: #fff;
-  grid-template-columns: 390px 350px 88px;
-  gap: 26px;
-}
-
-.favorite-button {
-  position: absolute;
-  top: 8px;
-  right: 15px;
-  border: 0;
-  background: transparent;
-  color: #d5d5d5;
-  cursor: pointer;
-  font-size: 18px;
-  line-height: 1;
-}
-
-.favorite-button.is-active {
-  color: #ff9700;
-}
-
-.favorite-button:disabled {
-  cursor: wait;
-  opacity: 0.7;
-}
-
-.job-title-row {
-  display: flex;
-  align-items: baseline;
-  gap: 16px;
-}
-
-.job-title {
-  color: #222;
-  font-size: 16px;
-  font-weight: 500;
-  text-decoration: none;
-}
-
-.job-priority-tag {
-  display: inline-flex;
-  height: 20px;
-  align-items: center;
-  padding: 0 7px;
-  border-radius: 2px;
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 20px;
-}
-
-.job-priority-tag.is-urgent {
-  background: #fff1ed;
-  color: #e64d22;
-}
-
-.job-priority-tag.is-hot {
-  background: #fff7e6;
-  color: #ff9700;
-}
-
-.job-salary {
-  color: #ff9700;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.job-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 14px;
-}
-
-.job-tags span {
-  height: 24px;
-  padding: 0 10px;
-  border-radius: 2px;
-  background: #f1f4f7;
-  color: #69717c;
-  font-size: 12px;
-  line-height: 24px;
-}
-
-.job-address {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 18px;
-  color: #222;
-  font-size: 14px;
-}
-
-.job-address :deep(.i-carbon-location-filled) {
-  color: #cfcfcf;
-  font-size: 14px;
-}
-
-.company-head {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 20px;
-}
-
-.company-logo {
-  display: flex;
-  width: 32px;
-  height: 32px;
-  flex: 0 0 32px;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  border-radius: 3px;
-  background: #f6f9ff;
-  color: #1d63dc;
-  line-height: 1;
-}
-
-.company-logo img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-.company-logo strong {
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.company-name {
-  overflow: hidden;
-  color: #222;
-  font-size: 16px;
-  font-weight: 400;
-  text-decoration: none;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.company-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0;
-  margin-top: 14px;
-  color: #555;
-  font-size: 14px;
-}
-
-.company-meta span + span::before {
-  margin: 0 10px;
-  color: #b8b8b8;
-  content: '|';
-}
-
-.recruiter-row {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-top: 18px;
-  color: #222;
-  font-size: 14px;
-}
-
-.recruiter-avatar {
-  display: inline-flex;
-  width: 24px;
-  height: 24px;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  border-radius: 50%;
-  background: rgba(255, 229, 184, 1);
-}
-
-.recruiter-avatar img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.chat-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  border: 0;
-  background: transparent;
-  color: #ff9700;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.job-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.apply-button {
-  width: 88px;
-  height: 32px;
-  border: 0;
-  border-radius: 4px;
-  background: #ff9700;
-  color: #fff;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.apply-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.68;
 }
 
 .ad-column {
@@ -1855,14 +1334,6 @@ async function handleFavorite(job: TalentJobItem) {
 
   .ad-column {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .job-card {
-    grid-template-columns: 1fr;
-  }
-
-  .job-actions {
-    justify-content: flex-start;
   }
 }
 
