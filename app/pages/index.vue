@@ -10,6 +10,7 @@ definePageMeta({
 
 const router = useRouter()
 const userStore = useUserStore()
+const siteStore = useSiteStore()
 const pageDataStore = usePageDataStore()
 
 const homeData = computed<HomePageData>(() => pageDataStore.homeData || fallbackHomeData)
@@ -95,6 +96,47 @@ function formatExperience(job: { experience_min?: number, experience_max?: numbe
   if (job.experience_min === job.experience_max)
     return `${job.experience_min}年以上`
   return `${job.experience_min || 0}-${job.experience_max || 0}年`
+}
+
+function findAreaName(code?: string | null) {
+  if (!code)
+    return ''
+
+  for (const province of siteStore.areas) {
+    if (province.code === code)
+      return province.name
+
+    for (const city of province.children || []) {
+      if (city.code === code)
+        return city.name
+
+      const district = city.children?.find(item => item.code === code)
+      if (district)
+        return district.name
+    }
+  }
+
+  return code
+}
+
+function resolveUrgentJobLogo(item: any) {
+  return isRealUrgentData() && item.display_cover_image ? resolveAssetUrl(item.display_cover_image) : ''
+}
+
+function formatUrgentJobRegion(item: any) {
+  return findAreaName(item.job?.city_code || item.city_code)
+}
+
+function resolveHotJobLogo(item: any) {
+  return isRealHotData() && item.display_cover_image ? resolveAssetUrl(item.display_cover_image) : ''
+}
+
+function formatHotJobRegion(item: any) {
+  return findAreaName(item.job?.city_code || item.city_code)
+}
+
+function resolveFamousCompanyTo(item: any) {
+  return isRealCompanyData() && item.company?.id ? `/company/${item.company.id}` : '/companies'
 }
 
 function isRealUrgentData() {
@@ -322,9 +364,12 @@ onBeforeUnmount(() => {
             </template>
           </div>
           <div class="home-job-company">
-            <span class="home-company-logo" :class="(item as any).logoClass || 'is-blue'">logo</span>
+            <span class="home-company-logo" :class="resolveUrgentJobLogo(item) ? 'is-image' : ((item as any).logoClass || 'is-blue')">
+              <img v-if="resolveUrgentJobLogo(item)" :src="resolveUrgentJobLogo(item)" :alt="item.job?.company?.name || item.title || '公司 logo'">
+              <template v-else>logo</template>
+            </span>
             <strong>{{ isRealUrgentData() && item.job ? item.job.company.name : ((item as any).companyName || 'XXXXX公司名称') }}</strong>
-            <small>{{ isRealUrgentData() && item.job ? item.job.workplace || '' : `${(item as any).city || '南昌'} 红谷滩区` }}</small>
+            <small>{{ isRealUrgentData() ? formatUrgentJobRegion(item) : `${(item as any).city || '南昌'} 红谷滩区` }}</small>
           </div>
         </NuxtLink>
       </div>
@@ -343,14 +388,14 @@ onBeforeUnmount(() => {
         <NuxtLink
           v-for="(item, index) in famousCompanies"
           :key="isRealCompanyData() ? `company-${item.id}` : `company-mock-${index}`"
-          to="/companies"
+          :to="resolveFamousCompanyTo(item)"
           class="home-company-card"
         >
           <div v-if="isRealCompanyData() && item.company" class="home-company-card-body">
             <div class="home-company-card-cover">
               <img
-                v-if="(item.company as any).logo || (item as any).cover_image"
-                :src="resolveAssetUrl((item.company as any).logo || (item as any).cover_image)"
+                v-if="(item as any).display_cover_image"
+                :src="resolveAssetUrl((item as any).display_cover_image)"
                 :alt="item.company.name || item.title"
               >
               <strong v-else>{{ item.company.display_name || item.company.name || item.title }}</strong>
@@ -403,9 +448,12 @@ onBeforeUnmount(() => {
             </template>
           </div>
           <div class="home-job-company">
-            <span class="home-company-logo" :class="(item as any).logoClass || 'is-blue'">logo</span>
+            <span class="home-company-logo" :class="resolveHotJobLogo(item) ? 'is-image' : ((item as any).logoClass || 'is-blue')">
+              <img v-if="resolveHotJobLogo(item)" :src="resolveHotJobLogo(item)" :alt="item.job?.company?.name || item.title || '公司 logo'">
+              <template v-else>logo</template>
+            </span>
             <strong>{{ isRealHotData() && item.job ? item.job.company.name : ((item as any).companyName || 'XXXXX公司名称') }}</strong>
-            <small>{{ isRealHotData() && item.job ? item.job.workplace || '' : `${(item as any).city || '南昌'} 红谷滩区` }}</small>
+            <small>{{ isRealHotData() ? formatHotJobRegion(item) : `${(item as any).city || '南昌'} 红谷滩区` }}</small>
           </div>
         </NuxtLink>
       </div>
