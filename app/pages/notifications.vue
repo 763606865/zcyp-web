@@ -19,18 +19,9 @@ const isOperating = ref(false)
 const currentPage = ref(1)
 const filterRead = ref<number | undefined>(undefined)
 
-const typeColors: Record<number, string> = {
-  1: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200',
-  2: 'bg-purple-50 text-purple-700 ring-1 ring-purple-200',
-  3: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',
-}
-
 const notificationTypes = [
   { label: '全部', value: undefined },
   { label: '未读', value: 0 },
-  { label: '面试邀请', value: 1 },
-  { label: 'Offer通知', value: 2 },
-  { label: '投递状态变更', value: 3 },
 ]
 
 async function load() {
@@ -65,6 +56,7 @@ const { data: notificationsData, pending: isLoading, refresh: refreshNotificatio
 const list = computed<NotificationItem[]>(() => notificationsData.value?.data || [])
 const total = computed(() => notificationsData.value?.total || 0)
 const lastPage = computed(() => notificationsData.value?.last_page || 1)
+const unreadCount = computed(() => filterRead.value === 0 ? total.value : list.value.filter(item => !item.is_read).length)
 
 watch(notificationsData, (value) => {
   if (value?.current_page)
@@ -189,102 +181,129 @@ const pageNumbers = computed(() => {
   return pages
 })
 
+function formatDate(value?: string | null) {
+  if (!value)
+    return ''
+
+  return value.split(' ')[0] || value
+}
+
+function getNotificationTone(item: NotificationItem) {
+  if (item.type === 1)
+    return 'is-interview'
+  if (item.type === 2)
+    return 'is-offer'
+  if (item.type === 3)
+    return 'is-application'
+
+  return 'is-system'
+}
+
+function getNotificationBody(item: NotificationItem) {
+  return item.body || '暂无通知内容'
+}
+
 </script>
 
 <template>
-  <div class="mx-auto max-w-5xl w-full px-5 py-10 lg:px-8 lg:py-12">
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-[24px] text-[#24180c] font-bold">
-          通知中心
-        </h1>
-        <p class="mt-2 text-[14px] text-[#6f6556]">
-          查看系统通知。
-        </p>
-      </div>
-      <button class="cursor-pointer rounded-full bg-slate-950 px-5 py-2 text-[13px] text-white transition hover:bg-slate-800" @click="handleMarkAllRead">
-        全部标为已读
-      </button>
-    </div>
+  <main class="notifications-page">
+    <section class="notifications-shell">
+      <div class="notification-toolbar">
+        <div class="toolbar-title-row">
+          <h1>通知中心</h1>
+          <button type="button" class="mark-all-button" @click="handleMarkAllRead">
+            <span class="i-carbon-clean" />
+            全部标记已读
+          </button>
+        </div>
 
-    <div class="mt-4 flex flex-wrap gap-2">
-      <button
-        v-for="opt in notificationTypes" :key="String(opt.value)"
-        class="cursor-pointer border rounded-full px-4 py-1.5 text-[13px] transition"
-        :class="filterRead === opt.value ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-400'"
-        @click="handleFilterChange(opt.value)"
-      >
-        {{ opt.label }}
-      </button>
-    </div>
-
-    <div v-if="isLoading" class="mt-6 rounded-[20px] bg-white px-6 py-16 text-center text-[14px] text-slate-500 shadow-[0_8px_24px_rgba(148,92,0,0.06)]">
-      加载中...
-    </div>
-    <div v-else-if="list.length === 0" class="mt-6 rounded-[20px] bg-white px-6 py-16 text-center text-[14px] text-slate-500 shadow-[0_8px_24px_rgba(148,92,0,0.06)]">
-      暂无通知。
-    </div>
-    <div v-else class="mt-6 space-y-3">
-      <div
-        v-for="item in list" :key="item.id"
-        class="cursor-pointer border rounded-[16px] px-5 py-4 transition hover:border-amber-200"
-        :class="item.is_read ? 'border-slate-100 bg-white' : 'border-amber-100 bg-amber-50/40'"
-        @click="handleClick(item)"
-      >
-        <div class="flex items-start justify-between gap-4">
-          <div class="min-w-0 flex-1">
-            <div class="flex items-center gap-2">
-              <span class="text-[15px] font-medium" :class="item.is_read ? 'text-slate-700' : 'text-slate-900'">{{ item.title }}</span>
-              <span class="rounded-full px-2.5 py-0.5 text-[11px]" :class="typeColors[item.type] || 'bg-slate-100 text-slate-600'">{{ item.type_label }}</span>
-              <span v-if="!item.is_read" class="h-2 w-2 rounded-full bg-red-500" />
-            </div>
-            <p class="mt-1.5 text-[13px] text-slate-500 leading-6">
-              {{ item.body }}
-            </p>
-            <p class="mt-1.5 text-[11px] text-slate-400">
-              {{ item.happened_at ? new Date(item.happened_at).toLocaleString('zh-CN') : '' }}
-            </p>
-          </div>
+        <div class="filter-tabs">
+          <button
+            v-for="opt in notificationTypes"
+            :key="String(opt.value)"
+            type="button"
+            class="filter-tab"
+            :class="{ 'is-active': filterRead === opt.value }"
+            @click="handleFilterChange(opt.value)"
+          >
+            {{ opt.label }}<span v-if="opt.value === 0">({{ unreadCount }})</span>
+          </button>
         </div>
       </div>
-    </div>
 
-    <div v-if="lastPage > 1 && !isLoading" class="mt-6 flex items-center justify-center gap-2">
-      <button class="rounded-full bg-white px-3 py-1.5 text-[12px] text-slate-600 ring-1 ring-slate-200 disabled:opacity-40" :disabled="currentPage <= 1" @click="goToPage(currentPage - 1)">
-        上一页
-      </button>
-      <button
-        v-for="p in pageNumbers" :key="p" class="rounded-full px-3 py-1.5 text-[12px] ring-1 transition"
-        :class="p === currentPage ? 'bg-slate-950 text-white ring-slate-950' : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-50'"
-        @click="goToPage(p)"
-      >
-        {{ p }}
-      </button>
-      <button class="rounded-full bg-white px-3 py-1.5 text-[12px] text-slate-600 ring-1 ring-slate-200 disabled:opacity-40" :disabled="currentPage >= lastPage" @click="goToPage(currentPage + 1)">
-        下一页
-      </button>
-    </div>
-  </div>
+      <div v-if="isLoading" class="state-card">
+        加载中...
+      </div>
+      <div v-else-if="list.length === 0" class="state-card">
+        暂无通知
+      </div>
+      <div v-else class="notification-list">
+        <article
+          v-for="item in list"
+          :key="item.id"
+          class="notification-card"
+          :class="{ 'is-unread': !item.is_read }"
+          @click="handleClick(item)"
+        >
+          <div class="notification-icon" :class="getNotificationTone(item)">
+            <span v-if="item.type === 2" class="i-carbon-badge" />
+            <span v-else-if="item.type === 3" class="i-carbon-headset" />
+            <span v-else class="i-carbon-email" />
+            <i v-if="!item.is_read" />
+          </div>
+          <div class="notification-content">
+            <div class="notification-title-row">
+              <h2>{{ item.title || item.type_label || '系统通知' }}</h2>
+              <time>{{ formatDate(item.happened_at || item.created_at) }}</time>
+            </div>
+            <p>{{ getNotificationBody(item) }}</p>
+          </div>
+        </article>
+      </div>
+
+      <div v-if="lastPage > 1 && !isLoading" class="pager-row">
+        <button type="button" class="pager-arrow" :disabled="currentPage <= 1" @click="goToPage(currentPage - 1)">
+          <span class="i-carbon-chevron-left" />
+        </button>
+        <button
+          v-for="p in pageNumbers"
+          :key="p"
+          type="button"
+          class="pager-page"
+          :class="{ 'is-active': p === currentPage }"
+          @click="goToPage(p)"
+        >
+          {{ p }}
+        </button>
+        <button type="button" class="pager-arrow" :disabled="currentPage >= lastPage" @click="goToPage(currentPage + 1)">
+          <span class="i-carbon-chevron-right" />
+        </button>
+        <span class="pager-jump-label">跳转</span>
+        <input class="pager-input" :value="currentPage" type="number" min="1" :max="lastPage" @change="goToPage(Number(($event.target as HTMLInputElement).value))">
+        <span class="pager-unit">页</span>
+      </div>
+    </section>
+  </main>
 
   <Teleport to="body">
-    <div v-if="showNotifyDetail && currentNotify" class="fixed inset-0 z-50 flex items-center justify-center bg-[#24180c]/40 px-4" @click.self="showNotifyDetail = false">
-      <div class="max-w-[460px] w-full rounded-[24px] bg-white p-6 shadow-[0_24px_64px_rgba(15,23,42,0.12)]">
-        <div class="flex items-center justify-between">
-          <h3 class="text-[18px] text-slate-900 font-semibold">
+    <div v-if="showNotifyDetail && currentNotify" class="notify-modal-mask" @click.self="showNotifyDetail = false">
+      <div class="notify-modal">
+        <div class="notify-modal-head">
+          <h3>
             {{ currentNotify.type === 2 ? 'Offer 通知' : '面试邀请' }}
           </h3>
-          <button class="h-8 w-8 flex cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-[18px] text-slate-400 hover:bg-slate-100" @click="showNotifyDetail = false">
+          <button type="button" @click="showNotifyDetail = false">
             <span class="i-carbon-close" />
           </button>
         </div>
-        <div class="mt-4 text-[14px] text-slate-600 leading-7">
+        <div class="notify-modal-body">
           <p>{{ currentNotify.body }}</p>
         </div>
 
         <!-- 面试邀请详情 -->
         <template v-if="currentNotify.type === 1">
-          <div v-if="(currentNotify.payload as any)?._detail?.pending_interview_invitation" class="mt-4 rounded-[12px] bg-blue-50 px-4 py-4 ring-1 ring-blue-200">
-            <div class="text-[13px] text-blue-700 space-y-1.5">
+          <div v-if="(currentNotify.payload as any)?._detail?.pending_interview_invitation" class="notify-detail-panel is-interview">
+            <div class="notify-detail-lines">
               <div class="flex items-center gap-2">
                 <span class="i-carbon-time text-[14px]" /> {{ new Date((currentNotify.payload as any)._detail.pending_interview_invitation.interview_at).toLocaleString('zh-CN') }}
                 <span v-if="(currentNotify.payload as any)._detail.pending_interview_invitation.duration_mins">（约{{ (currentNotify.payload as any)._detail.pending_interview_invitation.duration_mins }}分钟）</span>
@@ -306,11 +325,11 @@ const pageNumbers = computed(() => {
               </div>
             </div>
           </div>
-          <div class="mt-6 flex gap-3">
-            <button class="flex-1 cursor-pointer border border-red-300 rounded-[14px] bg-white px-4 py-2.5 text-[14px] text-red-600 transition hover:bg-red-50 disabled:opacity-50" :disabled="isOperating" @click="handleRejectFromNotify">
+          <div class="notify-action-row">
+            <button class="notify-action-button is-ghost" :disabled="isOperating" @click="handleRejectFromNotify">
               {{ isOperating ? '处理中...' : '拒绝' }}
             </button>
-            <button class="flex-1 cursor-pointer rounded-[14px] border-none bg-emerald-600 px-4 py-2.5 text-[14px] text-white transition hover:bg-emerald-700 disabled:opacity-50" :disabled="isOperating" @click="handleAcceptFromNotify">
+            <button class="notify-action-button is-primary" :disabled="isOperating" @click="handleAcceptFromNotify">
               {{ isOperating ? '处理中...' : '接受' }}
             </button>
           </div>
@@ -318,8 +337,8 @@ const pageNumbers = computed(() => {
 
         <!-- Offer 通知详情 -->
         <template v-if="currentNotify.type === 2">
-          <div v-if="(currentNotify.payload as any)?._detail?.offer" class="mt-4 rounded-[12px] bg-orange-50 px-4 py-4 ring-1 ring-orange-200 space-y-3">
-            <div class="text-[13px] text-orange-800 space-y-2">
+          <div v-if="(currentNotify.payload as any)?._detail?.offer" class="notify-detail-panel is-offer">
+            <div class="notify-detail-lines">
               <div class="flex items-center gap-2">
                 <span class="i-carbon-baggage-claim text-[14px]" /> {{ (currentNotify.payload as any)._detail.job?.title || '未知职位' }}
                 <span class="text-orange-600">·</span>
@@ -351,11 +370,11 @@ const pageNumbers = computed(() => {
               </div>
             </div>
           </div>
-          <div class="mt-6 flex gap-3">
-            <button class="flex-1 cursor-pointer border border-red-300 rounded-[14px] bg-white px-4 py-2.5 text-[14px] text-red-600 transition hover:bg-red-50 disabled:opacity-50" :disabled="isOperating" @click="handleRejectOfferFromNotify">
+          <div class="notify-action-row">
+            <button class="notify-action-button is-ghost" :disabled="isOperating" @click="handleRejectOfferFromNotify">
               {{ isOperating ? '处理中...' : '拒绝 Offer' }}
             </button>
-            <button class="flex-1 cursor-pointer rounded-[14px] border-none bg-emerald-600 px-4 py-2.5 text-[14px] text-white transition hover:bg-emerald-700 disabled:opacity-50" :disabled="isOperating" @click="handleAcceptOfferFromNotify">
+            <button class="notify-action-button is-primary" :disabled="isOperating" @click="handleAcceptOfferFromNotify">
               {{ isOperating ? '处理中...' : '确认录用' }}
             </button>
           </div>
@@ -364,3 +383,421 @@ const pageNumbers = computed(() => {
     </div>
   </Teleport>
 </template>
+
+<style scoped>
+.notifications-page {
+  min-height: 100vh;
+  padding: 16px 0 34px;
+  background: #f1f3f8;
+  color: #222;
+}
+
+.notifications-shell {
+  width: 1200px;
+  max-width: calc(100vw - 32px);
+  margin: 0 auto;
+}
+
+.notification-toolbar {
+  min-height: 97px;
+  padding: 18px 24px 12px;
+  border-radius: 7px;
+  background: #fff;
+}
+
+.toolbar-title-row {
+  display: flex;
+  align-items: center;
+  gap: 36px;
+}
+
+.toolbar-title-row h1 {
+  margin: 0;
+  color: #222;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.mark-all-button {
+  display: inline-flex;
+  height: 24px;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #888;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.mark-all-button:hover {
+  color: #ff9700;
+}
+
+.filter-tabs {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 17px;
+}
+
+.filter-tab {
+  position: relative;
+  min-width: 68px;
+  height: 32px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 3px;
+  background: #f4f5f8;
+  color: #555;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.filter-tab.is-active {
+  background: #fff3df;
+  color: #ff9700;
+}
+
+.filter-tab span {
+  margin-left: 2px;
+}
+
+.filter-tab span::after {
+  position: absolute;
+  top: 3px;
+  right: -3px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #f25d6b;
+  content: '';
+}
+
+.notification-list {
+  display: grid;
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.notification-card {
+  display: grid;
+  min-height: 88px;
+  align-items: center;
+  padding: 17px 17px 17px 26px;
+  border-radius: 7px;
+  background: #fff;
+  cursor: pointer;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 14px;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.notification-card:hover {
+  box-shadow: 0 8px 22px rgba(43, 64, 94, 0.08);
+  transform: translateY(-1px);
+}
+
+.notification-icon {
+  position: relative;
+  display: flex;
+  width: 56px;
+  height: 56px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 34px;
+}
+
+.notification-icon.is-system,
+.notification-icon.is-interview {
+  background: linear-gradient(135deg, #ff826f 0%, #ffad00 100%);
+}
+
+.notification-icon.is-offer {
+  background: linear-gradient(135deg, #b06bff 0%, #766dff 100%);
+}
+
+.notification-icon.is-application {
+  background: linear-gradient(135deg, #2fa8ff 0%, #7f87ff 100%);
+}
+
+.notification-icon i {
+  position: absolute;
+  top: 1px;
+  right: 3px;
+  width: 8px;
+  height: 8px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #f25d6b;
+}
+
+.notification-content {
+  min-width: 0;
+}
+
+.notification-title-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.notification-title-row h2 {
+  overflow: hidden;
+  margin: 0;
+  color: #222;
+  font-size: 15px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notification-title-row time {
+  flex: 0 0 auto;
+  color: #999;
+  font-size: 14px;
+}
+
+.notification-content p {
+  overflow: hidden;
+  margin: 12px 0 0;
+  color: #555;
+  font-size: 14px;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.state-card {
+  margin-top: 14px;
+  padding: 54px 24px;
+  border-radius: 7px;
+  background: #fff;
+  color: #999;
+  font-size: 14px;
+  text-align: center;
+}
+
+.pager-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+  color: #666;
+  font-size: 13px;
+}
+
+.pager-arrow,
+.pager-page {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #d7dbe3;
+  background: #fff;
+  color: #666;
+  cursor: pointer;
+}
+
+.pager-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pager-arrow:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.pager-page.is-active {
+  border-color: #ff9700;
+  background: #ff9700;
+  color: #fff;
+}
+
+.pager-jump-label {
+  margin-left: 12px;
+}
+
+.pager-input {
+  width: 48px;
+  height: 32px;
+  border: 1px solid #d7dbe3;
+  background: #fff;
+  color: #666;
+  font-size: 13px;
+  text-align: center;
+  outline: none;
+}
+
+.pager-input:focus {
+  border-color: #ff9700;
+}
+
+.notify-modal-mask {
+  position: fixed;
+  z-index: 50;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(34, 34, 34, 0.42);
+}
+
+.notify-modal {
+  width: 460px;
+  max-width: 100%;
+  padding: 22px 24px 24px;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.18);
+}
+
+.notify-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.notify-modal-head h3 {
+  margin: 0;
+  color: #222;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.notify-modal-head button {
+  display: flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #999;
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.notify-modal-head button:hover {
+  background: #f4f5f8;
+  color: #ff9700;
+}
+
+.notify-modal-body {
+  margin-top: 14px;
+  color: #555;
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.notify-modal-body p {
+  margin: 0;
+}
+
+.notify-detail-panel {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 7px;
+}
+
+.notify-detail-panel.is-interview {
+  background: #eef6ff;
+  color: #2466a8;
+}
+
+.notify-detail-panel.is-offer {
+  background: #fff5e7;
+  color: #a66415;
+}
+
+.notify-detail-lines {
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.notify-action-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.notify-action-button {
+  flex: 1;
+  height: 38px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.notify-action-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.notify-action-button.is-ghost {
+  border: 1px solid #ffb1b1;
+  background: #fff;
+  color: #f05a5a;
+}
+
+.notify-action-button.is-primary {
+  border: 0;
+  background: #ff9700;
+  color: #fff;
+}
+
+@media (max-width: 720px) {
+  .notifications-page {
+    padding-top: 10px;
+  }
+
+  .notification-toolbar {
+    padding: 16px;
+  }
+
+  .toolbar-title-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .notification-card {
+    align-items: flex-start;
+    grid-template-columns: 48px minmax(0, 1fr);
+    padding: 16px;
+  }
+
+  .notification-icon {
+    width: 48px;
+    height: 48px;
+    font-size: 28px;
+  }
+
+  .notification-title-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .notification-content p {
+    display: -webkit-box;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .pager-row {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+}
+</style>
