@@ -82,6 +82,7 @@ export default defineNuxtConfig({
         '/announcements',
         '/assessment',
         '/campus',
+        '/career-space',
         '/city-stations',
         '/companies',
         '/discovery/jobs',

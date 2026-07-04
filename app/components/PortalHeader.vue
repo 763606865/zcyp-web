@@ -8,6 +8,8 @@ const props = defineProps<{
   activeNav?: string
   activeCity?: string
   hideSearchRow?: boolean
+  searchPlaceholder?: string
+  searchPath?: string
 }>()
 
 const router = useRouter()
@@ -43,7 +45,8 @@ function handleGoCitySelect() {
 
 function handleSearch() {
   const kw = searchKeyword.value.trim()
-  router.push(kw ? `/jobs?keyword=${encodeURIComponent(kw)}` : '/jobs')
+  const path = props.searchPath || '/jobs'
+  router.push(kw ? `${path}?keyword=${encodeURIComponent(kw)}` : path)
 }
 
 function toggleIdentityDropdown() {
@@ -138,7 +141,7 @@ onBeforeUnmount(() => {
                 >
                   <span>{{ item.label }}</span>
                   <span v-if="userStore.currentIdentity === item.code" class="i-carbon-checkmark text-[14px]" />
-                  <span v-else-if="switchingIdentityCode === item.code" class="i-carbon-loop animate-spin text-[14px]" />
+                  <span v-else-if="switchingIdentityCode === item.code" class="i-carbon-loop text-[14px] animate-spin" />
                 </button>
               </div>
             </div>
@@ -176,7 +179,7 @@ onBeforeUnmount(() => {
           <input
             v-model="searchKeyword"
             type="text"
-            placeholder="请输入公司/职位"
+            :placeholder="props.searchPlaceholder || '请输入公司/职位'"
             @keyup.enter="handleSearch"
           >
           <button type="button" @click="handleSearch">
