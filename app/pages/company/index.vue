@@ -143,7 +143,7 @@ function clearFilters() {
           </div>
         </div>
 
-        <div class="company-filter-row">
+        <div class="company-filter-row is-extra">
           <strong>融资阶段</strong>
           <div class="company-filter-options">
             <button
@@ -156,9 +156,13 @@ function clearFilters() {
               {{ item }}
             </button>
           </div>
+          <button type="button" class="company-filter-clear" @click="clearFilters">
+            <span class="i-carbon-trash-can" />
+            清空筛选条件
+          </button>
         </div>
 
-        <div class="company-filter-row is-extra">
+        <!-- <div class="company-filter-row is-extra">
           <strong>其他筛选</strong>
           <div class="company-filter-options">
             <button v-for="item in extraFilters" :key="item" type="button" class="is-dropdown">
@@ -166,11 +170,7 @@ function clearFilters() {
               <span class="i-carbon-chevron-down" />
             </button>
           </div>
-          <button type="button" class="company-filter-clear" @click="clearFilters">
-            <span class="i-carbon-trash-can" />
-            清空筛选条件
-          </button>
-        </div>
+        </div> -->
       </section>
 
       <section class="company-card-grid" aria-label="名企推荐列表">
@@ -243,7 +243,7 @@ function clearFilters() {
   border-radius: 6px;
   background: rgba(255, 255, 255, 1);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  padding: 28px 32px 26px;
+  padding: 26px 24px 26px 31px;
 }
 
 .company-filter-row {
@@ -251,7 +251,12 @@ function clearFilters() {
   grid-template-columns: 88px minmax(0, 1fr);
   align-items: start;
   gap: 0;
-  min-height: 48px;
+  min-height: 32px;
+  margin-bottom: 16px;
+}
+
+.company-filter-row:last-child {
+  margin-bottom: 0;
 }
 
 .company-filter-row strong {
@@ -271,7 +276,7 @@ function clearFilters() {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px 19px;
+  gap: 8px;
 }
 
 .company-filter-options button,
@@ -293,6 +298,7 @@ function clearFilters() {
   height: 32px;
   border-radius: 18px;
   padding: 0 12px;
+  border: 1px solid transparent;
 }
 
 .company-filter-options button.is-active {
@@ -315,15 +321,15 @@ function clearFilters() {
 
 .company-filter-clear {
   align-self: center;
-  gap: 5px;
+  gap: 6px;
   color: rgba(85, 85, 85, 1);
 }
 
 .company-card-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px 14px;
-  margin-top: 22px;
+  gap: 16px;
+  margin-top: 16px;
 }
 
 .company-card {
@@ -348,7 +354,7 @@ function clearFilters() {
 }
 
 .company-card-body {
-  padding: 18px 24px 19px;
+  padding: 19px 24px 21px;
 }
 
 .company-card-topline {
@@ -422,11 +428,12 @@ function clearFilters() {
 
 .company-title-block h2 {
   overflow: hidden;
-  margin: 4px 0 14px;
+  margin: 2px 0 12px;
   color: rgba(34, 34, 34, 1);
   font-size: 16px;
   font-weight: 600;
-  line-height: 1;
+  /* line-height: 1; */
+  height: 22px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -435,7 +442,8 @@ function clearFilters() {
   margin: 0;
   color: rgba(102, 102, 102, 1);
   font-size: 14px;
-  line-height: 1;
+  /* line-height: 1; */
+  height: 20px;
 }
 
 .company-city {
@@ -457,7 +465,7 @@ function clearFilters() {
   display: -webkit-box;
   overflow: hidden;
   min-height: 46px;
-  margin: 20px 0 0;
+  margin: 17px 0 0;
   color: rgba(85, 85, 85, 1);
   font-size: 14px;
   line-height: 1.55;
@@ -469,16 +477,16 @@ function clearFilters() {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 18px;
+  margin-top: 19px;
 }
 
 .company-tags span {
-  border-radius: 3px;
+  border-radius: 4px;
   background: rgba(245, 246, 250, 1);
-  padding: 5px 9px;
+  padding: 4px 8px 3px;
   color: rgba(102, 102, 102, 1);
   font-size: 12px;
-  line-height: 1;
+  /* line-height: 1; */
 }
 
 .company-card-footer {
@@ -486,7 +494,7 @@ function clearFilters() {
   align-items: center;
   justify-content: space-between;
   align-self: end;
-  min-height: 54px;
+  min-height: 53px;
   background: rgba(248, 248, 248, 1);
   padding: 0 24px;
 }
