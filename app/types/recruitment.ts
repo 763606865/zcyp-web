@@ -1,3 +1,5 @@
+import type { CompanyProfile } from './company'
+
 export interface JobSummary {
   id: string
   title: string
@@ -254,6 +256,7 @@ export interface CmsHomeRecommendationJob {
   company: {
     id: number
     name: string
+    profile?: CompanyProfile | null
   }
   position: {
     id: number
@@ -284,6 +287,9 @@ export interface CmsHomeRecommendation {
     display_name?: string | null
     logo?: string | null
     industry?: string | null
+    city_name?: string | null
+    address?: string | null
+    profile?: CompanyProfile | null
   } | null
 }
 

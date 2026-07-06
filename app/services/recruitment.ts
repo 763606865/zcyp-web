@@ -48,6 +48,10 @@ interface CmsHomePositionsPayload {
   positions: RcPositionNode[]
 }
 
+interface CmsHomeRecommendationsPayload {
+  data: CmsHomeRecommendation[]
+}
+
 async function withMockFallback<T>(request: () => Promise<T>, fallback: T) {
   if (appEnv.useMock)
     return fallback
@@ -123,6 +127,22 @@ export async function getHomeAnnouncementsPageData(cityCode?: string, authorizat
       }
     },
     mockHomeAnnouncementsPageData,
+  )
+}
+
+export async function getHomeRecommendations(params?: { city_code?: string, module_type?: number, per_page?: number }, authorization?: string) {
+  return withMockFallback<CmsHomeRecommendation[]>(
+    async () => {
+      const authHeader = resolveAuthorizationHeader(authorization)
+      const response = await getJson<ApiResponse<CmsHomeRecommendationsPayload>>('/cms/home/recommendations', {
+        city_code: params?.city_code,
+        module_type: params?.module_type,
+        per_page: params?.per_page,
+      }, authHeader ? { Authorization: authHeader } : undefined)
+
+      return response.data?.data || []
+    },
+    [],
   )
 }
 

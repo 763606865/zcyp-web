@@ -288,6 +288,83 @@ export async function getInviteActivityDetail(inviteCode: string, authorization?
   return response.data
 }
 
+export interface CmsArticleCategory {
+  id: number
+  name: string
+  slug: string
+}
+
+export interface CmsArticleItem {
+  id: number
+  category_id: number | null
+  city_code: string | null
+  school_code: string | null
+  school_name: string | null
+  title: string
+  sub_title: string | null
+  slug: string | null
+  cover: string | null
+  display_cover: string | null
+  summary: string | null
+  author: string | null
+  source_name: string | null
+  is_top: boolean
+  is_recommend: boolean
+  published_at: string | null
+  view_count: number
+  category: CmsArticleCategory | null
+}
+
+export interface CmsArticleDetail extends CmsArticleItem {
+  source_url: string | null
+  content: string | null
+  content_type: number
+  content_type_label: string
+  seo_keywords: string | null
+  seo_description: string | null
+  tags: { id: number, name: string, slug?: string }[]
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface CmsArticleListParams {
+  city_code?: string
+  school_code?: string
+  category_id?: number
+  category_slug?: string
+  keyword?: string
+  is_recommend?: boolean
+  tag_ids?: string | number[]
+  tags_match?: 'all' | 'any'
+  page?: number
+  per_page?: number
+}
+
+export async function getCmsArticleList(params?: CmsArticleListParams) {
+  const q: Record<string, any> = { ...params }
+  if (Array.isArray(q.tag_ids))
+    q.tag_ids = q.tag_ids.join(',')
+
+  const response = await getJson<ApiResponse<{
+    data: CmsArticleItem[]
+    current_page: number
+    last_page?: number
+    per_page?: number
+    total: number
+  }>>('/cms/articles', q)
+
+  return response.data
+}
+
+export async function getCmsArticleDetail(id: number | string, params?: { city_code?: string }) {
+  const response = await getJson<ApiResponse<CmsArticleDetail>>(
+    `/cms/articles/${id}`,
+    params,
+  )
+
+  return response.data
+}
+
 export interface SubmitCompanyPayload {
   name: string
   credit_code: string

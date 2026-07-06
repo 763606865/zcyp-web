@@ -136,7 +136,7 @@ function formatHotJobRegion(item: any) {
 }
 
 function resolveFamousCompanyTo(item: any) {
-  return isRealCompanyData() && item.company?.id ? `/company/${item.company.id}` : '/companies'
+  return isRealCompanyData() && item.company?.id ? `/company/${item.company.id}` : '/company'
 }
 
 function isRealUrgentData() {
@@ -380,7 +380,7 @@ onBeforeUnmount(() => {
         <h2 class="home-section-title is-company">
           名企招聘
         </h2>
-        <NuxtLink to="/companies">
+        <NuxtLink to="/company">
           更多招聘
         </NuxtLink>
       </div>

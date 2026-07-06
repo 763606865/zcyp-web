@@ -1,7 +1,7 @@
 <script setup lang="ts">
 definePageMeta({
   layout: 'home',
-  activeNav: '招聘公告',
+  activeNav: '站点公告',
 })
 
 import type { CmsAdItem, HomeAnnouncementsPageData } from '~/types/recruitment'

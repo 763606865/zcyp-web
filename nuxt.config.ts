@@ -84,7 +84,7 @@ export default defineNuxtConfig({
         '/campus',
         '/career-space',
         '/city-stations',
-        '/companies',
+        '/company',
         '/discovery/jobs',
         '/jobs',
       ],

@@ -1,5 +1,5 @@
 import type { HomePageData } from '~/types/recruitment'
-import { mockCompanies, mockJobs, mockPositionTree } from '~/mock/recruitment'
+import { mockCompanies, mockJobs } from '~/mock/recruitment'
 
 export const fallbackHomeData: HomePageData = {
   heroTitle: '',
@@ -36,7 +36,7 @@ export const fallbackCategoryChildren = [
 
 export const fallbackBannerSlides = [
   { id: 'banner-1', title: '百日招聘', image: '', linkUrl: '/jobs', target: 0 },
-  { id: 'banner-2', title: '广纳人才 服务就业', image: '', linkUrl: '/companies', target: 0 },
+  { id: 'banner-2', title: '广纳人才 服务就业', image: '', linkUrl: '/company', target: 0 },
   { id: 'banner-3', title: '美的校招之旅', image: '', linkUrl: '/campus', target: 0 },
 ]
 
