@@ -21,9 +21,18 @@ export interface CompanyHighlight {
   industry: string
 }
 
-export interface CompanyDirectoryItem extends CompanyHighlight {
-  city: string
-  tags: string[]
+export interface CompanyDirectoryItem {
+  id: string
+  name: string
+  city_name: string
+  profile: {
+    display_logo: string
+    introduction: string
+    funding_stage_label: string
+    scale_type_label: string
+    nature_type_label: string
+    jobs_count: number
+  }
 }
 
 export interface NoticeSummary {

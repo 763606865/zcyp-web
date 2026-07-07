@@ -1,4 +1,18 @@
-import type { AnnouncementDetail, AnnouncementsPageData, CmsAdSlot, CmsBannerPosition, CmsBannerPositionSource, CmsFriendLink, CmsHomeRecommendation, CmsMenuItem, CmsSiteConfig, HomeAnnouncementsPageData, HomePageData, RcPositionNode } from '~/types/recruitment'
+import type {
+  AnnouncementDetail,
+  AnnouncementsPageData,
+  CmsAdSlot,
+  CmsBannerPosition,
+  CmsBannerPositionSource,
+  CmsFriendLink,
+  CmsHomeRecommendation,
+  CmsMenuItem,
+  CmsSiteConfig,
+  CompanyDirectoryItem,
+  HomeAnnouncementsPageData,
+  HomePageData,
+  RcPositionNode,
+} from '~/types/recruitment'
 import { appEnv } from '~/config/env'
 import { mockAnnouncementDetail, mockAnnouncementsPageData, mockCompanies, mockHomeAnnouncementsPageData, mockHomePageData, mockJobs, mockNotices, mockPositionTree } from '~/mock/recruitment'
 import { getJson } from './http'
@@ -184,8 +198,17 @@ export async function getAnnouncementDetail(id: string | number, provinceCode?: 
   )
 }
 
-export async function getCompanyList() {
-  return mockCompanies
+export async function getCompanyList(params?: { per_page?: number, page?: number }): Promise<{ data: CompanyDirectoryItem[], total: number }> {
+  return withMockFallback<{ data: CompanyDirectoryItem[], total: number }>(
+    async () => {
+      const response = await getJson<ApiResponse<{ data: CompanyDirectoryItem[], total: number }>>(
+        '/rc/talent/companies/recommend',
+        params as Record<string, string | number | undefined>,
+      )
+      return response.data || { data: [], total: 0 }
+    },
+    { data: [], total: 0 },
+  )
 }
 
 export async function getHomePositions(authorization?: string) {

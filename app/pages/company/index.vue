@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { CompanyDirectoryItem } from '~/types/recruitment'
-import { mockCompanies } from '~/mock/recruitment'
 import { getCompanyList } from '~/services/recruitment'
 
 definePageMeta({
@@ -11,16 +10,14 @@ definePageMeta({
 })
 
 interface CompanyCardView {
-  instanceId: string
   id: string
   name: string
   industry: string
   city: string
-  slogan: string
-  hiringCount: number
+  introduction: string
+  jobsCount: number
   tags: string[]
-  logoText: string
-  logoClass: string
+  logo: string
   to: string
 }
 
@@ -29,76 +26,77 @@ const NUMERIC_ID_RE = /^\d+$/
 const cityFilters = ['全国', '北京', '上海', '广州', '深圳', '杭州', '重庆', '武汉', '郑州', '成都', '西安', '大连', '厦门', '南京', '苏州', '更多城市']
 const scaleFilters = ['不限', '20人以下', '20-99人', '100-499人', '500-999人', '1000-9999人', '10000人以上']
 const fundingFilters = ['不限', '未上市', '种子轮', '天使轮', 'A轮', 'B轮', 'C轮', 'D轮及以上', '以上市']
-const extraFilters = ['行业领域', '职位类别']
-const logoClasses = ['is-tencent', 'is-multicolor', 'is-red', 'is-cyan', 'is-blue', 'is-green', 'is-orange', 'is-sky', 'is-indigo']
-const companyTagGroups = [
-  ['已上市', '10000人以上', '互联网企业'],
-  ['已上市', '10000人以上', '互联网服务'],
-  ['已上市', '10000人以上', '企业服务'],
-  ['D轮及以上', '1000-9999人', '技术驱动'],
-  ['B轮', '500-999人', '互联网企业'],
-  ['已上市', '10000人以上', '平台产品'],
-  ['未上市', '100-499人', '数字服务'],
-  ['A轮', '100-499人', '云计算'],
-  ['已上市', '10000人以上', '互联网企业'],
-]
 
 const activeCity = ref('全国')
 const activeScale = ref('不限')
 const activeFunding = ref('不限')
-const activePage = ref(2)
+const activePage = ref(1)
 
 const { data: companies } = await useAsyncData(
-  'company-directory',
-  getCompanyList,
+  () => `company-directory-${activePage.value}-${activeCity.value}`,
+  () => getCompanyList({ per_page: 15, page: activePage.value }),
   {
     server: false,
-    default: () => mockCompanies as CompanyDirectoryItem[],
+    default: () => ({ data: [], total: 0 }),
   },
 )
 
+const totalPages = computed(() => {
+  const total = companies.value?.total || 0
+  return Math.max(1, Math.ceil(total / 15))
+})
+
+const companyList = computed(() => {
+  const list = companies.value?.data
+  return list?.length ? list : []
+})
+
 const filteredCompanies = computed(() => {
-  const source = companies.value.length ? companies.value : mockCompanies
+  const source = companyList.value
   if (activeCity.value === '全国' || activeCity.value === '更多城市')
     return source
 
-  return source.filter(company => company.city === activeCity.value)
+  return source.filter(company => company.city_name === activeCity.value)
 })
 
 const companyCards = computed<CompanyCardView[]>(() => {
-  const source = filteredCompanies.value.length ? filteredCompanies.value : (companies.value.length ? companies.value : mockCompanies)
-  if (!source.length)
-    return []
-
-  return Array.from({ length: 9 }, (_, index) => mapCompanyCard(source[index % source.length]!, index))
+  return filteredCompanies.value.map(company => mapCompanyCard(company))
 })
 
-function mapCompanyCard(company: CompanyDirectoryItem, index: number): CompanyCardView {
+function mapCompanyCard(company: CompanyDirectoryItem): CompanyCardView {
+  const { profile } = company
   return {
-    instanceId: `${company.id}-${index}`,
     id: company.id,
-    name: index === 3 ? `${company.name}${company.name}` : company.name,
-    industry: company.industry || '互联网服务',
-    city: company.city || '南昌',
-    slogan: company.slogan || '团建聚餐，带薪年假，全勤奖、晋升通道明确、不定时团建',
-    hiringCount: company.hiringCount || 32,
-    tags: companyTagGroups[index % companyTagGroups.length] || company.tags.slice(0, 3),
-    logoText: resolveLogoText(company.name, index),
-    logoClass: logoClasses[index % logoClasses.length] || 'is-blue',
+    name: company.name,
+    industry: '',
+    city: company.city_name,
+    introduction: profile?.introduction || '',
+    jobsCount: profile?.jobs_count || 0,
+    tags: [profile?.funding_stage_label, profile?.scale_type_label, profile?.nature_type_label].filter(Boolean),
+    logo: profile?.display_logo || '',
     to: resolveCompanyRoute(company.id),
   }
 }
 
-function resolveLogoText(name: string, index: number) {
-  if (index === 0)
-    return 'Tencent\n腾讯'
-  if (index === 2)
-    return 'G'
-  return name.slice(0, 2).toUpperCase()
-}
-
 function resolveCompanyRoute(id: string) {
   return NUMERIC_ID_RE.test(id) ? `/company/${id}` : '/company'
+}
+
+const paginationThemeOverrides = {
+  itemSizeMedium: '32px',
+  itemBorderRadius: '2px',
+  itemColor: 'rgba(255, 255, 255, 1)',
+  itemColorHover: 'rgba(255, 250, 240, 1)',
+  itemColorActive: 'rgba(255, 165, 0, 1)',
+  itemColorActiveHover: 'rgba(255, 165, 0, 1)',
+  itemTextColor: 'rgba(0, 0, 0, 0.65)',
+  itemTextColorActive: 'rgba(255, 255, 255, 1)',
+  itemBorder: '1px solid rgba(216, 219, 226, 1)',
+  itemBorderActive: '1px solid rgba(255, 165, 0, 1)',
+  itemBorderHover: '1px solid rgba(255, 165, 0, 0.5)',
+  buttonBorder: '1px solid rgba(216, 219, 226, 1)',
+  buttonBorderHover: '1px solid rgba(255, 165, 0, 0.5)',
+  itemMargin: '0 4px',
 }
 
 function clearFilters() {
@@ -174,11 +172,11 @@ function clearFilters() {
       </section>
 
       <section class="company-card-grid" aria-label="名企推荐列表">
-        <NuxtLink v-for="company in companyCards" :key="company.instanceId" :to="company.to" class="company-card">
+        <NuxtLink v-for="company in companyCards" :key="company.id" :to="company.to" class="company-card">
           <div class="company-card-body">
             <div class="company-card-topline">
-              <div class="company-logo" :class="company.logoClass">
-                {{ company.logoText }}
+              <div class="company-logo">
+                <img v-if="company.logo" :src="company.logo" :alt="company.name">
               </div>
               <div class="company-title-block">
                 <h2>{{ company.name }}</h2>
@@ -191,7 +189,7 @@ function clearFilters() {
             </div>
 
             <p class="company-slogan">
-              {{ company.slogan }}
+              {{ company.introduction }}
             </p>
 
             <div class="company-tags">
@@ -201,24 +199,26 @@ function clearFilters() {
 
           <div class="company-card-footer">
             <span>在招岗位</span>
-            <strong>{{ company.hiringCount }}</strong>
+            <strong>{{ company.jobsCount }}</strong>
           </div>
         </NuxtLink>
       </section>
 
       <nav class="company-pagination" aria-label="名企推荐分页">
-        <button type="button" aria-label="上一页">
-          <span class="i-carbon-chevron-left" />
-        </button>
-        <button v-for="page in 5" :key="page" type="button" :class="{ 'is-active': page === activePage }" @click="activePage = page">
-          {{ page }}
-        </button>
-        <button type="button" aria-label="下一页">
-          <span class="i-carbon-chevron-right" />
-        </button>
-        <span>跳转</span>
-        <input type="text" value="5" aria-label="跳转页码">
-        <span>页</span>
+        <NaiveClientPagination
+          :page="activePage"
+          :page-count="totalPages"
+          :theme-overrides="paginationThemeOverrides"
+          show-quick-jumper
+          @update:page="activePage = $event"
+        >
+          <template #goto>
+            跳转
+          </template>
+          <template #suffix>
+            页
+          </template>
+        </NaiveClientPagination>
       </nav>
     </main>
   </div>
@@ -370,14 +370,20 @@ function clearFilters() {
   height: 56px;
   place-items: center;
   overflow: hidden;
-  border-radius: 4px;
-  background: rgba(245, 247, 250, 1);
-  color: rgba(19, 103, 240, 1);
+  border-radius: 50%;
+  /* background: rgba(245, 247, 250, 1); */
+  /* color: rgba(19, 103, 240, 1); */
   font-size: 12px;
   font-weight: 800;
   line-height: 1.08;
   text-align: center;
   white-space: pre-line;
+}
+
+.company-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .company-logo.is-multicolor {
@@ -452,7 +458,8 @@ function clearFilters() {
   gap: 4px;
   color: rgba(0, 0, 0, 1);
   font-size: 14px;
-  line-height: 1;
+  /* line-height: 1; */
+  margin-top: 2px;
   white-space: nowrap;
 }
 
@@ -518,32 +525,14 @@ function clearFilters() {
   justify-content: flex-end;
   gap: 8px;
   margin-top: 16px;
-  color: rgba(102, 102, 102, 1);
-  font-size: 14px;
-}
 
-.company-pagination button,
-.company-pagination input {
-  width: 32px;
-  height: 32px;
-  border: 1px solid rgba(216, 219, 226, 1);
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 1);
-  color: rgba(85, 85, 85, 1);
-  text-align: center;
-}
-
-.company-pagination button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.company-pagination button.is-active {
-  border-color: rgba(255, 165, 0, 1);
-  background: rgba(255, 165, 0, 1);
-  color: rgba(255, 255, 255, 1);
+  :deep(.n-input) {
+    --n-border-radius: 2px !important;
+    --n-height: 32px !important;
+    --n-border: 1px solid rgba(216, 219, 226, 1) !important;
+    --n-border-hover: 1px solid rgba(255, 165, 0, 0.5) !important;
+    --n-border-focus: 1px solid rgba(255, 165, 0, 1) !important;
+  }
 }
 
 @media (max-width: 1023px) {
