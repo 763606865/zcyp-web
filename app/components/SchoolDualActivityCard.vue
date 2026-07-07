@@ -8,7 +8,7 @@ interface ActivityCard {
   channel: '线上' | '线下'
   date: string
   companies: number
-  applicants: number
+  jobs: number
   to: string
 }
 
@@ -22,10 +22,10 @@ defineProps<{
     <SchoolActivityCover :card="card" />
     <div class="card-body">
       <h3>{{ card.title }}</h3>
-      <p><span :class="['status', card.statusTone]">{{ card.status }}</span>{{ card.date }}</p>
+      <p><span class="status" :class="card.statusTone">{{ card.status }}</span>{{ card.date }}</p>
       <div class="card-meta">
         <span><i class="i-carbon-building" /> 招聘单位 <b>{{ card.companies }}</b>家</span>
-        <span><i class="i-carbon-group" /> 报名人数 <b>{{ card.applicants }}</b>人</span>
+        <span><i class="i-carbon-document" /> 职位数 <b>{{ card.jobs }}</b>个</span>
       </div>
     </div>
   </NuxtLink>

@@ -1,5 +1,5 @@
 import type { CmsTagCategory, CmsTagGroup, RcAreaNode } from '~/types/meta'
-import type { CmsAdItem } from '~/types/recruitment'
+import type { CmsAdItem, CmsBannerItem, CmsBannerPosition } from '~/types/recruitment'
 import { appEnv } from '~/config/env'
 import { getJson, postJson } from './http'
 
@@ -101,6 +101,7 @@ async function withMockFallback<T>(request: () => Promise<T>, fallback: T): Prom
 }
 
 type CmsAdsPayload = CmsAdItem[] | { data?: CmsAdItem[], ads?: CmsAdItem[] } | null
+type CmsBannersPayload = CmsBannerItem[] | CmsBannerPosition | { data?: CmsBannerItem[], banners?: CmsBannerItem[] } | null
 
 function normalizeCmsAdsPayload(payload: CmsAdsPayload) {
   if (Array.isArray(payload))
@@ -112,9 +113,38 @@ function normalizeCmsAdsPayload(payload: CmsAdsPayload) {
   return []
 }
 
+function normalizeCmsBannersPayload(payload: CmsBannersPayload) {
+  if (Array.isArray(payload))
+    return payload
+
+  if (payload && 'data' in payload && Array.isArray(payload.data))
+    return payload.data
+
+  if (payload && 'banners' in payload && Array.isArray(payload.banners))
+    return payload.banners
+
+  return []
+}
+
+export interface CmsHomeBannersQuery {
+  [key: string]: string | number | undefined
+  banner_position_code: string
+  city_code?: string
+}
+
 export async function getCmsAds(query: { code: string }) {
   const response = await getJson<ApiResponse<CmsAdsPayload>>('/cms/ads', query)
   return normalizeCmsAdsPayload(response.data)
+}
+
+export async function getCmsHomeBanners(query: CmsHomeBannersQuery): Promise<CmsBannerItem[]> {
+  return withMockFallback(
+    async () => {
+      const response = await getJson<ApiResponse<CmsBannersPayload>>('/cms/home/banners', query)
+      return normalizeCmsBannersPayload(response.data)
+    },
+    [] as CmsBannerItem[],
+  )
 }
 
 export function getCmsMeta(): Promise<CmsMetaPayload> {
@@ -167,6 +197,7 @@ export interface SchoolHomeActivityItem {
   end_time: string | null
   status: number
   status_label: string
+  business_status_label?: string | null
   company_applications_count: number
   jobs_count: number
   city_name?: string
@@ -189,8 +220,13 @@ export interface SchoolHomeData {
   }
 }
 
-export async function getSchoolHomeData(authorization?: string): Promise<SchoolHomeData> {
-  const response = await getJson<ApiResponse<SchoolHomeData>>('/cms/home/schools', undefined, authorization ? { Authorization: authorization } : undefined)
+export interface SchoolHomeDataQuery {
+  [key: string]: string | number | undefined
+  city_code?: string
+}
+
+export async function getSchoolHomeData(query?: SchoolHomeDataQuery, authorization?: string): Promise<SchoolHomeData> {
+  const response = await getJson<ApiResponse<SchoolHomeData>>('/cms/home/schools', query, authorization ? { Authorization: authorization } : undefined)
   return response.data
 }
 
@@ -215,8 +251,20 @@ export interface SchoolActivityListItem {
   organizer_name: string | null
   status: number
   status_label: string
+  business_status_label?: string | null
   is_hot: boolean
   sort: number
+  companies?: SchoolActivityCompanyItem[] | SchoolActivityCompanyItem | null
+  company_applications_count?: number
+  jobs_count?: number
+}
+
+export interface SchoolActivityCompanyItem {
+  id?: number | string
+  name?: string | null
+  display_name?: string | null
+  display_logo?: string | null
+  logo?: string | null
 }
 
 export interface SchoolActivityDetail extends SchoolActivityListItem {
@@ -241,6 +289,8 @@ export interface SchoolActivityListParams {
   organizer_type?: string
   organizer_types?: string[]
   is_hot?: boolean
+  start_time?: string
+  end_time?: string
   page?: number
   per_page?: number
 }

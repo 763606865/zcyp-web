@@ -19,6 +19,20 @@ interface CampusActivityCard {
   to: string
 }
 
+interface CampusPresentationCard {
+  id: string
+  title: string
+  image: string
+  statusLabel: string
+  statusTone: 'live' | 'running' | 'ended'
+  channelLabel: '线上' | '线下'
+  timeLabel: string
+  metaLabel: string
+  jobsLabel: string
+  primaryAction: string
+  to: string
+}
+
 interface CampusHeadlineItem {
   id: string
   title: string
@@ -71,6 +85,13 @@ const fallbackDualSelections: CampusActivityCard[] = [
   { id: 'fallback-dual-6', title: '西安交通大学2026届毕业生线上双选会', image: '', statusLabel: '进行中', dateLabel: '活动时间：2026-06-24至2026-07-28', to: '/school/activities' },
 ]
 
+const fallbackPresentations: CampusPresentationCard[] = [
+  createFallbackPresentation('fallback-presentation-1', '黄浦区总工会就业服务项目发布暨夏季专场招聘会', 'live', '线上', '2345人观看', '25'),
+  createFallbackPresentation('fallback-presentation-2', '黄浦区总工会就业服务项目发布暨夏季专场招聘会', 'running', '线上', '1.4万人预约', '125'),
+  createFallbackPresentation('fallback-presentation-3', '黄浦区总工会就业服务项目发布暨夏季专场招聘会', 'running', '线下', '1.4万人预约', '125'),
+  createFallbackPresentation('fallback-presentation-4', '黄浦区总工会就业服务项目发布暨夏季专场招聘会', 'ended', '线下', '1.4万人预约', '125'),
+]
+
 const fallbackHeadlines: CampusHeadlineItem[] = [
   { id: 'headline-1', title: '国家国防科技工业局安全工程技术与合作交流中心2026年公开招聘公告', to: '/announcements' },
   { id: 'headline-2', title: '国家国防科技工业局安全工程技术与合作交流中心招聘公告', to: '/announcements' },
@@ -120,7 +141,7 @@ const { data: homeData } = await useAsyncData(
   'school-home-data',
   async () => {
     try {
-      return await getSchoolHomeData(userStore.authHeader || undefined)
+      return await getSchoolHomeData({ city_code: recommendationCityCode.value }, userStore.authHeader || undefined)
     }
     catch {
       return emptyHomeData
@@ -128,6 +149,7 @@ const { data: homeData } = await useAsyncData(
   },
   {
     server: false,
+    watch: [recommendationCityCode],
     default: () => emptyHomeData,
   },
 )
@@ -216,6 +238,13 @@ const dualSelectionCards = computed(() => {
   return homeData.value.dual_selections.slice(0, 6).map(mapActivityCard)
 })
 
+const presentationCards = computed(() => {
+  if (!homeData.value.presentations.length)
+    return fallbackPresentations
+
+  return homeData.value.presentations.slice(0, 4).map(mapPresentationCard)
+})
+
 const headlineItems = computed<CampusHeadlineItem[]>(() => {
   const articles = campusHeadlineArticles.value?.data || []
   if (articles.length)
@@ -264,6 +293,70 @@ function mapActivityCard(item: SchoolHomeActivityItem): CampusActivityCard {
     dateLabel: formatActivityDate(item),
     to: `/school/activities/${item.id}`,
   }
+}
+
+function createFallbackPresentation(id: string, title: string, statusTone: CampusPresentationCard['statusTone'], channelLabel: CampusPresentationCard['channelLabel'], metaLabel: string, jobsLabel: string): CampusPresentationCard {
+  return {
+    id,
+    title,
+    image: '',
+    statusLabel: statusTone === 'ended' ? '观看回放' : statusTone === 'live' ? '正在直播' : '预约观看',
+    statusTone,
+    channelLabel,
+    timeLabel: '15:30开始',
+    metaLabel,
+    jobsLabel,
+    primaryAction: statusTone === 'ended' ? '观看回放' : statusTone === 'live' ? '正在直播' : '预约观看',
+    to: '/school/activities/presentation',
+  }
+}
+
+function mapPresentationCard(item: SchoolHomeActivityItem): CampusPresentationCard {
+  const statusTone = resolvePresentationStatusTone(item.status_label)
+  const cityLabel = item.city_name || item.province_name || ''
+  const companyLabel = item.company_applications_count > 0 ? `${item.company_applications_count}家单位` : ''
+
+  return {
+    id: String(item.id),
+    title: item.title,
+    image: resolveAssetUrl(item.display_cover_image || item.cover_image),
+    statusLabel: item.status_label || '已发布',
+    statusTone,
+    channelLabel: item.address ? '线下' : '线上',
+    timeLabel: formatPresentationStart(item.start_time || item.register_start_date),
+    metaLabel: companyLabel || cityLabel || item.status_label || '预约开放',
+    jobsLabel: item.jobs_count > 0 ? String(item.jobs_count) : '持续更新',
+    primaryAction: resolvePresentationAction(statusTone),
+    to: `/school/activities/${item.id}`,
+  }
+}
+
+function resolvePresentationStatusTone(statusLabel?: string | null): CampusPresentationCard['statusTone'] {
+  if (statusLabel?.includes('结束'))
+    return 'ended'
+  if (statusLabel?.includes('直播') || statusLabel?.includes('进行'))
+    return 'live'
+  return 'running'
+}
+
+function resolvePresentationAction(statusTone: CampusPresentationCard['statusTone']) {
+  if (statusTone === 'ended')
+    return '观看回放'
+  if (statusTone === 'live')
+    return '正在直播'
+  return '预约观看'
+}
+
+function formatPresentationStart(value: string | null) {
+  if (!value)
+    return '时间待定'
+
+  const time = value.slice(11, 16)
+  if (time)
+    return `${time}开始`
+
+  const date = formatDate(value)
+  return date ? `${date}开始` : '时间待定'
 }
 
 function mapHeadlineArticle(item: CmsArticleItem): CampusHeadlineItem {
@@ -457,6 +550,43 @@ onBeforeUnmount(() => {
             </NuxtLink>
           </div>
         </aside>
+      </section>
+
+      <section class="school-content-section school-presentation-section" aria-labelledby="school-presentation-title">
+        <div class="school-section-head">
+          <h2 id="school-presentation-title">
+            宣讲会
+          </h2>
+          <NuxtLink to="/school/activities/presentation">
+            更多
+            <span class="i-carbon-chevron-right" />
+          </NuxtLink>
+        </div>
+
+        <div class="school-presentation-grid">
+          <NuxtLink v-for="card in presentationCards" :key="card.id" :to="card.to" class="school-presentation-card">
+            <div class="school-presentation-cover" :class="[`is-${card.statusTone}`, card.channelLabel === '线下' ? 'is-offline' : 'is-online', { 'is-fallback': !card.image }]">
+              <img v-if="card.image" :src="card.image" :alt="card.title">
+              <template v-else>
+                <strong>我们需要<br>比我们更强的人</strong>
+                <small>理想更宏大的自己</small>
+              </template>
+              <span class="school-presentation-channel">{{ card.channelLabel }}</span>
+              <div class="school-presentation-meta">
+                <span><i class="i-carbon-time" />{{ card.timeLabel }}</span>
+                <span><i class="i-carbon-view" />{{ card.metaLabel }}</span>
+              </div>
+            </div>
+            <div class="school-presentation-body">
+              <h3>{{ card.title }}</h3>
+              <p>招聘职位： {{ card.jobsLabel }}</p>
+              <div class="school-presentation-actions">
+                <span class="school-presentation-primary" :class="`is-${card.statusTone}`">{{ card.primaryAction }}</span>
+                <span>查看职位</span>
+              </div>
+            </div>
+          </NuxtLink>
+        </div>
       </section>
 
       <section class="school-content-section" aria-labelledby="school-company-title">
@@ -898,6 +1028,188 @@ onBeforeUnmount(() => {
   margin-top: 34px;
 }
 
+.school-presentation-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.school-presentation-card {
+  overflow: hidden;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 1);
+  color: inherit;
+  text-decoration: none;
+  transition:
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.school-presentation-cover {
+  position: relative;
+  height: 151px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #25d9ff 0%, #21c7ad 100%);
+}
+
+.school-presentation-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.school-presentation-cover.is-fallback {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 22px 24px 32px;
+  color: rgba(255, 255, 255, 1);
+}
+
+.school-presentation-cover.is-fallback::before,
+.school-presentation-cover.is-fallback::after {
+  content: '';
+  position: absolute;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.school-presentation-cover.is-fallback::before {
+  right: -28px;
+  bottom: 24px;
+  width: 118px;
+  height: 118px;
+}
+
+.school-presentation-cover.is-fallback::after {
+  right: 34px;
+  bottom: 18px;
+  width: 42px;
+  height: 42px;
+  background: rgba(255, 221, 93, 0.7);
+}
+
+.school-presentation-cover strong,
+.school-presentation-cover small {
+  position: relative;
+  z-index: 1;
+  display: block;
+}
+
+.school-presentation-cover strong {
+  max-width: 150px;
+  font-size: 25px;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.school-presentation-cover small {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.school-presentation-channel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  border-radius: 0 0 6px 0;
+  background: rgba(20, 141, 255, 1);
+  padding: 5px 12px;
+  color: rgba(255, 255, 255, 1);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.school-presentation-cover.is-offline .school-presentation-channel {
+  background: rgba(39, 183, 115, 1);
+}
+
+.school-presentation-meta {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.42) 100%);
+  padding: 26px 12px 8px;
+  color: rgba(255, 255, 255, 0.96);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.school-presentation-meta span {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.school-presentation-body {
+  padding: 14px 16px 16px;
+}
+
+.school-presentation-body h3 {
+  display: -webkit-box;
+  min-height: 44px;
+  margin: 0;
+  overflow: hidden;
+  color: rgba(34, 34, 34, 1);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.38;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.school-presentation-body p {
+  margin: 14px 0 0;
+  color: rgba(85, 85, 85, 1);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.school-presentation-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 20px;
+}
+
+.school-presentation-actions span {
+  display: inline-flex;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(255, 243, 223, 1);
+  color: rgba(255, 165, 0, 1);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.school-presentation-primary.is-live {
+  background: rgba(255, 92, 69, 1);
+  color: rgba(255, 255, 255, 1);
+}
+
+.school-presentation-primary.is-running {
+  background: rgba(255, 165, 0, 1);
+  color: rgba(255, 255, 255, 1);
+}
+
+.school-presentation-primary.is-ended {
+  background: rgba(255, 243, 223, 1);
+  color: rgba(255, 165, 0, 1);
+}
+
 .school-section-head.is-tabbed {
   min-height: 28px;
 }
@@ -1086,6 +1398,7 @@ onBeforeUnmount(() => {
 }
 
 .school-company-card:hover,
+.school-presentation-card:hover,
 .school-job-card:hover {
   box-shadow: 0 10px 24px rgba(27, 52, 98, 0.08);
   transform: translateY(-1px);
@@ -1267,6 +1580,10 @@ onBeforeUnmount(() => {
   .school-dual-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .school-presentation-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 640px) {
@@ -1297,6 +1614,7 @@ onBeforeUnmount(() => {
   }
 
   .school-dual-grid,
+  .school-presentation-grid,
   .school-section-head,
   .school-section-title-row {
     display: grid;

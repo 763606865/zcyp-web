@@ -37,27 +37,32 @@ const {
 const goldSlotRow1 = computed(() => homeData.value.adSlots.find(s => s.code === 'index.gold.row-1'))
 const goldSlotRow2 = computed(() => homeData.value.adSlots.find(s => s.code === 'index.gold.row-2'))
 const showJobseekerCard = computed(() => userStore.isLoggedIn && userStore.currentIdentity === 'jobseeker')
+const serviceEcosystemLoopCopies = [0, 1]
 const serviceEcosystemRows = [
   {
     label: '中测在线',
     className: 'is-online',
     items: [
-      { label: '应用能力测评', to: '/assessment', icon: 'is-assessment' },
-      { label: '岗位胜任力测评', to: '/assessment', icon: 'is-evaluation' },
-      { label: '考试报名', to: '/assessment', icon: 'is-exam' },
-      { label: '简历优化', to: '/profile/jobseeker', icon: 'is-resume' },
-      { label: '在线学习', to: '/assessment', icon: 'is-learning' },
+      { label: '中测命题', to: '/assessment', icon: 'is-assessment' },
+      { label: '中测测评宝', to: '/assessment', icon: 'is-evaluation' },
+      { label: '中测阅卷', to: '/assessment', icon: 'is-exam' },
+      { label: '中测题库', to: '/profile/jobseeker', icon: 'is-resume' },
+      { label: 'AI面试', to: '/assessment', icon: 'is-learning' },
+      { label: '中测机考', to: '/assessment', icon: 'is-learning' },
+      { label: '中测无纸化面试评分系统', to: '/assessment', icon: 'is-learning' },
+      { label: '中测考试指挥系统（AI防作弊系统）', to: '/assessment', icon: 'is-learning' },
     ],
   },
   {
     label: '中测产品',
     className: 'is-product',
     items: [
-      { label: '中测智问云', to: '/assessment', icon: 'is-product' },
-      { label: '中测在线笔试', to: '/assessment', icon: 'is-product' },
-      { label: '无纸化面试评分', to: '/assessment', icon: 'is-product' },
-      { label: '中测防作弊平台', to: '/assessment', icon: 'is-product' },
-      { label: '中测在线面试', to: '/assessment', icon: 'is-product' },
+      { label: '在线报名', to: '/assessment', icon: 'is-product' },
+      { label: '在线笔试', to: '/assessment', icon: 'is-product' },
+      { label: '在线面试', to: '/assessment', icon: 'is-product' },
+      { label: '心理测评（岗位胜任力测评）', to: '/assessment', icon: 'is-product' },
+      { label: '面试能力测评', to: '/assessment', icon: 'is-product' },
+      { label: '在线网校', to: '/assessment', icon: 'is-product' },
     ],
   },
 ]
@@ -155,6 +160,27 @@ function nextSlide() {
   activeSlideIndex.value = (activeSlideIndex.value + 1) % bannerSlides.value.length
 }
 
+function scrollServiceEcosystemRow(event: MouseEvent) {
+  const row = (event.currentTarget as HTMLElement).closest('.home-service-ecosystem-row')
+  const scroller = row?.querySelector<HTMLElement>('.home-service-ecosystem-scroll')
+  if (!scroller)
+    return
+
+  normalizeServiceEcosystemScroll(scroller)
+  scroller.scrollBy({ left: scroller.clientWidth - 80, behavior: 'smooth' })
+  window.setTimeout(normalizeServiceEcosystemScroll, 520, scroller)
+}
+
+function loopServiceEcosystemScroll(event: Event) {
+  normalizeServiceEcosystemScroll(event.currentTarget as HTMLElement)
+}
+
+function normalizeServiceEcosystemScroll(scroller: HTMLElement) {
+  const loopWidth = scroller.querySelector<HTMLElement>('.home-service-ecosystem-loop')?.offsetWidth || 0
+  if (loopWidth > 0 && scroller.scrollLeft >= loopWidth)
+    scroller.scrollLeft -= loopWidth
+}
+
 await useAsyncData(
   'home-page-bootstrap',
   async () => {
@@ -213,23 +239,33 @@ onBeforeUnmount(() => {
             {{ row.label }}
           </NuxtLink>
 
-          <div class="home-service-ecosystem-grid">
-            <NuxtLink
-              v-for="item in row.items"
-              :key="item.label"
-              :to="item.to"
-              class="home-service-ecosystem-card"
-            >
-              <span class="home-service-ecosystem-icon" :class="item.icon" aria-hidden="true" />
-              <strong>{{ item.label }}</strong>
-            </NuxtLink>
+          <div class="home-service-ecosystem-track">
+            <div class="home-service-ecosystem-scroll" @scroll.passive="loopServiceEcosystemScroll">
+              <div class="home-service-ecosystem-grid">
+                <div
+                  v-for="copyIndex in serviceEcosystemLoopCopies"
+                  :key="copyIndex"
+                  class="home-service-ecosystem-loop"
+                  :aria-hidden="copyIndex > 0 ? 'true' : undefined"
+                >
+                  <NuxtLink
+                    v-for="item in row.items"
+                    :key="`${copyIndex}-${item.label}`"
+                    :to="item.to"
+                    :tabindex="copyIndex > 0 ? -1 : undefined"
+                    class="home-service-ecosystem-card"
+                  >
+                    <span class="home-service-ecosystem-icon" :class="item.icon" aria-hidden="true" />
+                    <strong>{{ item.label }}</strong>
+                  </NuxtLink>
+                </div>
+              </div>
+            </div>
+            <button type="button" class="home-service-ecosystem-arrow" :aria-label="`查看更多${row.label}服务`" @click="scrollServiceEcosystemRow">
+              <span class="i-carbon-chevron-right" aria-hidden="true" />
+            </button>
           </div>
         </div>
-      </div>
-
-      <div class="home-service-ecosystem-dots" aria-hidden="true">
-        <span class="is-active" />
-        <span />
       </div>
     </section>
 
