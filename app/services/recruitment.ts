@@ -198,11 +198,24 @@ export async function getAnnouncementDetail(id: string | number, provinceCode?: 
   )
 }
 
-export async function getCompanyList(params?: { per_page?: number, page?: number }): Promise<{ data: CompanyDirectoryItem[], total: number }> {
+export async function getCompanyList(params?: { per_page?: number, page?: number, scale_type?: string, city_code?: string }): Promise<{ data: CompanyDirectoryItem[], total: number }> {
   return withMockFallback<{ data: CompanyDirectoryItem[], total: number }>(
     async () => {
       const response = await getJson<ApiResponse<{ data: CompanyDirectoryItem[], total: number }>>(
         '/rc/talent/companies/recommend',
+        params as Record<string, string | number | undefined>,
+      )
+      return response.data || { data: [], total: 0 }
+    },
+    { data: [], total: 0 },
+  )
+}
+
+export async function getCompanyFilteredList(params?: { per_page?: number, page?: number, scale_type?: string, city_code?: string }): Promise<{ data: CompanyDirectoryItem[], total: number }> {
+  return withMockFallback<{ data: CompanyDirectoryItem[], total: number }>(
+    async () => {
+      const response = await getJson<ApiResponse<{ data: CompanyDirectoryItem[], total: number }>>(
+        '/rc/talent/companies',
         params as Record<string, string | number | undefined>,
       )
       return response.data || { data: [], total: 0 }

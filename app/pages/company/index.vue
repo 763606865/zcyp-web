@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import type { CompanyDirectoryItem } from '~/types/recruitment'
-import { getCompanyList } from '~/services/recruitment'
+import { getCompanyFilteredList, getCompanyList } from '~/services/recruitment'
+
+const siteStore = useSiteStore()
+const router = useRouter()
 
 definePageMeta({
   layout: 'home',
@@ -23,18 +26,87 @@ interface CompanyCardView {
 
 const NUMERIC_ID_RE = /^\d+$/
 
-const cityFilters = ['全国', '北京', '上海', '广州', '深圳', '杭州', '重庆', '武汉', '郑州', '成都', '西安', '大连', '厦门', '南京', '苏州', '更多城市']
-const scaleFilters = ['不限', '20人以下', '20-99人', '100-499人', '500-999人', '1000-9999人', '10000人以上']
+const route = useRoute()
+
+const top14Codes = computed(() => new Set(siteStore.cityOptions.slice(0, 14).map(c => c.code)))
+
+const isMoreCityActive = computed(() => {
+  return !!activeCityCode.value && !top14Codes.value.has(activeCityCode.value)
+})
+
+const cityFilterItems = computed(() => {
+  const cities = siteStore.cityOptions.slice(0, 14)
+  const moreLabel = isMoreCityActive.value ? `更多城市(${activeCity.value})` : '更多城市'
+  return [
+    { code: '', name: '全国', display: '全国' },
+    ...cities.map(c => ({ code: c.code, name: c.name, display: c.name })),
+    { code: '__more__', name: '更多城市', display: moreLabel },
+  ]
+})
+const scaleFilters = [{ code: '不限', name: '不限' }, { code: '1', name: '20人以下' }, { code: '2', name: '20-99人' }, { code: '3', name: '100-499人' }, { code: '4', name: '500-999人' }, { code: '5', name: '1000-9999人' }, { code: '6', name: '10000人以上' }]
 const fundingFilters = ['不限', '未上市', '种子轮', '天使轮', 'A轮', 'B轮', 'C轮', 'D轮及以上', '以上市']
 
 const activeCity = ref('全国')
+const activeCityCode = ref('')
 const activeScale = ref('不限')
 const activeFunding = ref('不限')
 const activePage = ref(1)
 
+function handleCityClick(item: { code: string, name: string, display: string }) {
+  if (item.code === '__more__') {
+    sessionStorage.setItem('company-city-picking', '1')
+    router.push('/city-select')
+    return
+  }
+  activeCity.value = item.name
+  activeCityCode.value = item.code
+}
+
+// 从城市选择页返回时读取选中城市
+if (import.meta.client) {
+  const pending = sessionStorage.getItem('company-city-pending')
+  if (pending) {
+    try {
+      const { code, name } = JSON.parse(pending) as { code: string, name: string }
+      activeCity.value = name
+      activeCityCode.value = code
+    }
+    catch {}
+    sessionStorage.removeItem('company-city-pending')
+    sessionStorage.removeItem('company-city-picking')
+  }
+}
+
+// 路由返回时检查城市选择结果
+if (import.meta.client) {
+  watch(() => route.path, () => {
+    const pending = sessionStorage.getItem('company-city-pending')
+    if (pending) {
+      try {
+        const { code, name } = JSON.parse(pending) as { code: string, name: string }
+        activeCity.value = name
+        activeCityCode.value = code
+      }
+      catch {}
+      sessionStorage.removeItem('company-city-pending')
+      sessionStorage.removeItem('company-city-picking')
+    }
+  })
+}
+
+const hasFilter = computed(() => !!activeCityCode.value || activeScale.value !== '不限')
+
 const { data: companies } = await useAsyncData(
-  () => `company-directory-${activePage.value}-${activeCity.value}`,
-  () => getCompanyList({ per_page: 15, page: activePage.value }),
+  () => `company-directory-${activePage.value}-${activeCityCode.value}-${activeScale.value}`,
+  () => {
+    const params = {
+      per_page: 15,
+      page: activePage.value,
+      ...(activeScale.value !== '不限' ? { scale_type: activeScale.value } : {}),
+      ...(activeCityCode.value ? { city_code: activeCityCode.value } : {}),
+    }
+    return hasFilter.value ? getCompanyFilteredList(params) : getCompanyList(params)
+  },
   {
     server: false,
     default: () => ({ data: [], total: 0 }),
@@ -52,11 +124,7 @@ const companyList = computed(() => {
 })
 
 const filteredCompanies = computed(() => {
-  const source = companyList.value
-  if (activeCity.value === '全国' || activeCity.value === '更多城市')
-    return source
-
-  return source.filter(company => company.city_name === activeCity.value)
+  return companyList.value
 })
 
 const companyCards = computed<CompanyCardView[]>(() => {
@@ -99,8 +167,13 @@ const paginationThemeOverrides = {
   itemMargin: '0 4px',
 }
 
+watch([activeCity, activeScale, activeFunding], () => {
+  activePage.value = 1
+})
+
 function clearFilters() {
   activeCity.value = '全国'
+  activeCityCode.value = ''
   activeScale.value = '不限'
   activeFunding.value = '不限'
 }
@@ -114,14 +187,14 @@ function clearFilters() {
           <strong>工作地点</strong>
           <div class="company-filter-options">
             <button
-              v-for="item in cityFilters"
-              :key="item"
+              v-for="(item, idx) in cityFilterItems"
+              :key="item.code"
               type="button"
-              :class="{ 'is-active': item === activeCity, 'is-muted': item === '更多城市' }"
-              @click="activeCity = item"
+              :class="{ 'is-active': item.code === '__more__' ? isMoreCityActive : (item.code === '' ? !activeCityCode : item.code === activeCityCode), 'is-muted': item.code === '__more__' && !isMoreCityActive }"
+              @click="handleCityClick(item)"
             >
-              {{ item }}
-              <span v-if="item === '更多城市'" class="i-carbon-caret-right" />
+              {{ item.display }}
+              <span v-if="item.code === '__more__'" class="i-carbon-caret-right" />
             </button>
           </div>
         </div>
@@ -131,12 +204,12 @@ function clearFilters() {
           <div class="company-filter-options">
             <button
               v-for="item in scaleFilters"
-              :key="item"
+              :key="item.code"
               type="button"
-              :class="{ 'is-active': item === activeScale }"
-              @click="activeScale = item"
+              :class="{ 'is-active': item.code === activeScale }"
+              @click="activeScale = item.code"
             >
-              {{ item }}
+              {{ item.name }}
             </button>
           </div>
         </div>

@@ -1,13 +1,20 @@
 <script setup lang="ts">
+import { useSiteStore } from '~/stores/site'
+import { getCityInitials } from '~/utils/pinyin'
+
 definePageMeta({
   layout: 'default',
 })
 
-import { useSiteStore } from '~/stores/site'
-import { getCityInitials } from '~/utils/pinyin'
-
 const router = useRouter()
 const siteStore = useSiteStore()
+
+// 是否处于“公司页选城市”模式，不修改全局 currentCity
+const isCompanyPicking = ref(false)
+
+if (import.meta.client) {
+  isCompanyPicking.value = sessionStorage.getItem('company-city-picking') === '1'
+}
 
 const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 
@@ -43,18 +50,25 @@ function scrollToLetter(letter: string) {
 }
 
 function handleSelect(code: string, name: string) {
+  if (isCompanyPicking.value) {
+    // 公司页选城市：只通过 sessionStorage 回传，不修改全局状态
+    sessionStorage.setItem('company-city-pending', JSON.stringify({ code, name }))
+    sessionStorage.removeItem('company-city-picking')
+    router.back()
+    return
+  }
   siteStore.switchCity(code, name)
   router.back()
 }
 </script>
 
 <template>
-  <div class="mx-auto max-w-[640px] min-h-screen bg-white">
-    <header class="sticky top-0 z-10 flex items-center gap-3 border-b border-[#eee] bg-white px-4 py-3">
-      <button class="h-8 w-8 flex cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-[18px] text-[#333] hover:bg-[#f5f5f5]" @click="router.back()">
+  <div class="mx-auto bg-white max-w-[640px] min-h-screen">
+    <header class="px-4 py-3 border-b border-[#eee] bg-white flex gap-3 items-center top-0 sticky z-10">
+      <button class="text-[18px] text-[#333] rounded-full border-none bg-transparent flex h-8 w-8 cursor-pointer items-center justify-center hover:bg-[#f5f5f5]" @click="router.back()">
         <span class="i-carbon-arrow-left" />
       </button>
-      <h1 class="m-0 text-[17px] text-[#333] font-medium">
+      <h1 class="text-[17px] text-[#333] font-medium m-0">
         选择城市
       </h1>
     </header>
@@ -62,27 +76,27 @@ function handleSelect(code: string, name: string) {
     <div class="flex">
       <div class="flex-1">
         <div v-for="group in groups" :id="`city-group-${group.letter}`" :key="group.letter" class="px-4">
-          <div class="sticky top-[52px] bg-white py-2 text-[13px] text-[#999] font-medium">
+          <div class="text-[13px] text-[#999] font-medium py-2 bg-white top-[52px] sticky">
             {{ group.letter }}
           </div>
           <div
             v-for="city in group.cities"
             :key="city.code"
-            class="flex cursor-pointer items-center border-b border-[#f5f5f5] py-3 text-[15px] text-[#333] transition hover:text-[#2d5aa3]"
-            :class="siteStore.currentCityCode === city.code ? 'font-medium text-[#2d5aa3]' : ''"
+            class="text-[15px] text-[#333] py-3 border-b border-[#f5f5f5] flex cursor-pointer transition items-center hover:text-[#2d5aa3]"
+            :class="(isCompanyPicking ? false : siteStore.currentCityCode === city.code) ? 'font-medium text-[#2d5aa3]' : ''"
             @click="handleSelect(city.code, city.name)"
           >
-            <span v-if="siteStore.currentCityCode === city.code" class="i-carbon-checkmark mr-2 text-[16px] text-[#2d5aa3]" />
+            <span v-if="isCompanyPicking ? false : siteStore.currentCityCode === city.code" class="i-carbon-checkmark text-[16px] text-[#2d5aa3] mr-2" />
             {{ city.name }}
           </div>
         </div>
       </div>
 
-      <nav class="sticky top-[52px] h-fit flex flex-col items-center gap-0.5 px-2 pt-2">
+      <nav class="px-2 pt-2 flex flex-col gap-0.5 h-fit items-center top-[52px] sticky">
         <button
           v-for="letter in letters"
           :key="letter"
-          class="h-[18px] w-[18px] flex cursor-pointer items-center justify-center rounded border-none bg-transparent p-0 text-[11px] leading-none transition"
+          class="text-[11px] leading-none p-0 rounded border-none bg-transparent flex h-[18px] w-[18px] cursor-pointer transition items-center justify-center"
           :class="activeLetter === letter ? 'bg-[#2d5aa3] font-medium text-white' : 'text-[#999] hover:bg-[#f0f0f0]'"
           @click="scrollToLetter(letter)"
         >
