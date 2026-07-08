@@ -1,16 +1,15 @@
 <script setup lang="ts">
-definePageMeta({
-  layout: 'home',
-  activeNav: '招聘公告',
-})
-
 import type { AnnouncementsPageData } from '~/types/recruitment'
-import { NSelect } from 'naive-ui'
 import { computed, ref, watch } from 'vue'
 import { mockAnnouncementsPageData } from '~/mock/recruitment'
 import { getAnnouncementsPageData } from '~/services/recruitment'
 import { useMetaStore } from '~/stores/meta'
 import { useSiteStore } from '~/stores/site'
+
+definePageMeta({
+  layout: 'home',
+  activeNav: '招聘公告',
+})
 
 const route = useRoute()
 const router = useRouter()
@@ -195,9 +194,9 @@ function onProvinceChange() {
 
 <template>
   <div class="portal-page pb-12">
-    <section class="mx-auto mt-4 max-w-[1240px] px-4 lg:px-6">
-      <div class="rounded-[22px] bg-[#eef2ff] px-5 py-5 shadow-[0_12px_28px_rgba(110,128,188,0.08)] ring-1 ring-[#e2e9ff] lg:px-8 lg:py-7">
-        <div class="flex flex-wrap items-center gap-2 text-[14px] text-[#7c89b2]">
+    <section class="mx-auto mt-4 px-4 max-w-[1240px] lg:px-6">
+      <div class="px-5 py-5 rounded-[22px] bg-[#eef2ff] ring-1 ring-[#e2e9ff] shadow-[0_12px_28px_rgba(110,128,188,0.08)] lg:px-8 lg:py-7">
+        <div class="text-[14px] text-[#7c89b2] flex flex-wrap gap-2 items-center">
           <NuxtLink to="/" class="no-underline hover:text-[#4f68d8]">
             首页
           </NuxtLink>
@@ -209,28 +208,28 @@ function onProvinceChange() {
           <span class="text-[#384870]">公告分页页</span>
         </div>
 
-        <div class="mt-5 flex items-center gap-4">
-          <NSelect v-model:value="selectedProvinceCode" :options="provinceOptions" placeholder="省份" clearable class="min-w-[120px]" @update:value="onProvinceChange" />
-          <NSelect v-model:value="selectedCityCode" :options="cityOptions" placeholder="城市" clearable class="min-w-[120px]" :disabled="!selectedProvinceCode" @update:value="applyFilters" />
-          <NSelect v-model:value="selectedExamTag" :options="examTagOptions.map(t => ({ label: t.name, value: t.id }))" placeholder="招考类型" clearable class="min-w-[140px]" @update:value="applyFilters" />
-          <NSelect v-model:value="selectedRcTag" :options="rcTagOptions.map(t => ({ label: t.name, value: t.id }))" placeholder="招聘类型" clearable class="min-w-[140px]" @update:value="applyFilters" />
-          <NSelect v-model:value="selectedPublisherType" :options="publisherTypeOptions" placeholder="发布人" clearable class="min-w-[140px]" @update:value="applyFilters" />
+        <div class="mt-5 flex gap-4 items-center">
+          <NaiveClientSelect v-model:value="selectedProvinceCode" :options="provinceOptions" placeholder="省份" clearable class="min-w-[120px]" @update:value="onProvinceChange" />
+          <NaiveClientSelect v-model:value="selectedCityCode" :options="cityOptions" placeholder="城市" clearable class="min-w-[120px]" :disabled="!selectedProvinceCode" @update:value="applyFilters" />
+          <NaiveClientSelect v-model:value="selectedExamTag" :options="examTagOptions.map(t => ({ label: t.name, value: t.id }))" placeholder="招考类型" clearable class="min-w-[140px]" @update:value="applyFilters" />
+          <NaiveClientSelect v-model:value="selectedRcTag" :options="rcTagOptions.map(t => ({ label: t.name, value: t.id }))" placeholder="招聘类型" clearable class="min-w-[140px]" @update:value="applyFilters" />
+          <NaiveClientSelect v-model:value="selectedPublisherType" :options="publisherTypeOptions" placeholder="发布人" clearable class="min-w-[140px]" @update:value="applyFilters" />
         </div>
       </div>
     </section>
 
-    <section class="mx-auto mt-5 max-w-[1240px] px-4 lg:px-6">
-      <article class="rounded-[22px] bg-white px-5 py-6 shadow-[0_12px_28px_rgba(90,103,140,0.08)] ring-1 ring-[#edf1ff] lg:px-8 lg:py-8">
+    <section class="mx-auto mt-5 px-4 max-w-[1240px] lg:px-6">
+      <article class="px-5 py-6 rounded-[22px] bg-white ring-1 ring-[#edf1ff] shadow-[0_12px_28px_rgba(90,103,140,0.08)] lg:px-8 lg:py-8">
         <div class="mb-8 text-center">
-          <h1 class="text-[34px] text-[#1e2f5c] font-semibold tracking-[0.02em]">
+          <h1 class="text-[34px] text-[#1e2f5c] tracking-[0.02em] font-semibold">
             招聘公告
           </h1>
-          <p class="mt-3 text-[14px] text-[#7f89a8] leading-6">
+          <p class="text-[14px] text-[#7f89a8] leading-6 mt-3">
             共 {{ pagination.total }} 条，当前第 {{ pagination.current_page }} / {{ pagination.last_page }} 页
           </p>
         </div>
 
-        <div v-if="loading" class="rounded-[14px] bg-[#f8faff] px-4 py-10 text-center text-[14px] text-[#7f89a8]">
+        <div v-if="loading" class="text-[14px] text-[#7f89a8] px-4 py-10 text-center rounded-[14px] bg-[#f8faff]">
           正在加载公告...
         </div>
 
@@ -239,27 +238,27 @@ function onProvinceChange() {
             v-for="item in displayAnnouncements"
             :key="item.id"
             :to="`/announcements/${item.id}`"
-            class="grid items-center gap-4 rounded-[14px] px-3 py-3 no-underline transition lg:grid-cols-[96px_minmax(0,1fr)_120px] hover:bg-[#f6f8ff]"
+            class="px-3 py-3 rounded-[14px] no-underline gap-4 grid transition items-center hover:bg-[#f6f8ff] lg:grid-cols-[96px_minmax(0,1fr)_120px]"
           >
-            <div class="h-[28px] inline-flex items-center justify-center rounded-full bg-[#fff7ef] px-3 text-[12px] text-[#ff9c00] font-medium">
+            <div class="text-[12px] text-[#ff9c00] font-medium px-3 rounded-full bg-[#fff7ef] inline-flex h-[28px] items-center justify-center">
               {{ item.badge }}
             </div>
-            <div class="min-w-0 text-[16px] text-[#27365d] font-medium leading-8">
-              <span v-if="item.areaLabel" class="mr-1 text-[#31497e]">{{ item.areaLabel }}</span>
+            <div class="text-[16px] text-[#27365d] leading-8 font-medium min-w-0">
+              <span v-if="item.areaLabel" class="text-[#31497e] mr-1">{{ item.areaLabel }}</span>
               <span class="break-all">{{ item.title }}</span>
             </div>
-            <div class="text-right text-[13px] text-[#7f89a8]">
+            <div class="text-[13px] text-[#7f89a8] text-right">
               {{ item.published_at.slice(0, 10) }}
             </div>
           </NuxtLink>
         </div>
 
-        <div v-if="pagination.last_page > 1" class="mt-10 flex flex-wrap items-center justify-center gap-3 text-[14px] text-[#66759c]">
+        <div v-if="pagination.last_page > 1" class="text-[14px] text-[#66759c] mt-10 flex flex-wrap gap-3 items-center justify-center">
           <div>共{{ pagination.total }}条，{{ pagination.per_page }}条/页</div>
 
           <button
             type="button"
-            class="h-[38px] min-w-[38px] inline-flex items-center justify-center border border-[#dbe2ff] rounded-[8px] bg-white px-3 transition disabled:cursor-not-allowed hover:border-[#bfcfff] disabled:opacity-45"
+            class="px-3 border border-[#dbe2ff] rounded-[8px] bg-white inline-flex h-[38px] min-w-[38px] transition items-center justify-center hover:border-[#bfcfff] disabled:opacity-45 disabled:cursor-not-allowed"
             :disabled="pagination.current_page <= 1"
             @click="goToPage(pagination.current_page - 1)"
           >
@@ -270,7 +269,7 @@ function onProvinceChange() {
             v-for="page in pageNumbers"
             :key="page"
             type="button"
-            class="h-[38px] min-w-[38px] inline-flex items-center justify-center rounded-[8px] px-3 transition"
+            class="px-3 rounded-[8px] inline-flex h-[38px] min-w-[38px] transition items-center justify-center"
             :class="page === pagination.current_page ? 'bg-[#5f7cf2] text-white shadow-[0_10px_20px_rgba(95,124,242,0.18)]' : 'border border-[#dbe2ff] bg-white text-[#43537c] hover:border-[#bfcfff]'"
             @click="goToPage(page)"
           >
@@ -279,7 +278,7 @@ function onProvinceChange() {
 
           <button
             type="button"
-            class="h-[38px] min-w-[38px] inline-flex items-center justify-center border border-[#dbe2ff] rounded-[8px] bg-white px-3 transition disabled:cursor-not-allowed hover:border-[#bfcfff] disabled:opacity-45"
+            class="px-3 border border-[#dbe2ff] rounded-[8px] bg-white inline-flex h-[38px] min-w-[38px] transition items-center justify-center hover:border-[#bfcfff] disabled:opacity-45 disabled:cursor-not-allowed"
             :disabled="pagination.current_page >= pagination.last_page"
             @click="goToPage(pagination.current_page + 1)"
           >
