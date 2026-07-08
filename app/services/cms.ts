@@ -184,6 +184,7 @@ export interface SchoolHomeActivityItem {
   id: number
   type: number
   type_label: string
+  activity_mode_label?: string | null
   title: string
   cover_image: string | null
   display_cover_image: string | null
@@ -234,6 +235,7 @@ export interface SchoolActivityListItem {
   id: number
   type: number
   type_label: string
+  activity_mode_label?: string | null
   title: string
   cover_image: string | null
   display_cover_image: string | null
@@ -279,6 +281,57 @@ export interface SchoolActivityDetail extends SchoolActivityListItem {
   schools: { id: number, school_code: string, name: string }[]
 }
 
+export interface SchoolActivityApprovedCompanyProfile {
+  short_name: string | null
+  scale_type: number | null
+  scale_type_label: string | null
+  nature_type: number | null
+  nature_type_label: string | null
+  display_logo: string | null
+}
+
+export interface SchoolActivityApprovedCompanyJob {
+  id: number
+  job_id: number
+  audit_status: number
+  audit_status_label: string
+  job: {
+    id: number
+    title: string
+    company?: {
+      id: number
+      profile?: Pick<SchoolActivityApprovedCompanyProfile, 'short_name'> | null
+    } | null
+  } | null
+}
+
+export interface SchoolActivityApprovedCompanyItem {
+  id: number
+  activity_id: number
+  company_id: number
+  activity_jobs_count: number
+  company: {
+    id: number
+    name: string
+    profile: SchoolActivityApprovedCompanyProfile | null
+  } | null
+  activity_jobs: SchoolActivityApprovedCompanyJob[]
+}
+
+export interface SchoolActivityApprovedCompaniesParams {
+  scale_type?: number
+  nature_type?: number
+  page?: number
+  per_page?: number
+}
+
+export interface SchoolActivityApprovedCompaniesPage {
+  current_page: number
+  data: SchoolActivityApprovedCompanyItem[]
+  per_page: number
+  total: number
+}
+
 export interface SchoolActivityListParams {
   province_code?: string
   city_code?: string
@@ -316,6 +369,14 @@ export async function getSchoolActivityDetail(id: number, params?: { province_co
     `/cms/school-activities/${id}`,
     params as Record<string, string | undefined>,
     authorization ? { Authorization: authorization } : undefined,
+  )
+  return response.data
+}
+
+export async function getSchoolActivityCompanies(id: number, params?: SchoolActivityApprovedCompaniesParams) {
+  const response = await getJson<ApiResponse<SchoolActivityApprovedCompaniesPage>>(
+    `/cms/school-activities/${id}/companies`,
+    params as Record<string, number | undefined>,
   )
   return response.data
 }

@@ -460,6 +460,56 @@ export async function getOrganizedActivities(authorization: string, params?: Org
   return response.data
 }
 
+export interface SchoolActivitySchoolApplication {
+  id: number
+  activity_id: number
+  school_id?: number
+  apply_status?: number | null
+  apply_status_label?: string | null
+  apply_at?: string | null
+  remark?: string | null
+  created_at?: string | null
+  updated_at?: string | null
+}
+
+export interface SchoolParticipatedActivityItem {
+  activity: (OrganizedActivityItem & {
+    organizer_type?: string | null
+    organizer_type_label?: string | null
+    organizer_id?: number | null
+    business_status_label?: string | null
+  }) | null
+  school_application: SchoolActivitySchoolApplication
+  is_organizer: boolean
+}
+
+export interface SchoolParticipatedActivityParams {
+  apply_status?: number
+  activity_status?: number
+  type?: number
+  keyword?: string
+  per_page?: number
+  page?: number
+}
+
+export interface SchoolParticipatedActivitiesResponse {
+  data: SchoolParticipatedActivityItem[]
+  total?: number
+  current_page?: number
+  last_page?: number
+  per_page?: number
+  meta?: { current_page: number, per_page: number, total: number }
+}
+
+export async function getSchoolParticipatedActivities(authorization: string, params?: SchoolParticipatedActivityParams) {
+  const response = await getJson<ApiResponse<SchoolParticipatedActivitiesResponse>>(
+    '/rc/schools/activities/participated',
+    params as Record<string, string | number | undefined>,
+    createAuthHeaders(authorization),
+  )
+  return response.data
+}
+
 export async function publishActivity(authorization: string, activityId: number) {
   const response = await postJson<ApiResponse<Record<string, any>>>(
     `/rc/companies/school-activities/${activityId}/publish`,

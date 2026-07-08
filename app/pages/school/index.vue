@@ -93,13 +93,13 @@ const fallbackPresentations: CampusPresentationCard[] = [
 ]
 
 const fallbackHeadlines: CampusHeadlineItem[] = [
-  { id: 'headline-1', title: '国家国防科技工业局安全工程技术与合作交流中心2026年公开招聘公告', to: '/announcements' },
-  { id: 'headline-2', title: '国家国防科技工业局安全工程技术与合作交流中心招聘公告', to: '/announcements' },
-  { id: 'headline-3', title: '合作交流中心2026年公开招聘公告', to: '/announcements' },
-  { id: 'headline-4', title: '国家国防科技工业局安全工程技术与合作交流中心2026年公开招聘公告', to: '/announcements' },
-  { id: 'headline-5', title: '国家国防科技工业局安全工程技术与合作交流2026年公开招聘公告', to: '/announcements' },
-  { id: 'headline-6', title: '国家国防科技工业局安全工程技术与合作交流中心招聘公告', to: '/announcements' },
-  { id: 'headline-7', title: '国家国防科技工业局安全工程技术与合作交流中心2026年公开招聘公告', to: '/announcements' },
+  { id: 'headline-1', title: '国家国防科技工业局安全工程技术与合作交流中心2026年公开招聘公告', to: '/school/articles' },
+  { id: 'headline-2', title: '国家国防科技工业局安全工程技术与合作交流中心招聘公告', to: '/school/articles' },
+  { id: 'headline-3', title: '合作交流中心2026年公开招聘公告', to: '/school/articles' },
+  { id: 'headline-4', title: '国家国防科技工业局安全工程技术与合作交流中心2026年公开招聘公告', to: '/school/articles' },
+  { id: 'headline-5', title: '国家国防科技工业局安全工程技术与合作交流2026年公开招聘公告', to: '/school/articles' },
+  { id: 'headline-6', title: '国家国防科技工业局安全工程技术与合作交流中心招聘公告', to: '/school/articles' },
+  { id: 'headline-7', title: '国家国防科技工业局安全工程技术与合作交流中心2026年公开招聘公告', to: '/school/articles' },
 ]
 
 const SALARY_AMOUNT_SANITIZE_RE = /[^\d.]/g
@@ -277,7 +277,7 @@ const campusJobs = computed<CampusJobCard[]>(() => {
       logoText: '校招',
       logoClass: ['is-orange', 'is-green', 'is-blue', 'is-red', 'is-purple', 'is-green', 'is-blue', 'is-orange', 'is-green'][index] || 'is-orange',
       city: item.city_name || item.province_name || '全国',
-      to: `/school/activities/${item.id}`,
+      to: resolveSchoolActivityRoute(item),
     }))
   }
 
@@ -291,7 +291,7 @@ function mapActivityCard(item: SchoolHomeActivityItem): CampusActivityCard {
     image: resolveAssetUrl(item.display_cover_image || item.cover_image),
     statusLabel: item.status_label || '进行中',
     dateLabel: formatActivityDate(item),
-    to: `/school/activities/${item.id}`,
+    to: resolveSchoolActivityRoute(item),
   }
 }
 
@@ -327,8 +327,16 @@ function mapPresentationCard(item: SchoolHomeActivityItem): CampusPresentationCa
     metaLabel: companyLabel || cityLabel || item.status_label || '预约开放',
     jobsLabel: item.jobs_count > 0 ? String(item.jobs_count) : '持续更新',
     primaryAction: resolvePresentationAction(statusTone),
-    to: `/school/activities/${item.id}`,
+    to: resolveSchoolActivityRoute(item),
   }
+}
+
+function resolveSchoolActivityRoute(item: Pick<SchoolHomeActivityItem, 'id' | 'type'>) {
+  if (item.type === 1)
+    return `/school/activities/presentation/${item.id}`
+  if (item.type === 2)
+    return `/school/activities/dual-selection/${item.id}`
+  return `/school/activities/${item.id}`
 }
 
 function resolvePresentationStatusTone(statusLabel?: string | null): CampusPresentationCard['statusTone'] {
@@ -537,7 +545,7 @@ onBeforeUnmount(() => {
         <aside class="school-headlines">
           <div class="school-section-head">
             <h2>校招头条</h2>
-            <NuxtLink to="/announcements">
+            <NuxtLink to="/school/articles">
               更多
               <span class="i-carbon-chevron-right" />
             </NuxtLink>

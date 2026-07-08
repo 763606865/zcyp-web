@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { getCmsArticleDetail } from '~/services/cms'
+import { getCmsArticleDetail, getCmsHomeBanners } from '~/services/cms'
 import { resolveAssetUrl } from '~/services/http'
 
 definePageMeta({
@@ -10,6 +10,26 @@ definePageMeta({
 const route = useRoute()
 const siteStore = useSiteStore()
 const cityCode = computed(() => siteStore.currentCityCode === '000000' ? undefined : siteStore.currentCityCode)
+const articlesTopBannerCode = 'zcyp.school.articles.top.banner-1'
+const activeHeroBanner = ref(0)
+let heroBannerTimer: ReturnType<typeof setInterval> | undefined
+
+interface HeroBannerSlide {
+  id: string
+  title: string
+  image: string
+  linkUrl: string | null
+  target: number
+}
+
+const { data: heroBanners } = await useAsyncData(
+  'school-article-detail-top-banners',
+  async () => getCmsHomeBanners({ banner_position_code: articlesTopBannerCode }),
+  {
+    server: false,
+    default: () => [],
+  },
+)
 
 const { data: article, pending } = await useAsyncData(
   () => `school-article-${route.params.id}-${cityCode.value || 'all'}`,
@@ -26,10 +46,72 @@ const { data: article, pending } = await useAsyncData(
 
 const coverUrl = computed(() => resolveAssetUrl(article.value?.display_cover || article.value?.cover || ''))
 const sourceLabel = computed(() => article.value?.source_name || article.value?.school_name || article.value?.author || '中测校园')
+const heroBannerSlides = computed<HeroBannerSlide[]>(() => (heroBanners.value || [])
+  .filter(item => item.image)
+  .map(item => ({
+    id: String(item.id),
+    title: item.title,
+    image: resolveAssetUrl(item.image),
+    linkUrl: item.link_url,
+    target: item.target,
+  })))
+const currentHeroBanner = computed(() => heroBannerSlides.value[activeHeroBanner.value] || heroBannerSlides.value[0] || null)
+
+function nextHeroBanner() {
+  const len = heroBannerSlides.value.length
+  if (len > 1)
+    activeHeroBanner.value = (activeHeroBanner.value + 1) % len
+}
+
+watch(heroBannerSlides, (value) => {
+  if (heroBannerTimer) {
+    clearInterval(heroBannerTimer)
+    heroBannerTimer = undefined
+  }
+
+  if (activeHeroBanner.value >= value.length)
+    activeHeroBanner.value = 0
+
+  if (import.meta.client && value.length > 1)
+    heroBannerTimer = setInterval(nextHeroBanner, 5000)
+}, { immediate: true })
+
+onBeforeUnmount(() => {
+  if (heroBannerTimer)
+    clearInterval(heroBannerTimer)
+})
 </script>
 
 <template>
   <main class="school-article-page">
+    <section class="article-detail-hero">
+      <component
+        :is="currentHeroBanner?.linkUrl ? 'a' : 'div'"
+        :href="currentHeroBanner?.linkUrl ? resolvePortalLinkUrl(currentHeroBanner.linkUrl) : undefined"
+        :target="currentHeroBanner?.linkUrl ? resolvePortalLinkTarget(currentHeroBanner.target) : undefined"
+        :rel="currentHeroBanner?.linkUrl ? 'noopener noreferrer' : undefined"
+        class="article-detail-hero-slide"
+        :class="{ 'is-banner': currentHeroBanner?.image }"
+      >
+        <img v-if="currentHeroBanner?.image" :src="currentHeroBanner.image" :alt="currentHeroBanner.title">
+        <div v-else class="article-detail-hero-fallback">
+          <h1><span>中测·</span>校招头条</h1>
+          <p>精选校招招聘头条信息，求职快人一步</p>
+        </div>
+      </component>
+
+      <div v-if="heroBannerSlides.length > 1" class="article-detail-hero-dots" aria-label="校招头条 Banner 轮播">
+        <button
+          v-for="(slide, index) in heroBannerSlides"
+          :key="slide.id"
+          type="button"
+          :class="{ active: index === activeHeroBanner }"
+          :aria-label="`切换到第 ${index + 1} 张 Banner`"
+          @click="activeHeroBanner = index"
+        />
+      </div>
+    </section>
+
     <article class="school-article-card">
       <div v-if="pending" class="article-empty">
         加载中...
@@ -70,13 +152,87 @@ const sourceLabel = computed(() => article.value?.source_name || article.value?.
 .school-article-page {
   min-height: 100vh;
   background: #f3f4f8;
-  padding: 36px 0 72px;
+  padding: 0 0 72px;
+}
+
+.article-detail-hero {
+  position: relative;
+  height: 280px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 82% 8%, rgba(132, 186, 255, 0.26), transparent 20%),
+    linear-gradient(108deg, #eef7ff 0%, #f9fbff 48%, #ddecff 100%);
+}
+
+.article-detail-hero-slide {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  color: inherit;
+  text-decoration: none;
+}
+
+.article-detail-hero-slide.is-banner img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.article-detail-hero-fallback {
+  width: 1200px;
+  max-width: calc(100vw - 32px);
+  margin: 0 auto;
+  padding-top: 82px;
+}
+
+.article-detail-hero-fallback h1 {
+  margin: 0;
+  color: #222;
+  font-size: 50px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.article-detail-hero-fallback h1 span {
+  color: #ff9700;
+}
+
+.article-detail-hero-fallback p {
+  margin: 34px 0 0;
+  color: #555;
+  font-size: 16px;
+}
+
+.article-detail-hero-dots {
+  position: absolute;
+  right: 0;
+  bottom: 18px;
+  left: 0;
+  z-index: 3;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.article-detail-hero-dots button {
+  width: 28px;
+  height: 4px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.66);
+  cursor: pointer;
+}
+
+.article-detail-hero-dots button.active {
+  background: #ff9700;
 }
 
 .school-article-card {
   width: 960px;
   max-width: calc(100vw - 32px);
-  margin: 0 auto;
+  margin: 36px auto 0;
   border-radius: 8px;
   background: #fff;
   padding: 36px 44px 44px;
@@ -157,6 +313,18 @@ const sourceLabel = computed(() => article.value?.source_name || article.value?.
 }
 
 @media (max-width: 640px) {
+  .article-detail-hero {
+    height: 210px;
+  }
+
+  .article-detail-hero-fallback {
+    padding-top: 62px;
+  }
+
+  .article-detail-hero-fallback h1 {
+    font-size: 36px;
+  }
+
   .school-article-card {
     padding: 24px 18px 30px;
   }

@@ -1,20 +1,25 @@
 <script setup lang="ts">
-definePageMeta({
-  layout: 'default',
-  middleware: ['auth', 'identity-required'],
-})
-
 import type { ActivityJobItem } from '~/services/company'
 import type { JobRecord } from '~/types/jobs'
 import { getCompanyActivityJobs, submitCompanyActivityJobs } from '~/services/company'
 import { getJobs } from '~/services/jobs'
 import { pushGlobalNotice } from '~/utils/notice'
 
+definePageMeta({
+  layout: 'default',
+  middleware: ['auth', 'identity-required'],
+})
+
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 
 const activityId = computed(() => Number((route.params as Record<string, string>).id))
+const activityType = computed(() => {
+  const rawType = Array.isArray(route.query.type) ? route.query.type[0] : route.query.type
+  const type = Number(rawType)
+  return Number.isFinite(type) ? type : null
+})
 
 const page = ref(1)
 
@@ -63,7 +68,9 @@ async function searchJobs(keyword?: string) {
     return
   loadingJobs.value = true
   try {
-    const params: Record<string, string | number | undefined> = { employment_type: 4, per_page: 50 }
+    const params: Record<string, string | number | undefined> = { per_page: 50 }
+    if (activityType.value === 2)
+      params.employment_type = 4
     if (keyword)
       params.keyword = keyword
     const result = await getJobs(userStore.authHeader, params)
@@ -112,7 +119,6 @@ async function submitJobs() {
   }
   finally { submitting.value = false }
 }
-
 </script>
 
 <template>
