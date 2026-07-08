@@ -98,16 +98,16 @@ onBeforeUnmount(() => {
         </button>
 
         <nav class="portal-main-nav" aria-label="主导航">
-          <a
+          <NuxtLink
             v-for="item in navItems"
             :key="item.label"
-            :href="item.to"
+            :to="item.to"
             :target="resolvePortalLinkTarget(item.target)"
             rel="noopener noreferrer"
             :class="{ 'is-active': isActiveNav(item) }"
           >
             {{ item.label }}
-          </a>
+          </NuxtLink>
         </nav>
 
         <div v-if="userStore.isLoggedIn" ref="panelRef" class="portal-user-menu">

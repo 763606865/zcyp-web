@@ -4,6 +4,7 @@ export interface PortalNavItem {
   label: string
   to: string
   target: number
+  isEmptyLink?: boolean
 }
 
 export function usePortalNavigation(menus: Ref<CmsMenuItem[]>, activeNav?: Ref<string | undefined>) {
@@ -18,19 +19,23 @@ export function usePortalNavigation(menus: Ref<CmsMenuItem[]>, activeNav?: Ref<s
       ...menus.value
         .map(menu => ({
           menu,
-          to: normalizePortalLinkUrl(menu.link_url),
+          rawUrl: normalizePortalLinkUrl(menu.link_url),
         }))
-        .filter(({ menu, to }) => menu.name !== '首页' && to && to !== '/')
+        .filter(({ menu }) => menu.name !== '首页')
         .slice(0, 7)
-        .map(({ menu, to }) => ({
+        .map(({ menu, rawUrl }) => ({
           label: menu.name,
-          to,
+          to: rawUrl || '/',
           target: menu.target,
+          isEmptyLink: !rawUrl || undefined,
         })),
     ]
   })
 
-  function isActiveNav(item: { label: string, to: string }) {
+  function isActiveNav(item: { label: string, to: string, isEmptyLink?: boolean }) {
+    if (item.isEmptyLink)
+      return false
+
     if (activeNav?.value)
       return activeNav.value === item.label
 
