@@ -147,7 +147,7 @@ await callOnce(async () => {
             class="border-1 border-[transparent] rounded-[2px] bg-[#ffffff] no-underline block shadow-[0_-1px_0px_0_rgba(148,92,0,0.06)] transition hover:border-[#FFA500]"
             style="height: 119px;"
           >
-            <div class="px-[20px] py-[20px] flex gap-[16px] h-full items-center relative">
+            <div class="px-[20px] py-[20px] flex gap-[16px] h-full shadow-[inset_0px_-1px_0px_0px_rgba(0,0,0,0.1)] items-center relative">
               <!-- 头像 -->
               <div class="rounded-[50%] shrink-0 self-start relative">
                 <img :src="app.avatar" :alt="app.name" class="rounded-[50%] h-[48px] w-[48px]">

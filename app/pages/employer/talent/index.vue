@@ -1,74 +1,99 @@
 <script setup lang="ts">
+import { useMetaStore } from '~/stores/meta'
+
 definePageMeta({
   layout: 'default',
   middleware: ['auth', 'identity-required'],
 })
 
-import type { ResumeRecord } from '~/types/resume'
-import ResumeSelect from '~/components/ResumeSelect.vue'
-import { searchTalentResumes } from '~/services/talent'
-import { useMetaStore } from '~/stores/meta'
-
 const userStore = useUserStore()
 const metaStore = useMetaStore()
 
-const currentPage = ref(1)
-const perPage = ref(15)
 const errorMessage = ref('')
 
 const keyword = ref('')
-const educationLevel = ref(0)
-const cityCode = ref('')
-const provinceCode = ref('')
-const workYearsMin = ref('')
-const workYearsMax = ref('')
-const isFreshGraduate = ref('')
-const showFilters = ref(false)
+const salaryRange = ref('')
+const educationLevel = ref('')
+const workExperience = ref('')
+const jobSeekerIdentity = ref('')
 
-const cityOptions = computed(() => metaStore.getCitiesByProvinceCode(provinceCode.value))
-watch(() => provinceCode.value, () => {
-  cityCode.value = ''
-})
-
+const salaryRangeOptions = [
+  { label: '不限', value: '' },
+  { label: '8K-12K', value: '8-12' },
+  { label: '12K-15K', value: '12-15' },
+  { label: '15K-20K', value: '15-20' },
+  { label: '20K-30K', value: '20-30' },
+  { label: '30K以上', value: '30+' },
+]
 const educationLevelOptions = [
-  { label: '全部', value: 0 },
-  { label: '高中/中专', value: 1 },
-  { label: '专科', value: 2 },
-  { label: '本科', value: 3 },
-  { label: '硕士', value: 4 },
-  { label: '博士', value: 5 },
-  { label: '其他', value: 6 },
+  { label: '不限', value: '' },
+  { label: '高中/中专', value: '1' },
+  { label: '专科', value: '2' },
+  { label: '本科', value: '3' },
+  { label: '硕士', value: '4' },
+  { label: '博士', value: '5' },
 ]
-const isFreshGraduateOptions = [
-  { label: '全部', value: '' },
-  { label: '应届', value: '1' },
-  { label: '非应届', value: '0' },
+const workExperienceOptions = [
+  { label: '不限', value: '' },
+  { label: '应届生', value: '0' },
+  { label: '1-3年', value: '1-3' },
+  { label: '3-5年', value: '3-5' },
+  { label: '5-10年', value: '5-10' },
+  { label: '10年以上', value: '10+' },
+]
+const jobSeekerIdentityOptions = [
+  { label: '不限', value: '' },
+  { label: '离职-随时到岗', value: '1' },
+  { label: '在职-月内到岗', value: '2' },
+  { label: '在职-考虑机会', value: '3' },
+  { label: '在职-暂不考虑', value: '4' },
 ]
 
-const pageNumbers = computed(() => {
-  const pages: number[] = []
-  const start = Math.max(1, currentPage.value - 2)
-  const end = Math.min(lastPage.value, start + 4)
-  for (let i = start; i <= end; i++) pages.push(i)
-  return pages
-})
+// Mock data
+interface MockResumeItem {
+  id: number
+  avatar: string
+  name: string
+  gender: number
+  salary: string
+  job_expectation_city: string
+  job_expectation_position: string
+  age: number
+  work_years: number
+  education: string
+  employment_status: string
+  phone: string
+  work_experience_company: string
+  work_experience_position: string
+  education_school: string
+  education_major: string
+}
 
-async function loadResumes() {
+const allMockResumes: MockResumeItem[] = [
+  { id: 1, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Wang', name: '王大锤', gender: 1, salary: '15-20K', job_expectation_city: '南昌', job_expectation_position: '设计主管', age: 27, work_years: 6, education: '本科', employment_status: '离职-随时到岗', phone: '12345678910', work_experience_company: 'XXXXXXX1有限公司', work_experience_position: '设计主管', education_school: 'XX大学', education_major: '视觉传达' },
+]
+
+const pageSize = 15
+
+const currentPage = ref(1)
+const hasMore = ref(true)
+const isLoadingMore = ref(false)
+const resumeList = ref<MockResumeItem[]>([])
+
+async function loadResumes(page: number): Promise<{ data: MockResumeItem[], total: number, last_page: number } | null> {
   if (!userStore.authHeader)
     return null
 
   errorMessage.value = ''
   try {
-    return await searchTalentResumes({
-      keyword: keyword.value || undefined,
-      highest_education_level: educationLevel.value || undefined,
-      current_city_code: cityCode.value || undefined,
-      is_fresh_graduate: isFreshGraduate.value ? Number(isFreshGraduate.value) : undefined,
-      work_years_min: workYearsMin.value ? Number(workYearsMin.value) : undefined,
-      work_years_max: workYearsMax.value ? Number(workYearsMax.value) : undefined,
-      per_page: perPage.value,
-      page: currentPage.value,
-    }, userStore.authHeader)
+    // TODO: 后续对接真实接口
+    // return await searchTalentResumes({ ... }, userStore.authHeader)
+
+    const start = (page - 1) * pageSize
+    const end = start + pageSize
+    const pageData = allMockResumes.slice(start, end)
+    const lastPage = Math.ceil(allMockResumes.length / pageSize)
+    return { data: pageData, total: allMockResumes.length, last_page: lastPage }
   }
   catch {
     errorMessage.value = '搜索失败，请稍后重试。'
@@ -76,167 +101,232 @@ async function loadResumes() {
   }
 }
 
-await callOnce(async () => {
-  if (userStore.authHeader)
-    await metaStore.ensureAllLoaded(userStore.authHeader)
-})
-
-const { data: talentResumesData, pending: isLoading, refresh: refreshResumes } = await useAsyncData(
-  'employer-talent-resumes',
-  loadResumes,
-  {
-    server: false,
-    watch: [currentPage],
-    default: () => null,
+const { data: initialData } = await useAsyncData(
+  'employer-talent-resumes-init',
+  async () => {
+    if (userStore.authHeader)
+      await metaStore.ensureAllLoaded(userStore.authHeader)
+    return await loadResumes(1)
   },
+  { server: false },
 )
 
-const resumeList = computed<ResumeRecord[]>(() => talentResumesData.value?.data || [])
-const total = computed(() => talentResumesData.value?.total || 0)
-const lastPage = computed(() => talentResumesData.value?.last_page || 1)
-
-watch(talentResumesData, (value) => {
-  if (value?.current_page)
-    currentPage.value = value.current_page
-  if (value?.per_page)
-    perPage.value = value.per_page
-})
+if (initialData.value) {
+  resumeList.value = initialData.value.data
+  hasMore.value = currentPage.value < initialData.value.last_page
+}
 
 async function handleSearch() {
   currentPage.value = 1
-  await refreshResumes()
+  hasMore.value = true
+  const result = await loadResumes(1)
+  if (result) {
+    resumeList.value = result.data
+    hasMore.value = currentPage.value < result.last_page
+  }
 }
-function goToPage(p: number) {
-  if (p >= 1 && p <= lastPage.value)
-    currentPage.value = p
-}
+
 function handleFilterChange() {
   currentPage.value = 1
-  refreshResumes()
+  hasMore.value = true
+  handleSearch()
 }
 
-function getEducationLabel(v: number | null | undefined) {
-  const map: Record<number, string> = { 1: '高中/中专', 2: '专科', 3: '本科', 4: '硕士', 5: '博士', 6: '其他' }
-  return v ? map[v] || '' : ''
+function clearFilters() {
+  keyword.value = ''
+  salaryRange.value = ''
+  educationLevel.value = ''
+  workExperience.value = ''
+  jobSeekerIdentity.value = ''
+  handleSearch()
 }
 
-function getSalaryLabel(r: ResumeRecord) {
-  if (!r.expected_salary_min && !r.expected_salary_max)
-    return ''
-  return `${r.expected_salary_min || '面议'}-${r.expected_salary_max || '面议'}${r.expected_salary_unit === 1 ? '元/月' : r.expected_salary_unit === 2 ? '元/日' : r.expected_salary_unit === 3 ? '元/时' : ''}`
+async function loadMore() {
+  if (isLoadingMore.value || !hasMore.value)
+    return
+  isLoadingMore.value = true
+  currentPage.value++
+  const result = await loadResumes(currentPage.value)
+  if (result) {
+    resumeList.value = [...resumeList.value, ...result.data]
+    hasMore.value = currentPage.value < result.last_page
+  }
+  isLoadingMore.value = false
 }
 
+const scrollContainer = ref<HTMLElement | null>(null)
+const sentinel = ref<HTMLElement | null>(null)
+
+onMounted(() => {
+  const observer = new IntersectionObserver(
+    (entries) => {
+      if (entries[0]?.isIntersecting && hasMore.value && !isLoadingMore.value)
+        loadMore()
+    },
+    { root: scrollContainer.value, rootMargin: '200px' },
+  )
+  if (sentinel.value)
+    observer.observe(sentinel.value)
+})
 </script>
 
 <template>
-  <div>
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-[24px] text-[#24180c] font-bold">
-          推荐牛人
-        </h1>
-        <p class="mt-2 text-[14px] text-[#6f6556]">
-          搜索和浏览全平台求职者简历。
-        </p>
-      </div>
-    </div>
+  <div class="px-[12px]">
+    <h1 class="text-[14px] text-[#222222] font-bold">
+      推荐牛人
+    </h1>
 
-    <div v-if="errorMessage" class="mt-4 rounded-[16px] bg-[#fff2ef] px-4 py-3 text-[13px] text-[#c24d2c] leading-6 ring-1 ring-[#f4cabd]">
+    <div v-if="errorMessage" class="text-[13px] text-[#c24d2c] leading-6 mt-4 px-4 py-3 rounded-[16px] bg-[#fff2ef] ring-1 ring-[#f4cabd]">
       {{ errorMessage }}
     </div>
 
-    <div class="mt-6 rounded-[20px] bg-white p-5 shadow-[0_8px_24px_rgba(148,92,0,0.06)] ring-1 ring-[#f1e4c6]">
-      <div class="flex items-center gap-3">
-        <div class="min-w-0 flex-1">
+    <!-- 搜索+筛选模块 149px -->
+    <div class="mt-[16px] pb-[21px] pl-[33px] pr-[28px] pt-[24px] rounded-[4px] bg-white" style="height: 149px;">
+      <div class="flex gap-[53px] items-center">
+        <div class="flex items-center">
           <input
-            v-model="keyword" type="text" placeholder="搜索姓名、职位、技能关键词…"
-            class="h-[46px] w-full border border-[#ecd8a9] rounded-[14px] bg-white px-4 text-[14px] text-[#24180c] outline-none transition focus:border-[#d79a19] focus:shadow-[0_0_0_3px_rgba(255,165,0,0.14)]"
+            v-model="keyword"
+            type="text"
+            placeholder="请输入关键词如：职位、技能等"
+            class="text-[14px] px-3 py-2 border border-r-0 border-[#e6e8eb] rounded-l-[4px] bg-white flex-1 h-[36px] w-[968px] focus:outline-none"
             @keyup.enter="handleSearch"
           >
+          <button
+            type="button"
+            class="text-[14px] text-white px-4 rounded-r-[4px] bg-[#FFA500] flex shrink-0 gap-1 h-[36px] items-center justify-center"
+            @click="handleSearch"
+          >
+            <span class="i-carbon-search text-[14px] inline-flex" />
+            <span>搜索</span>
+          </button>
         </div>
-        <button class="h-[46px] shrink-0 rounded-[14px] border-none bg-[linear-gradient(135deg,#ffbe3b_0%,#ffa500_60%,#ea9400_100%)] px-6 text-[14px] text-white font-semibold shadow-[0_10px_20px_rgba(255,165,0,0.18)]" @click="handleSearch">
-          搜索
+        <button class="text-[13px] text-[#999999] border-none bg-transparent flex shrink-0 gap-1 cursor-pointer items-center" @click="clearFilters">
+          <img src="/assets/images/employer/filter-icon.png" alt="清空筛选条件" class="h-[16px] w-[16px]">
+          <span class="leading-none">清空筛选条件</span>
         </button>
-        <button class="h-[46px] shrink-0 border border-[#eed39a] rounded-[14px] bg-white px-4 text-[14px] text-[#8b6418]" @click="showFilters = !showFilters">
-          筛选
-        </button>
       </div>
-
-      <div v-if="showFilters" class="grid mt-4 gap-4 border-t border-[#f2e4c7] pt-4 md:grid-cols-4">
-        <ResumeSelect v-model="educationLevel" label="最高学历" :options="educationLevelOptions" @update:model-value="handleFilterChange" />
-        <div class="text-[13px] text-[#8a6b34] space-y-2">
-          <span>工作城市</span>
-          <div class="flex gap-1">
-            <ResumeSelect v-model="provinceCode" :options="metaStore.provinceOptions" wrapper-class="flex-1 !space-y-0" @update:model-value="handleFilterChange" />
-            <ResumeSelect v-model="cityCode" :options="cityOptions" wrapper-class="flex-1 !space-y-0" @update:model-value="handleFilterChange" />
-          </div>
-        </div>
-        <div class="text-[13px] text-[#8a6b34] space-y-2">
-          <span>工作年限</span>
-          <div class="flex items-center gap-2">
-            <input v-model="workYearsMin" type="number" min="0" placeholder="最低" class="h-[46px] w-full border border-[#ecd8a9] rounded-[14px] bg-white px-3 text-[14px] text-[#24180c] outline-none transition focus:border-[#d79a19]">
-            <span class="text-[#a27a2b]">—</span>
-            <input v-model="workYearsMax" type="number" min="0" placeholder="最高" class="h-[46px] w-full border border-[#ecd8a9] rounded-[14px] bg-white px-3 text-[14px] text-[#24180c] outline-none transition focus:border-[#d79a19]">
-          </div>
-        </div>
-        <ResumeSelect v-model="isFreshGraduate" label="应届生" :options="isFreshGraduateOptions" @update:model-value="handleFilterChange" />
-      </div>
-    </div>
-
-    <div class="mt-4 text-[13px] text-[#8a6e45]">
-      共找到 <span class="text-[#24180c] font-medium">{{ total }}</span> 份简历
-      <span v-if="keyword" class="ml-1">，关键词："<span class="text-[#8b6418]">{{ keyword }}</span>"</span>
-    </div>
-
-    <div class="mt-3 rounded-[20px] bg-white p-6 shadow-[0_8px_24px_rgba(148,92,0,0.06)] ring-1 ring-[#f1e4c6]">
-      <div v-if="isLoading" class="py-12 text-center text-[14px] text-[#b6a27a]">
-        搜索中...
-      </div>
-      <div v-else-if="resumeList.length === 0" class="py-12 text-center text-[14px] text-[#b6a27a]">
-        未找到匹配简历。
-      </div>
-      <div v-else class="space-y-3">
-        <div v-for="resume in resumeList" :key="resume.id" class="border border-[#f2e4c7] rounded-[14px] px-5 py-4">
-          <div class="flex items-start justify-between gap-4">
-            <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-3">
-                <span class="text-[16px] text-[#24180c] font-medium">{{ resume.full_name || resume.title || '未知' }}</span>
-                <span class="text-[12px] text-[#8a6e45]">{{ resume.gender === 1 ? '男' : resume.gender === 2 ? '女' : '' }}{{ resume.age ? ` · ${resume.age}岁` : '' }}</span>
-              </div>
-              <div class="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-[#8a6e45]">
-                <span v-if="resume.current_residence_city">{{ resume.current_residence_city }}</span>
-                <span v-if="resume.highest_education_level">{{ getEducationLabel(resume.highest_education_level) }}</span>
-                <span v-if="resume.work_years !== null && resume.work_years !== undefined">{{ resume.work_years }} 年经验</span>
-                <span v-if="resume.is_fresh_graduate">应届</span>
-              </div>
-              <div v-if="getSalaryLabel(resume)" class="mt-1 text-[13px] text-[#c24d2c] font-medium">
-                {{ getSalaryLabel(resume) }}
-              </div>
-            </div>
-            <div class="shrink-0">
-              <NuxtLink :to="`/employer/talent/resume/${resume.id}`" class="inline-flex rounded-[10px] bg-[#fff7e7] px-3 py-1.5 text-[12px] text-[#8b6418] no-underline ring-1 ring-[#eed39a] transition hover:bg-[#ffeebe]">
-                查看简历
-              </NuxtLink>
-            </div>
-          </div>
-        </div>
+      <div class="mt-[24px] flex gap-3 items-start">
+        <select
+          v-model="salaryRange"
+          class="text-[14px] px-3 py-2 appearance-none border border-[#e6e8eb] rounded-[4px] bg-white flex-1 h-[36px] max-w-[224px] cursor-pointer focus:outline-none focus:border-[#FFA500]"
+          style="background-image: url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%23999%22%20d%3D%22M3%204.5l3%203%203-3%22%2F%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 12px center;"
+          @change="handleFilterChange"
+        >
+          <option value="" disabled>
+            薪资范围
+          </option>
+          <option v-for="opt in salaryRangeOptions" :key="opt.value" :value="opt.value">
+            {{ opt.label }}
+          </option>
+        </select>
+        <select
+          v-model="educationLevel"
+          class="text-[14px] px-3 py-2 appearance-none border border-[#e6e8eb] rounded-[4px] bg-white flex-1 h-[36px] max-w-[224px] cursor-pointer focus:outline-none focus:border-[#FFA500]"
+          style="background-image: url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%23999%22%20d%3D%22M3%204.5l3%203%203-3%22%2F%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 12px center;"
+          @change="handleFilterChange"
+        >
+          <option value="" disabled>
+            请选择学历
+          </option>
+          <option v-for="opt in educationLevelOptions" :key="opt.value" :value="opt.value">
+            {{ opt.label }}
+          </option>
+        </select>
+        <select
+          v-model="workExperience"
+          class="text-[14px] px-3 py-2 appearance-none border border-[#e6e8eb] rounded-[4px] bg-white flex-1 h-[36px] max-w-[224px] cursor-pointer focus:outline-none focus:border-[#FFA500]"
+          style="background-image: url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%23999%22%20d%3D%22M3%204.5l3%203%203-3%22%2F%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 12px center;"
+          @change="handleFilterChange"
+        >
+          <option value="" disabled>
+            选择工作经验
+          </option>
+          <option v-for="opt in workExperienceOptions" :key="opt.value" :value="opt.value">
+            {{ opt.label }}
+          </option>
+        </select>
+        <select
+          v-model="jobSeekerIdentity"
+          class="text-[14px] px-3 py-2 appearance-none border border-[#e6e8eb] rounded-[4px] bg-white flex-1 h-[36px] max-w-[224px] cursor-pointer focus:outline-none focus:border-[#FFA500]"
+          style="background-image: url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%23999%22%20d%3D%22M3%204.5l3%203%203-3%22%2F%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 12px center;"
+          @change="handleFilterChange"
+        >
+          <option value="" disabled>
+            选择求职者身份
+          </option>
+          <option v-for="opt in jobSeekerIdentityOptions" :key="opt.value" :value="opt.value">
+            {{ opt.label }}
+          </option>
+        </select>
       </div>
     </div>
 
-    <div v-if="lastPage > 1 && !isLoading" class="mt-5 flex items-center justify-center gap-2">
-      <button class="rounded-[10px] bg-white px-3 py-1.5 text-[12px] text-[#6f6556] ring-1 ring-[#f2e4c7] disabled:opacity-40" :disabled="currentPage <= 1" @click="goToPage(currentPage - 1)">
-        上一页
-      </button>
-      <button
-        v-for="p in pageNumbers" :key="p" class="rounded-[10px] px-3 py-1.5 text-[12px] ring-1 transition"
-        :class="p === currentPage ? 'bg-[linear-gradient(135deg,#ffbe3b_0%,#ffa500_60%,#ea9400_100%)] text-white border-none' : 'bg-white text-[#6f6556] ring-[#f2e4c7] hover:bg-[#fffaf0]'"
-        @click="goToPage(p)"
+    <!-- 列表区域 -->
+    <div
+      ref="scrollContainer"
+      class="mt-[13px] flex flex-col gap-3"
+      style="height: calc(100vh - 282px); overflow-y: auto;"
+    >
+      <div v-if="resumeList.length === 0 && !isLoadingMore" class="text-[14px] text-[#999999] py-16 text-center">
+        暂无推荐牛人。
+      </div>
+      <div
+        v-for="app in resumeList"
+        :key="app.id"
+        class="border border-[#f0f0f0] rounded-[2px] bg-white block shadow-[inset_0px_-1px_0px_0px_rgba(0,0,0,0.1)]"
+        style="height: 119px;"
       >
-        {{ p }}
-      </button>
-      <button class="rounded-[10px] bg-white px-3 py-1.5 text-[12px] text-[#6f6556] ring-1 ring-[#f2e4c7] disabled:opacity-40" :disabled="currentPage >= lastPage" @click="goToPage(currentPage + 1)">
-        下一页
-      </button>
+        <div class="px-5 py-5 flex gap-4 h-full items-center relative">
+          <!-- 头像 -->
+          <div class="rounded-full shrink-0 self-start relative">
+            <img :src="app.avatar" :alt="app.name" class="rounded-full h-12 w-12">
+            <img v-if="app.gender === 1" src="/assets/images/employer/man.png" alt="男" class="h-4 w-4 bottom-[-2px] right-[1px] absolute">
+            <img v-else src="/assets/images/employer/woman.png" alt="女" class="h-4 w-4 bottom-[-2px] right-[1px] absolute">
+          </div>
+          <!-- 信息区 -->
+          <div class="flex flex-1 flex-col min-w-0 justify-center">
+            <!-- 第一行：姓名 + 薪资 + 求职期望 -->
+            <div class="mb-1.5 flex items-center">
+              <span class="text-base text-[#222222] font-bold mr-3">{{ app.name }}</span>
+              <span class="text-base text-[#FFA500] font-medium mr-4">{{ app.salary }}</span>
+              <span class="text-sm text-[#999999]">求职期望：</span>
+              <span class="text-sm text-[#222222]">{{ app.job_expectation_city }} {{ app.job_expectation_position }}</span>
+            </div>
+            <!-- 第二行：年龄 | 工作年限 | 学历 | 求职状态 | 手机号 -->
+            <div class="mb-3 flex gap-2 items-center">
+              <span class="text-sm text-[#555555]">{{ app.age }}岁</span>
+              <div class="bg-[#CECECE] h-2.5 w-px" />
+              <span class="text-sm text-[#555555]">工作{{ app.work_years }}年</span>
+              <div class="bg-[#CECECE] h-2.5 w-px" />
+              <span class="text-sm text-[#555555]">{{ app.education }}</span>
+              <div class="bg-[#CECECE] h-2.5 w-px" />
+              <span class="text-sm text-[#555555]">{{ app.employment_status }}</span>
+              <div class="bg-[#CECECE] h-2.5 w-px" />
+              <span class="text-sm text-[#555555]">{{ app.phone }}</span>
+            </div>
+            <!-- 第三行：工作经历 + 教育经历 -->
+            <div class="flex items-center">
+              <span class="text-sm text-[#999999]">工作经历：</span>
+              <span class="text-sm text-[#222222] mr-6">{{ app.work_experience_company }} \ {{ app.work_experience_position }}</span>
+              <span class="text-sm text-[#999999]">教育经历：</span>
+              <span class="text-sm text-[#222222]">{{ app.education_school }} \ {{ app.education_major }}</span>
+            </div>
+          </div>
+          <!-- 查看简历按钮 -->
+          <NuxtLink
+            :to="`/employer/talent/resume/${app.id}`"
+            class="text-sm text-white px-4 py-1.5 rounded-[4px] bg-[#FFA500] no-underline inline-flex items-center right-6 top-5 justify-center absolute"
+          >
+            查看简历
+          </NuxtLink>
+        </div>
+      </div>
+
+      <!-- 无限滚动加载指示 -->
+      <div v-if="isLoadingMore" class="text-sm text-[#999999] py-4 text-center">
+        加载中...
+      </div>
+      <div ref="sentinel" class="h-1" />
     </div>
   </div>
 </template>
