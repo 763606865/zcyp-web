@@ -216,7 +216,7 @@ const timestamp = ref(Date.now())
             v-for="item in interviewList" :key="item.id"
             class="mb-[10px] px-[20px] py-[12px] py-[8px] border-b-[1px] border-[#E6E8EB] flex h-[109px] w-[100%] justify-between last:mb-0 last:border-b-0"
           >
-            <div class="flex gap-[16px]">
+            <div class="mt-[4px] flex gap-[16px]">
               <div class="rounded-[50%] h-[48px] w-[48px] relative">
                 <img :src="item.avatar" alt="面试者头像" class="rounded-[50%] h-[48px] w-[48px]">
                 <img
@@ -260,7 +260,7 @@ const timestamp = ref(Date.now())
                     {{ item.time }}
                   </div>
                 </div>
-                <div class="mt-[12px] flex items-center">
+                <div class="mt-[17px] flex items-center">
                   <div class="text-[14px] text-[#999999]">
                     面试时间：
                   </div>
