@@ -8,8 +8,8 @@ export const identityOptions: { code: AuthIdentityCode, label: string }[] = [
   { code: 'jobseeker', label: '求职者' },
   { code: 'employer', label: '招聘方' },
   { code: 'campus_manager', label: '校招负责人' },
-  { code: 'government_manager', label: '政府机构负责人' },
-  { code: 'headhunter', label: '猎头' },
+  // { code: 'government_manager', label: '政府机构负责人' },
+  // { code: 'headhunter', label: '猎头' },
 ]
 
 export const identitySwitchOptions: { code: AuthIdentityCode, title: string, subtitle: string, icon: string }[] = [
