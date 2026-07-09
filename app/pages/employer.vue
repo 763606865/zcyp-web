@@ -153,7 +153,7 @@ function handleClickOutside() {
           </NuxtLink>
         </nav>
       </aside>
-      <main class="p-4 flex-1 min-w-0 overflow-y-auto">
+      <main class="p-[12px] flex-1 min-w-0 overflow-y-auto">
         <NuxtPage />
       </main>
     </div>

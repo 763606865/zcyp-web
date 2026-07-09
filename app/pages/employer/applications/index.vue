@@ -1,19 +1,17 @@
 <script setup lang="ts">
+import { useMetaStore } from '~/stores/meta'
+
 definePageMeta({
   layout: 'default',
   middleware: ['auth', 'identity-required'],
 })
 
-/* eslint-disable style/max-statements-per-line */
-import type { ApplicationItem } from '~/services/application'
-import { getApplications } from '~/services/application'
-import { useMetaStore } from '~/stores/meta'
-
 const userStore = useUserStore()
 const metaStore = useMetaStore()
 
-const currentPage = ref(1)
+const resumeStatus = ref(1)
 const statusFilter = ref(0)
+const searchQuery = ref('')
 
 const isOrgApproved = computed(() => {
   const info = userStore.currentIdentityInfo
@@ -41,147 +39,161 @@ const statusColors: Record<number, string> = {
   6: 'bg-red-50 text-red-500 ring-1 ring-red-200',
 }
 
-async function loadApplications() {
-  if (!userStore.authHeader)
-    return null
-
-  try {
-    const query: Record<string, string | number | undefined> = { per_page: 15, page: currentPage.value }
-    if (statusFilter.value >= 0)
-      query.status = statusFilter.value
-    return await getApplications(userStore.authHeader, query)
-  }
-  catch {
-    return null
-  }
+// TODO: 后续对接真实接口时替换此类型
+interface ApplicationMockItem {
+  id: number
+  avatar: string
+  name: string
+  gender: number
+  unread_count: number
+  salary: string
+  job_expectation_city: string
+  job_expectation_position: string
+  age: number
+  work_years: number
+  education: string
+  employment_status: string
+  phone: string
+  work_experience_company: string
+  work_experience_position: string
+  education_school: string
+  education_major: string
+  status: number
+  status_label: string
 }
+
+// TODO: 后续对接真实接口
+// async function loadApplications(page: number): Promise<ApplicationListResponse | null> { ... }
+
+const applicationList = ref<ApplicationMockItem[]>([
+  {
+    id: 1,
+    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix',
+    name: '王大锤',
+    gender: 1,
+    unread_count: 2,
+    salary: '15-20K',
+    job_expectation_city: '南昌',
+    job_expectation_position: '设计主管',
+    age: 27,
+    work_years: 6,
+    education: '本科',
+    employment_status: '离职-随时到岗',
+    phone: '12345678910',
+    work_experience_company: 'XXXXXXX1有限公司',
+    work_experience_position: '设计主管',
+    education_school: 'XX大学',
+    education_major: '视觉传达',
+    status: 0,
+    status_label: '待处理',
+  },
+])
 
 await callOnce(async () => {
   if (userStore.authHeader)
     await metaStore.ensureAllLoaded(userStore.authHeader)
 })
-
-const { data: employerApplicationsData, pending: isLoading, refresh: refreshEmployerApplications } = await useAsyncData(
-  'employer-applications',
-  loadApplications,
-  {
-    server: false,
-    watch: [currentPage],
-    default: () => null,
-  },
-)
-
-const applicationList = computed<ApplicationItem[]>(() => employerApplicationsData.value?.data || [])
-const total = computed(() => employerApplicationsData.value?.total || 0)
-const lastPage = computed(() => employerApplicationsData.value?.last_page || 1)
-
-watch(employerApplicationsData, (value) => {
-  if (value?.current_page)
-    currentPage.value = value.current_page
-})
-
-function handleSearch() { currentPage.value = 1; refreshEmployerApplications() }
-function goToPage(p: number) { if (p >= 1 && p <= lastPage.value) currentPage.value = p }
-
-const pageNumbers = computed(() => {
-  const pages: number[] = []
-  const start = Math.max(1, currentPage.value - 2)
-  const end = Math.min(lastPage.value, start + 4)
-  for (let i = start; i <= end; i++) pages.push(i)
-  return pages
-})
-
 </script>
 
 <template>
-  <div class="relative">
-    <h1 class="text-[24px] text-[#24180c] font-bold">
+  <div class="px-[12px] relative">
+    <h1 class="text-[14px] text-[#222222] font-bold">
       投递记录
     </h1>
-    <p class="mt-2 text-[14px] text-[#6f6556]">
-      查看收到的求职简历投递。
-    </p>
-
-    <div class="mt-6 flex flex-wrap items-center gap-3">
-      <div class="flex flex-wrap gap-2">
-        <button
-          v-for="opt in applicationStatusOptions" :key="opt.value"
-          class="cursor-pointer border rounded-full px-4 py-1.5 text-[13px] transition"
-          :class="statusFilter === opt.value ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-400'"
-          @click="statusFilter = opt.value; handleSearch()"
+    <div class="mt-[16px] flex h-[32px] items-center justify-between">
+      <div class="flex">
+        <div
+          class="text-[14px] text-[#31373D] leading-none px-[16px] py-[9px] border-[1px] border-r-0 border-[#e6e8eb] rounded-bl-[4px] rounded-tl-[4px] cursor-pointer" :class="resumeStatus === 1 ? 'bg-[#FFA500] text-[#ffffff] border-[#FFA500]' : ''"
+          @click="resumeStatus = 1; handleSearch()"
         >
-          {{ opt.label }}
+          收到的简历
+        </div>
+        <div
+          class="text-[14px] text-[#31373D] leading-none px-[16px] py-[9px] border-[1px] border-l-0 border-[#e6e8eb] rounded-br-[4px] rounded-tr-[4px] cursor-pointer" :class="resumeStatus === 2 ? 'bg-[#FFA500] text-[#ffffff] border-[#FFA500]' : ''"
+          @click="resumeStatus = 2; handleSearch()"
+        >
+          收藏的简历
+        </div>
+      </div>
+      <div class="flex h-[32px] w-[345px] items-center">
+        <input v-model="searchQuery" placeholder="请输入关键词如：职位、技能等" type="text" class="text-[14px] px-[10px] py-[8px] border-[1px] border-[#e6e8eb] border-r-none bg-[#ffffff] h-[32px] w-[278px] focus:outline-none focus:ring-2 focus:ring-[transparent]">
+        <button type="button" class="text-[14px] text-[#ffffff] ml-[-2px] rounded-[4px] bg-[#FFA500] flex gap-[3px] h-[32px] w-[67px] items-center justify-center" @click="handleSearch">
+          <span class="i-carbon-search text-[14px] inline-flex" />
+          <span>搜索</span>
         </button>
       </div>
     </div>
+    <div v-if="resumeStatus === 1" class="mt-[16px] px-[24px] rounded-[4px] bg-[#ffffff] flex gap-[32px] h-[44px] items-center">
+      <div
+        v-for="opt in applicationStatusOptions" :key="opt.value"
+        class="text-[14px] leading-[44px] border-b-[1px] border-[transparent] h-[100%] cursor-pointer transition"
+        :class="statusFilter === opt.value ? 'text-[#FFA500] border-b-[#FFA500] font-medium' : 'text-[#666666] border-transparent hover:text-[#333333]'"
+        @click="statusFilter = opt.value"
+      >
+        {{ opt.label }}
+      </div>
+    </div>
 
-    <div class="relative mt-4 rounded-[20px] bg-white shadow-[0_8px_24px_rgba(148,92,0,0.06)] ring-1 ring-[#f1e4c6]">
-      <OrgApprovalOverlay :visible="!isOrgApproved" description="完成企业信息绑定并等待审核通过后，即可查看投递记录。" />
+    <div class="mt-[16px] relative" :style="resumeStatus === 1 ? 'height: calc(100vh - 227px);' : 'height: calc(100vh - 167px);'">
+      <OrgApprovalOverlay :visible="false" description="完成企业信息绑定并等待审核通过后，即可查看投递记录。" />
 
-      <div :class="!isOrgApproved ? 'pointer-events-none select-none blur-sm opacity-30' : ''">
-        <div v-if="isLoading" class="px-6 py-16 text-center text-[14px] text-[#b6a27a]">
-          加载中...
-        </div>
-        <div v-else-if="applicationList.length === 0" class="px-6 py-16 text-center text-[14px] text-[#b6a27a]">
+      <div class="h-full overflow-y-auto">
+        <div v-if="applicationList.length === 0" class="text-[14px] text-[#b6a27a] px-6 py-16 text-center">
           暂无投递记录。
         </div>
-        <div v-else class="divide-y divide-[#f2e4c7]">
-          <NuxtLink v-for="app in applicationList" :key="app.id" :to="`/employer/applications/${app.id}`" class="block px-6 py-5 no-underline transition hover:bg-[#fffaf5]">
-            <div class="flex items-start justify-between gap-4">
-              <div class="min-w-0 flex-1">
-                <div class="flex items-center gap-3">
-                  <div class="h-10 w-10 flex shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#ffbe3b_0%,#ffa500_60%,#ea9400_100%)] text-[15px] text-white font-medium">
-                    {{ (app.candidate?.full_name || '?').charAt(0) }}
-                  </div>
-                  <div>
-                    <div class="flex items-center gap-2">
-                      <span class="text-[16px] text-[#24180c] font-medium">{{ app.candidate?.full_name || '未知' }}</span>
-                      <span v-if="app.candidate?.gender === 1" class="text-[12px] text-blue-500">♂</span>
-                      <span v-else-if="app.candidate?.gender === 2" class="text-[12px] text-pink-500">♀</span>
-                      <span v-if="app.candidate?.age" class="text-[12px] text-slate-500">{{ app.candidate.age }}岁</span>
-                      <span v-if="app.candidate?.work_years" class="text-[12px] text-slate-500">{{ app.candidate.work_years }}年经验</span>
-                    </div>
-                    <div class="mt-1 text-[13px] text-slate-500">
-                      {{ app.job?.title || '未知职位' }}
-                      <span v-if="app.job?.city_code"> · {{ metaStore.buildAreaLabel(app.job.city_code) }}</span>
-                    </div>
-                    <div class="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-slate-400">
-                      <span v-if="app.job?.education_level_label">{{ app.job.education_level_label }}</span>
-                      <span v-if="app.job?.experience_min != null">{{ app.job.experience_min }}-{{ app.job.experience_max || '不限' }}年</span>
-                      <span v-if="app.job?.salary_min != null">{{ app.job.salary_min }}-{{ app.job.salary_max }}{{ app.job.salary_unit_label || '元/月' }}</span>
-                      <span v-if="app.job?.employment_type_label">{{ app.job.employment_type_label }}</span>
-                    </div>
-                  </div>
+        <div v-else class="flex flex-col gap-[16px]">
+          <NuxtLink
+            v-for="app in applicationList" :key="app.id" :to="`/employer/applications/${app.id}`"
+            class="border-1 border-[transparent] rounded-[2px] bg-[#ffffff] no-underline block shadow-[0_-1px_0px_0_rgba(148,92,0,0.06)] transition hover:border-[#FFA500]"
+            style="height: 119px;"
+          >
+            <div class="px-[20px] py-[20px] flex gap-[16px] h-full items-center relative">
+              <!-- 头像 -->
+              <div class="rounded-[50%] shrink-0 self-start relative">
+                <img :src="app.avatar" :alt="app.name" class="rounded-[50%] h-[48px] w-[48px]">
+                <span v-if="app.unread_count > 0 && resumeStatus === 1" class="text-[11px] text-white leading-none px-[4px] rounded-full bg-red-500 flex h-[18px] min-w-[18px] items-center left-[-4px] top-[-4px] justify-center absolute">{{ app.unread_count }}</span>
+                <img v-if="app.gender === 1" src="/assets/images/employer/man.png" alt="男" class="h-[16px] w-[16px] bottom-[-2px] right-[1px] absolute">
+                <img v-else src="/assets/images/employer/woman.png" alt="女" class="h-[16px] w-[16px] bottom-[-2px] right-[1px] absolute">
+              </div>
+              <!-- 信息区 -->
+              <div class="flex flex-1 flex-col min-w-0 justify-center">
+                <!-- 第一行：姓名 + 薪资 + 求职期望 -->
+                <div class="mb-[6px] flex items-center">
+                  <span class="text-[16px] text-[#222222] font-bold mr-[11px]">{{ app.name }}</span>
+                  <span class="text-[16px] text-[#FFA500] font-medium mr-[16px]">{{ app.salary }}</span>
+                  <span class="text-[14px] text-[#999999]">求职期望：</span>
+                  <span class="text-[14px] text-[#222222]">{{ app.job_expectation_city }} {{ app.job_expectation_position }}</span>
+                </div>
+                <!-- 第二行：年龄 | 工作年限 | 学历 | 求职状态 | 手机号 -->
+                <div class="mb-[12px] flex gap-[8px] items-center">
+                  <span class="text-[14px] text-[#555555]">{{ app.age }}岁</span>
+                  <div class="bg-[#CECECE] h-[10px] w-[1px]" />
+                  <span class="text-[14px] text-[#555555]">工作{{ app.work_years }}年</span>
+                  <div class="bg-[#CECECE] h-[10px] w-[1px]" />
+                  <span class="text-[14px] text-[#555555]">{{ app.education }}</span>
+                  <div class="bg-[#CECECE] h-[10px] w-[1px]" />
+                  <span class="text-[14px] text-[#555555]">{{ app.employment_status }}</span>
+                  <div class="bg-[#CECECE] h-[10px] w-[1px]" />
+                  <span class="text-[14px] text-[#555555]">{{ app.phone }}</span>
+                </div>
+                <!-- 第三行：工作经历 + 教育经历 -->
+                <div class="flex items-center">
+                  <span class="text-[14px] text-[#999999]">工作经历：</span>
+                  <span class="text-[14px] text-[#222222] mr-[24px]">{{ app.work_experience_company }} \ {{ app.work_experience_position }}</span>
+                  <span class="text-[14px] text-[#999999]">教育经历：</span>
+                  <span class="text-[14px] text-[#222222]">{{ app.education_school }} \ {{ app.education_major }}</span>
                 </div>
               </div>
-              <div class="shrink-0 text-right">
-                <span class="rounded-full px-3 py-1 text-[12px] font-medium" :class="statusColors[app.status] || 'bg-slate-100 text-slate-600 ring-1 ring-slate-200'">
-                  {{ app.status_label || applicationStatusOptions.find(o => o.value === app.status)?.label || '未知' }}
-                </span>
-                <div class="mt-2 text-[12px] text-slate-400">
-                  {{ app.applied_at ? new Date(app.applied_at).toLocaleDateString('zh-CN') : '' }}
-                </div>
+              <div v-if="resumeStatus === 2" class="border-[1px] border-[#FFA500] rounded-[4px] bg-[#FFffff] flex gap-[4px] h-[32px] w-[88px] items-center right-[24px] top-[20px] justify-center absolute">
+                <img class="h-[16px] w-[16px]" src="/assets/images/employer/interview-collection-icon.png" alt="取消收藏">
+                <p class="text-[14px] text-[#FFA500]">
+                  取消收藏
+                </p>
               </div>
             </div>
           </NuxtLink>
         </div>
       </div>
-    </div>
-
-    <div v-if="lastPage > 1 && !isLoading" class="mt-6 flex items-center justify-center gap-2">
-      <button class="rounded-full bg-white px-4 py-2 text-[13px] text-slate-600 ring-1 ring-slate-200 disabled:opacity-40" :disabled="currentPage <= 1" @click="goToPage(currentPage - 1)">
-        上一页
-      </button>
-      <button
-        v-for="p in pageNumbers" :key="p" class="rounded-full px-4 py-2 text-[13px] ring-1 transition"
-        :class="p === currentPage ? 'bg-slate-950 text-white ring-slate-950' : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-50'"
-        @click="goToPage(p)"
-      >
-        {{ p }}
-      </button>
-      <button class="rounded-full bg-white px-4 py-2 text-[13px] text-slate-600 ring-1 ring-slate-200 disabled:opacity-40" :disabled="currentPage >= lastPage" @click="goToPage(currentPage + 1)">
-        下一页
-      </button>
     </div>
   </div>
 </template>
