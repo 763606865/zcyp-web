@@ -432,35 +432,7 @@ onMounted(() => {
             <img v-if="app.gender === 1" src="/assets/images/employer/man.png" alt="男" class="h-4 w-4 bottom-[-2px] right-[1px] absolute">
             <img v-else src="/assets/images/employer/woman.png" alt="女" class="h-4 w-4 bottom-[-2px] right-[1px] absolute">
           </div>
-          <!-- 信息区 -->
-          <div class="flex flex-1 flex-col min-w-0 justify-center">
-            <!-- 第一行：姓名 + 薪资 + 求职期望 -->
-            <div class="mb-1.5 flex items-center">
-              <span class="text-base text-[#222222] font-bold mr-3">{{ app.name }}</span>
-              <span class="text-base text-[#FFA500] font-medium mr-4">{{ app.salary }}</span>
-              <span class="text-sm text-[#999999]">求职期望：</span>
-              <span class="text-sm text-[#222222]">{{ app.job_expectation_city }} {{ app.job_expectation_position }}</span>
-            </div>
-            <!-- 第二行：年龄 | 工作年限 | 学历 | 求职状态 | 到岗时间 -->
-            <div class="mb-3 flex gap-2 items-center">
-              <span class="text-sm text-[#555555]">{{ app.age }}岁</span>
-              <div class="bg-[#CECECE] h-2.5 w-px" />
-              <span class="text-sm text-[#555555]">工作{{ app.work_years }}年</span>
-              <div class="bg-[#CECECE] h-2.5 w-px" />
-              <span class="text-sm text-[#555555]">{{ app.education }}</span>
-              <div class="bg-[#CECECE] h-2.5 w-px" />
-              <span class="text-sm text-[#555555]">{{ app.employment_status }}</span>
-              <div class="bg-[#CECECE] h-2.5 w-px" />
-              <span class="text-sm text-[#555555]">{{ app.available_time }}</span>
-            </div>
-            <!-- 第三行：工作经历 + 教育经历 -->
-            <div class="flex items-center">
-              <span class="text-sm text-[#999999]">工作经历：</span>
-              <span class="text-sm text-[#222222] mr-6">{{ app.work_experience_company }} \ {{ app.work_experience_position }}</span>
-              <span class="text-sm text-[#999999]">教育经历：</span>
-              <span class="text-sm text-[#222222]">{{ app.education_school }} \ {{ app.education_major }}</span>
-            </div>
-          </div>
+          <EmployerResumeSummary :item="app" />
           <!-- 查看简历按钮 -->
           <NuxtLink
             :to="`/employer/talent/resume/${app.id}`"

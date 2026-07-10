@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { ApplicationItem } from '~/services/application'
 import { getApplications } from '~/services/application'
 import { useMetaStore } from '~/stores/meta'
 
@@ -15,11 +16,6 @@ const statusFilter = ref(-1)
 const searchQuery = ref('')
 const currentPage = ref(1)
 
-const isOrgApproved = computed(() => {
-  const info = userStore.currentIdentityInfo
-  return info && typeof info === 'object' && info.identity_type === 2 && info.organization?.status === 1
-})
-
 const applicationStatusOptions = [
   { label: '全部', value: -1 },
   { label: '待处理', value: 0 },
@@ -31,18 +27,25 @@ const applicationStatusOptions = [
   { label: '已撤回', value: 6 },
 ]
 
-const statusColors: Record<number, string> = {
-  0: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',
-  1: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200',
-  2: 'bg-purple-50 text-purple-700 ring-1 ring-purple-200',
-  3: 'bg-orange-50 text-orange-700 ring-1 ring-orange-200',
-  4: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',
-  5: 'bg-slate-100 text-slate-500 ring-1 ring-slate-200',
-  6: 'bg-red-50 text-red-500 ring-1 ring-red-200',
+const educationLevelMap: Record<number, string> = {
+  1: '高中/中专',
+  2: '专科',
+  3: '本科',
+  4: '硕士',
+  5: '博士',
 }
 
-// TODO: 后续对接真实接口时替换此类型
-interface ApplicationMockItem {
+const jobStatusLabelMap: Record<number, string> = {
+  1: '在职，考虑机会',
+  2: '在职，不考虑',
+  3: '离职找工作',
+  4: '应届生',
+}
+
+const trailingZeroRegex = /\.0$/
+const DAY_MS = 24 * 60 * 60 * 1000
+
+interface ApplicationListItem {
   id: number
   avatar: string
   name: string
@@ -55,7 +58,7 @@ interface ApplicationMockItem {
   work_years: number
   education: string
   employment_status: string
-  phone: string
+  available_time: string
   work_experience_company: string
   work_experience_position: string
   education_school: string
@@ -64,7 +67,8 @@ interface ApplicationMockItem {
   status_label: string
 }
 
-// TODO: 后续对接真实接口
+const applicationList = ref<ApplicationListItem[]>([])
+
 async function loadApplications() {
   if (!userStore.authHeader)
     return
@@ -75,47 +79,94 @@ async function loadApplications() {
       page: currentPage.value,
       per_page: 15,
     })
-    console.log('=== 投递列表接口返回数据 ===', res)
-    console.log('data 数组:', res.data)
-    if (res.data && res.data.length > 0) {
-      console.log('第一条数据详情:', JSON.stringify(res.data[0], null, 2))
-    }
-    applicationList.value = res.data || []
+    applicationList.value = (res.data || []).map(mapApplicationItem)
   }
   catch (e) {
     console.error('获取投递列表失败:', e)
   }
 }
 
-const applicationList = ref<ApplicationMockItem[]>([
-  {
-    id: 1,
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix',
-    name: '王大锤',
-    gender: 1,
-    unread_count: 2,
-    salary: '15-20K',
-    job_expectation_city: '南昌',
-    job_expectation_position: '设计主管',
-    age: 27,
-    work_years: 6,
-    education: '本科',
-    employment_status: '离职-随时到岗',
-    phone: '12345678910',
-    work_experience_company: 'XXXXXXX1有限公司',
-    work_experience_position: '设计主管',
-    education_school: 'XX大学',
-    education_major: '视觉传达',
-    status: 0,
-    status_label: '待处理',
-  },
-])
+function mapApplicationItem(item: ApplicationItem): ApplicationListItem {
+  const resume = item.resume || item.resume_snapshot
+  const firstWork = Array.isArray((resume as any)?.works) ? (resume as any).works[0] : null
+  const firstEducation = Array.isArray((resume as any)?.educations) ? (resume as any).educations[0] : null
+  const firstIntention = Array.isArray((resume as any)?.intentions) ? (resume as any).intentions[0] : null
+  const expectedCityCode = firstIntention?.expected_city_code || resume?.current_city_code || item.candidate?.current_city_code || ''
+  const expectedPositionId = firstIntention?.expected_position_id
+
+  return {
+    id: item.id,
+    avatar: resume?.display_avatar || resume?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(resume?.resume_no || resume?.full_name || String(item.id))}`,
+    name: resume?.full_name || item.candidate?.full_name || '匿名求职者',
+    gender: resume?.gender || item.candidate?.gender || 0,
+    unread_count: 0,
+    salary: formatExpectedSalary(resume?.expected_salary_min, resume?.expected_salary_max),
+    job_expectation_city: expectedCityCode ? metaStore.buildAreaLabel(expectedCityCode) || expectedCityCode : resume?.current_residence_city || '不限城市',
+    job_expectation_position: expectedPositionId ? metaStore.buildPositionLabel(Number(expectedPositionId)) || item.job?.position?.name || '目标职位' : item.job?.position?.name || item.job?.title || '目标职位',
+    age: resume?.age || item.candidate?.age || 0,
+    work_years: resume?.work_years || item.candidate?.work_years || 0,
+    education: formatEducation(resume?.highest_education_level ?? item.candidate?.highest_education_level),
+    employment_status: formatJobStatus(firstIntention?.job_status),
+    available_time: formatAvailableTime(firstIntention?.available_date),
+    work_experience_company: firstWork?.company_name || '暂无',
+    work_experience_position: firstWork?.position || '暂无',
+    education_school: firstEducation?.school_name || '暂无',
+    education_major: firstEducation?.major || '暂无',
+    status: item.status,
+    status_label: item.status_label || applicationStatusOptions.find(opt => opt.value === item.status)?.label || '未知状态',
+  }
+}
+
+function formatExpectedSalary(min?: number | string | null, max?: number | string | null) {
+  const minLabel = formatSalaryAmount(min)
+  const maxLabel = formatSalaryAmount(max)
+  if (minLabel && maxLabel)
+    return `${minLabel}-${maxLabel}`
+  return minLabel || maxLabel || '薪资面议'
+}
+
+function formatSalaryAmount(value?: number | string | null) {
+  if (value == null || value === '')
+    return ''
+
+  const amount = Number(value)
+  if (!Number.isFinite(amount) || amount <= 0)
+    return ''
+
+  const salaryInK = amount >= 1000 ? amount / 1000 : amount
+  const label = Number.isInteger(salaryInK) ? String(salaryInK) : salaryInK.toFixed(1).replace(trailingZeroRegex, '')
+  return `${label}K`
+}
+
+function formatEducation(level?: number | null) {
+  return level ? educationLevelMap[level] || '学历不限' : '学历不限'
+}
+
+function formatJobStatus(status?: number | null) {
+  return status ? jobStatusLabelMap[status] || '求职意向' : '求职意向'
+}
+
+function formatAvailableTime(availableDate?: string | null) {
+  if (!availableDate)
+    return '随时到岗'
+
+  const availableTime = new Date(availableDate).getTime()
+  if (!Number.isFinite(availableTime))
+    return '不确定到岗时间'
+
+  const diffDays = (availableTime - Date.now()) / DAY_MS
+  if (diffDays < 7)
+    return '近期到岗'
+  if (diffDays < 30)
+    return '月内到岗'
+  return '不确定到岗时间'
+}
 
 await callOnce(async () => {
   if (userStore.authHeader)
     await metaStore.ensureAllLoaded(userStore.authHeader)
 })
-const { data: employerApplicationsData, pending: isLoading, refresh: refreshEmployerApplications } = await useAsyncData(
+const { refresh: refreshEmployerApplications } = await useAsyncData(
   'employer-applications',
   loadApplications,
   {
@@ -124,7 +175,11 @@ const { data: employerApplicationsData, pending: isLoading, refresh: refreshEmpl
     default: () => null,
   },
 )
-console.log('=== 投递列表数据 ===', employerApplicationsData.value)
+
+async function handleSearch() {
+  currentPage.value = 1
+  await refreshEmployerApplications()
+}
 </script>
 
 <template>
@@ -160,7 +215,7 @@ console.log('=== 投递列表数据 ===', employerApplicationsData.value)
         v-for="opt in applicationStatusOptions" :key="opt.value"
         class="text-[14px] leading-[44px] border-b-[1px] border-[transparent] h-[100%] cursor-pointer transition"
         :class="statusFilter === opt.value ? 'text-[#FFA500] border-b-[#FFA500] font-medium' : 'text-[#666666] border-transparent hover:text-[#333333]'"
-        @click="statusFilter = opt.value"
+        @click="statusFilter = opt.value; handleSearch()"
       >
         {{ opt.label }}
       </div>
@@ -183,39 +238,10 @@ console.log('=== 投递列表数据 ===', employerApplicationsData.value)
               <!-- 头像 -->
               <div class="rounded-[50%] shrink-0 self-start relative">
                 <img :src="app.avatar" :alt="app.name" class="rounded-[50%] h-[48px] w-[48px]">
-                <span v-if="app.unread_count > 0 && resumeStatus === 1" class="text-[11px] text-white leading-none px-[4px] rounded-full bg-red-500 flex h-[18px] min-w-[18px] items-center left-[-4px] top-[-4px] justify-center absolute">{{ app.unread_count }}</span>
                 <img v-if="app.gender === 1" src="/assets/images/employer/man.png" alt="男" class="h-[16px] w-[16px] bottom-[-2px] right-[1px] absolute">
                 <img v-else src="/assets/images/employer/woman.png" alt="女" class="h-[16px] w-[16px] bottom-[-2px] right-[1px] absolute">
               </div>
-              <!-- 信息区 -->
-              <div class="flex flex-1 flex-col min-w-0 justify-center">
-                <!-- 第一行：姓名 + 薪资 + 求职期望 -->
-                <div class="mb-[6px] flex items-center">
-                  <span class="text-[16px] text-[#222222] font-bold mr-[11px]">{{ app.name }}</span>
-                  <span class="text-[16px] text-[#FFA500] font-medium mr-[16px]">{{ app.salary }}</span>
-                  <span class="text-[14px] text-[#999999]">求职期望：</span>
-                  <span class="text-[14px] text-[#222222]">{{ app.job_expectation_city }} {{ app.job_expectation_position }}</span>
-                </div>
-                <!-- 第二行：年龄 | 工作年限 | 学历 | 求职状态 | 手机号 -->
-                <div class="mb-[12px] flex gap-[8px] items-center">
-                  <span class="text-[14px] text-[#555555]">{{ app.age }}岁</span>
-                  <div v-if="app.work_years" class="bg-[#CECECE] h-[10px] w-[1px]" />
-                  <span class="text-[14px] text-[#555555]">工作{{ app.work_years }}年</span>
-                  <div v-if="app.education" class="bg-[#CECECE] h-[10px] w-[1px]" />
-                  <span class="text-[14px] text-[#555555]">{{ app.education }}</span>
-                  <div v-if="app.employment_status" class="bg-[#CECECE] h-[10px] w-[1px]" />
-                  <span class="text-[14px] text-[#555555]">{{ app.employment_status }}</span>
-                  <div v-if="app.phone" class="bg-[#CECECE] h-[10px] w-[1px]" />
-                  <span class="text-[14px] text-[#555555]">{{ app.phone }}</span>
-                </div>
-                <!-- 第三行：工作经历 + 教育经历 -->
-                <div class="flex items-center">
-                  <span class="text-[14px] text-[#999999]">工作经历：</span>
-                  <span class="text-[14px] text-[#222222] mr-[24px]">{{ app.work_experience_company }} \ {{ app.work_experience_position }}</span>
-                  <span class="text-[14px] text-[#999999]">教育经历：</span>
-                  <span class="text-[14px] text-[#222222]">{{ app.education_school }} \ {{ app.education_major }}</span>
-                </div>
-              </div>
+              <EmployerResumeSummary :item="app" />
               <div v-if="resumeStatus === 2" class="border-[1px] border-[#FFA500] rounded-[4px] bg-[#FFffff] flex gap-[4px] h-[32px] w-[88px] items-center right-[24px] top-[20px] justify-center absolute">
                 <img class="h-[16px] w-[16px]" src="/assets/images/employer/interview-collection-icon.png" alt="取消收藏">
                 <p class="text-[14px] text-[#FFA500]">
