@@ -5,8 +5,10 @@ definePageMeta({
 })
 
 import type { SchoolActivity } from './activities/types'
+import type { SchoolParticipatedActivityItem } from '~/services/company'
 import type { Booth } from './booth/types'
 import { NDatePicker, NSelect, NSwitch } from 'naive-ui'
+import { getSchoolParticipatedActivities } from '~/services/company'
 import { ApiRequestError } from '~/services/http'
 import { upload } from '~/services/upload'
 import { pushGlobalNotice } from '~/utils/notice'
@@ -26,12 +28,17 @@ const userStore = useUserStore()
 const router = useRouter()
 const currentRoute = useRoute()
 
+const activeTab = ref<'organized' | 'participated'>('organized')
 const activities = ref<SchoolActivity[]>([])
+const participatedActivities = ref<SchoolParticipatedActivityItem[]>([])
 const total = ref(0)
+const participatedTotal = ref(0)
 const loading = ref(false)
+const participatedLoading = ref(false)
 const keyword = ref('')
 const typeFilter = ref<number | null>(null)
 const statusFilter = ref<number | null>(null)
+const applyStatusFilter = ref<number | null>(null)
 
 const modalVisible = ref(false)
 const editing = ref(false)
@@ -97,6 +104,13 @@ const statusFilterOptions = [
   { value: 0, label: '草稿' },
   { value: 1, label: '已发布' },
   { value: 2, label: '已结束' },
+]
+
+const applyStatusFilterOptions = [
+  { value: null, label: '全部申请' },
+  { value: 0, label: '待审核' },
+  { value: 1, label: '已通过' },
+  { value: 2, label: '已拒绝' },
 ]
 
 const areaNodes = computed(() => siteStore.areas.length ? siteStore.areas : metaStore.areas)
@@ -189,6 +203,38 @@ async function loadActivities() {
     pushGlobalNotice(e instanceof ApiRequestError ? e.message : '加载失败', 'error')
   }
   finally { loading.value = false }
+}
+
+async function loadParticipatedActivities() {
+  if (!userStore.authHeader)
+    return
+  participatedLoading.value = true
+  try {
+    const params: Record<string, any> = { per_page: 30 }
+    if (keyword.value)
+      params.keyword = keyword.value
+    if (typeFilter.value !== null)
+      params.type = typeFilter.value
+    if (statusFilter.value !== null)
+      params.activity_status = statusFilter.value
+    if (applyStatusFilter.value !== null)
+      params.apply_status = applyStatusFilter.value
+
+    const result = await getSchoolParticipatedActivities(userStore.authHeader, params)
+    participatedActivities.value = result.data || []
+    participatedTotal.value = result.total || result.meta?.total || participatedActivities.value.length
+  }
+  catch (e) {
+    pushGlobalNotice(e instanceof ApiRequestError ? e.message : '加载失败', 'error')
+  }
+  finally { participatedLoading.value = false }
+}
+
+function handleTabChange(tab: 'organized' | 'participated') {
+  activeTab.value = tab
+  if (tab === 'organized')
+    loadActivities()
+  else loadParticipatedActivities()
 }
 
 function openCreate() {
@@ -332,6 +378,15 @@ function goCompanies(activityId: number) {
   router.push(`/campus/activities/companies/?activityId=${activityId}`)
 }
 
+function getParticipatedStatusClass(item: SchoolParticipatedActivityItem) {
+  const status = item.school_application?.apply_status
+  if (status === 1)
+    return 'bg-emerald-50 text-emerald-700'
+  if (status === 2)
+    return 'bg-red-50 text-red-600'
+  return 'bg-amber-50 text-amber-700'
+}
+
 async function uploadCover() {
   const input = document.createElement('input')
   input.type = 'file'
@@ -394,8 +449,10 @@ async function loadBooths() {
   }
 }
 
-watch([keyword, typeFilter, statusFilter], () => {
-  loadActivities()
+watch([keyword, typeFilter, statusFilter, applyStatusFilter], () => {
+  if (activeTab.value === 'organized')
+    loadActivities()
+  else loadParticipatedActivities()
 })
 
 onMounted(() => {
@@ -412,18 +469,40 @@ onMounted(() => {
       <div class="mb-6 flex items-center justify-between">
         <div>
           <h1 class="text-[22px] text-[#24180c] font-semibold">
-            招聘活动
+            {{ activeTab === 'organized' ? '本校主办的活动' : '本校参与的活动' }}
           </h1>
           <p class="mt-1 text-[14px] text-[#6f6556]">
-            管理宣讲会、双选会等招聘活动
+            {{ activeTab === 'organized' ? '管理宣讲会、双选会等招聘活动' : '查看企业进校申请及本校参与的招聘活动' }}
           </p>
         </div>
         <button
+          v-if="activeTab === 'organized'"
           class="h-[42px] flex cursor-pointer items-center gap-2 rounded-[14px] border-none bg-[linear-gradient(135deg,#ffbe3b_0%,#ffa500_60%,#ea9400_100%)] px-5 text-[14px] text-white font-semibold shadow-[0_8px_16px_rgba(255,165,0,0.15)] transition hover:brightness-105"
           @click="openCreate"
         >
           <span class="i-carbon-add text-[16px]" />
           创建活动
+        </button>
+      </div>
+
+      <div class="mb-5 inline-flex rounded-[16px] bg-[#fff7e6] p-1 ring-1 ring-[#f1e4c6]">
+        <button
+          type="button"
+          class="h-[40px] cursor-pointer rounded-[12px] border-none px-5 text-[14px] transition"
+          :class="activeTab === 'organized' ? 'bg-white text-[#8f6310] font-semibold shadow-sm' : 'bg-transparent text-[#8a6b34]'"
+          @click="handleTabChange('organized')"
+        >
+          本校主办
+          <span class="ml-1 text-[12px] opacity-70">({{ total }})</span>
+        </button>
+        <button
+          type="button"
+          class="h-[40px] cursor-pointer rounded-[12px] border-none px-5 text-[14px] transition"
+          :class="activeTab === 'participated' ? 'bg-white text-[#8f6310] font-semibold shadow-sm' : 'bg-transparent text-[#8a6b34]'"
+          @click="handleTabChange('participated')"
+        >
+          本校参与
+          <span class="ml-1 text-[12px] opacity-70">({{ participatedTotal }})</span>
         </button>
       </div>
 
@@ -472,15 +551,34 @@ onMounted(() => {
                 </div>
               </td>
             </tr>
+            <tr v-if="activeTab === 'participated'">
+              <td class="max-w-[30px] text-left text-[14px] text-[#8a6b34] font-medium">
+                申请状态
+              </td>
+              <td class="p-2 pr-4">
+                <div class="flex gap-2">
+                  <label
+                    v-for="opt in applyStatusFilterOptions" :key="opt.label"
+                    class="flex cursor-pointer items-center gap-1.5 border rounded-[12px] px-4 py-2.5 text-[13px] transition"
+                    :class="applyStatusFilter === opt.value
+                      ? 'border-[#ffa500] bg-[#fff7e6] text-[#8f6310] font-medium'
+                      : 'border-[#ecd8a9] bg-white text-[#6f5a31] hover:border-[#d8b96f]'"
+                  >
+                    <input v-model="applyStatusFilter" type="radio" :value="opt.value" class="sr-only">
+                    {{ opt.label }}
+                  </label>
+                </div>
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
 
-      <div v-if="loading" class="rounded-[18px] bg-white px-6 py-16 text-center text-[14px] text-slate-500 shadow-[0_8px_20px_rgba(148,92,0,0.04)] ring-1 ring-[#f1e4c6]">
+      <div v-if="activeTab === 'organized' && loading" class="rounded-[18px] bg-white px-6 py-16 text-center text-[14px] text-slate-500 shadow-[0_8px_20px_rgba(148,92,0,0.04)] ring-1 ring-[#f1e4c6]">
         加载中...
       </div>
 
-      <div v-else class="space-y-3">
+      <div v-else-if="activeTab === 'organized'" class="space-y-3">
         <div v-for="act in activities" :key="act.id" class="overflow-hidden rounded-[18px] bg-white shadow-[0_8px_20px_rgba(148,92,0,0.04)] ring-1 ring-[#f1e4c6]">
           <div class="px-6 py-4">
             <div class="flex items-center gap-4">
@@ -529,6 +627,54 @@ onMounted(() => {
 
         <div v-if="activities.length === 0" class="rounded-[18px] bg-white px-6 py-16 text-center text-[14px] text-[#8a6b34] shadow-[0_8px_20px_rgba(148,92,0,0.04)] ring-1 ring-[#f1e4c6]">
           暂无活动，点击右上角"创建活动"开始
+        </div>
+      </div>
+
+      <div v-else-if="participatedLoading" class="rounded-[18px] bg-white px-6 py-16 text-center text-[14px] text-slate-500 shadow-[0_8px_20px_rgba(148,92,0,0.04)] ring-1 ring-[#f1e4c6]">
+        加载中...
+      </div>
+
+      <div v-else class="space-y-3">
+        <div v-for="item in participatedActivities" :key="`${item.school_application.id}-${item.activity?.id || 'empty'}`" class="overflow-hidden rounded-[18px] bg-white shadow-[0_8px_20px_rgba(148,92,0,0.04)] ring-1 ring-[#f1e4c6]">
+          <div class="px-6 py-4">
+            <div class="flex items-center gap-4">
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-3">
+                  <img v-if="item.activity?.display_cover_image" :src="item.activity.display_cover_image" class="h-12 w-20 border border-[#f1e4c6] rounded-[8px] object-cover">
+                  <span class="text-[15px] text-[#24180c] font-medium">{{ item.activity?.title || '活动已不存在' }}</span>
+                  <span class="rounded-full px-2.5 py-0.5 text-[11px] font-medium" :class="getParticipatedStatusClass(item)">
+                    {{ item.school_application.apply_status_label || '待审核' }}
+                  </span>
+                  <span v-if="item.is_organizer" class="rounded-full bg-[#fef7e8] px-2.5 py-0.5 text-[11px] text-[#8a6b34]">本校主办</span>
+                  <span v-else class="rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] text-blue-600">企业进校</span>
+                  <span v-if="item.activity?.type_label" class="rounded-full bg-[#fef7e8] px-2.5 py-0.5 text-[11px] text-[#8a6b34]">{{ item.activity.type_label }}</span>
+                  <span v-if="item.activity?.status_label" class="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] text-slate-500">{{ item.activity.status_label }}</span>
+                </div>
+                <div class="mt-1.5 flex flex-wrap items-center gap-4 text-[12px] text-[#8a6b34]">
+                  <span>报名 {{ formatDate(item.activity?.register_start_date || null) }} ~ {{ formatDate(item.activity?.register_end_date || null) }}</span>
+                  <span>举办 {{ formatDate(item.activity?.start_time || null) }} ~ {{ formatDate(item.activity?.end_time || null) }}</span>
+                  <span v-if="item.school_application.apply_at">申请 {{ formatDate(item.school_application.apply_at) }}</span>
+                </div>
+                <p v-if="item.school_application.remark" class="mt-2 line-clamp-2 text-[12px] text-slate-500">
+                  申请备注：{{ item.school_application.remark }}
+                </p>
+              </div>
+              <div class="flex shrink-0 items-center gap-3">
+                <button
+                  v-if="item.activity"
+                  class="h-[34px] flex cursor-pointer items-center gap-1 border border-[#ecd8a9] rounded-[10px] bg-white px-3 text-[12px] text-[#8a6b34] transition hover:border-[#d79a19] hover:text-[#d79a19]"
+                  @click="goCompanies(item.activity.id)"
+                >
+                  <span class="i-carbon-building text-[13px]" />
+                  查看企业申请
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="participatedActivities.length === 0" class="rounded-[18px] bg-white px-6 py-16 text-center text-[14px] text-[#8a6b34] shadow-[0_8px_20px_rgba(148,92,0,0.04)] ring-1 ring-[#f1e4c6]">
+          暂无参与活动
         </div>
       </div>
 
