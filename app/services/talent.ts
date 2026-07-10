@@ -20,6 +20,9 @@ export interface TalentSearchQuery {
   highest_education_level?: number
   current_city_code?: string
   is_fresh_graduate?: number
+  current_identity?: number
+  expected_salary_min?: number
+  expected_salary_max?: number
   work_years_min?: number
   work_years_max?: number
   per_page?: number
@@ -60,6 +63,15 @@ export interface TalentResumeDetailResponse {
   works: ResumeWork[]
   educations: ResumeEducation[]
   intentions: ResumeIntention[]
+}
+
+export async function recommendTalentResumes(query: TalentSearchQuery, authorization: string) {
+  const response = await getJson<ApiResponse<ResumeListResponse>>(
+    '/rc/talent/resumes/recommend',
+    query as Record<string, string | number | undefined>,
+    createAuthHeaders(authorization),
+  )
+  return response.data
 }
 
 export async function searchTalentResumes(query: TalentSearchQuery, authorization: string) {
