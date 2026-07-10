@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { getApplications } from '~/services/application'
 import { useMetaStore } from '~/stores/meta'
 
 definePageMeta({
@@ -10,8 +11,9 @@ const userStore = useUserStore()
 const metaStore = useMetaStore()
 
 const resumeStatus = ref(1)
-const statusFilter = ref(0)
+const statusFilter = ref(-1)
 const searchQuery = ref('')
+const currentPage = ref(1)
 
 const isOrgApproved = computed(() => {
   const info = userStore.currentIdentityInfo
@@ -63,7 +65,27 @@ interface ApplicationMockItem {
 }
 
 // TODO: 后续对接真实接口
-// async function loadApplications(page: number): Promise<ApplicationListResponse | null> { ... }
+async function loadApplications() {
+  if (!userStore.authHeader)
+    return
+  try {
+    const res = await getApplications(userStore.authHeader, {
+      status: statusFilter.value === -1 ? undefined : statusFilter.value,
+      keyword: searchQuery.value || undefined,
+      page: currentPage.value,
+      per_page: 15,
+    })
+    console.log('=== 投递列表接口返回数据 ===', res)
+    console.log('data 数组:', res.data)
+    if (res.data && res.data.length > 0) {
+      console.log('第一条数据详情:', JSON.stringify(res.data[0], null, 2))
+    }
+    applicationList.value = res.data || []
+  }
+  catch (e) {
+    console.error('获取投递列表失败:', e)
+  }
+}
 
 const applicationList = ref<ApplicationMockItem[]>([
   {
@@ -93,6 +115,16 @@ await callOnce(async () => {
   if (userStore.authHeader)
     await metaStore.ensureAllLoaded(userStore.authHeader)
 })
+const { data: employerApplicationsData, pending: isLoading, refresh: refreshEmployerApplications } = await useAsyncData(
+  'employer-applications',
+  loadApplications,
+  {
+    server: false,
+    watch: [currentPage],
+    default: () => null,
+  },
+)
+console.log('=== 投递列表数据 ===', employerApplicationsData.value)
 </script>
 
 <template>
@@ -167,13 +199,13 @@ await callOnce(async () => {
                 <!-- 第二行：年龄 | 工作年限 | 学历 | 求职状态 | 手机号 -->
                 <div class="mb-[12px] flex gap-[8px] items-center">
                   <span class="text-[14px] text-[#555555]">{{ app.age }}岁</span>
-                  <div class="bg-[#CECECE] h-[10px] w-[1px]" />
+                  <div v-if="app.work_years" class="bg-[#CECECE] h-[10px] w-[1px]" />
                   <span class="text-[14px] text-[#555555]">工作{{ app.work_years }}年</span>
-                  <div class="bg-[#CECECE] h-[10px] w-[1px]" />
+                  <div v-if="app.education" class="bg-[#CECECE] h-[10px] w-[1px]" />
                   <span class="text-[14px] text-[#555555]">{{ app.education }}</span>
-                  <div class="bg-[#CECECE] h-[10px] w-[1px]" />
+                  <div v-if="app.employment_status" class="bg-[#CECECE] h-[10px] w-[1px]" />
                   <span class="text-[14px] text-[#555555]">{{ app.employment_status }}</span>
-                  <div class="bg-[#CECECE] h-[10px] w-[1px]" />
+                  <div v-if="app.phone" class="bg-[#CECECE] h-[10px] w-[1px]" />
                   <span class="text-[14px] text-[#555555]">{{ app.phone }}</span>
                 </div>
                 <!-- 第三行：工作经历 + 教育经历 -->
