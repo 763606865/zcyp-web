@@ -103,16 +103,17 @@ function handleClickOutside() {
           <img v-if="logoUrl" :src="logoUrl" alt="Logo" class="h-[34px] max-w-[180px] object-contain">
           <span v-else class="text-[20px] text-[#24180c] tracking-tight font-bold">PR OFFER</span>
         </NuxtLink>
-        <div class="pl-[18px] flex flex-1 gap-4 items-center">
+        <div class="flex flex-1 gap-[16px] items-center">
           <!-- <button type="button" class="portal-city-button text-[#616161] relative z-[55]" @click.stop="handleGoCitySelect">
             <span class="i-carbon-location-filled text-[#FFA500]" />
             <span>{{ displayCity }}</span>
             <span>[切换城市]</span>
           </button> -->
-          <div type="button" class="portal-city-button text-[20px] text-[#222] font-bold relative z-[55]">
+          <div type="button" class="portal-city-button text-[14px] text-[#222] font-medium flex gap-[4px] items-center relative z-[55]">
+            <img class="h-[16px] w-[16px]" src="/assets/images/employer/enterprise-icon.png" :alt="currentOrgName || '企业logo'">
             <span>{{ currentOrgName || '' }}</span>
           </div>
-          <div class="ml-auto relative" @click.stop>
+          <div class="relative" @click.stop>
             <button type="button" class="text-[12px] text-[#FFA500] px-[9px] rounded-[4px] bg-[#FFF6E6] flex gap-[4px] h-[24px] items-center" @click="showSwitchPanel = !showSwitchPanel">
               <img class="h-[16px] w-[16px]" src="/assets/images/employer/enterprise-select-icon.png" alt="切换企业">
               切换企业
