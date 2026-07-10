@@ -144,7 +144,7 @@ function confirmLocation() {
 <template>
   <div>
     <div
-      class="h-[46px] flex cursor-pointer items-center gap-2 border border-[#ecd8a9] rounded-[14px] bg-white px-4 text-[14px] transition hover:border-[#e0bd69]"
+      class="text-[14px] px-4 border border-[#ecd8a9] rounded-[4px] bg-white flex gap-2 h-[40px] cursor-pointer transition items-center hover:border-[#e0bd69]"
       @click="openMap"
     >
       <span class="i-carbon-location text-[16px] text-[#b89243]" />
@@ -153,49 +153,49 @@ function confirmLocation() {
     </div>
 
     <Teleport to="body">
-      <div v-if="showMap" class="fixed inset-0 z-50 flex items-center justify-center bg-[#24180c]/40 px-4" @click.self="showMap = false">
-        <div class="max-w-[700px] w-full rounded-[24px] bg-white p-6 shadow-[0_24px_64px_rgba(15,23,42,0.12)]">
+      <div v-if="showMap" class="px-4 bg-[#24180c]/40 flex items-center inset-0 justify-center fixed z-50" @click.self="showMap = false">
+        <div class="p-6 rounded-[24px] bg-white max-w-[700px] w-full shadow-[0_24px_64px_rgba(15,23,42,0.12)]">
           <div class="flex items-center justify-between">
             <h3 class="text-[18px] text-slate-900 font-semibold">
               选择位置
             </h3>
-            <button class="h-8 w-8 flex cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-[18px] text-slate-400 hover:bg-slate-100" @click="showMap = false">
+            <button class="text-[18px] text-slate-400 rounded-full border-none bg-transparent flex h-8 w-8 cursor-pointer items-center justify-center hover:bg-slate-100" @click="showMap = false">
               <span class="i-carbon-close" />
             </button>
           </div>
 
           <div class="mt-4 flex gap-2">
-            <input v-model="searchKeyword" type="text" placeholder="搜索地点" class="h-[42px] flex-1 border border-[#ecd8a9] rounded-[12px] bg-white px-4 text-[14px] text-[#24180c] outline-none transition focus:border-[#d79a19]" @keyup.enter="handleSearch">
-            <button class="h-[42px] cursor-pointer rounded-[12px] bg-slate-950 px-4 text-[13px] text-white transition hover:bg-slate-800" @click="handleSearch">
+            <input v-model="searchKeyword" type="text" placeholder="搜索地点" class="text-[14px] text-[#24180c] px-4 outline-none border border-[#ecd8a9] rounded-[12px] bg-white flex-1 h-[42px] transition focus:border-[#d79a19]" @keyup.enter="handleSearch">
+            <button class="text-[13px] text-white px-4 rounded-[12px] bg-slate-950 h-[42px] cursor-pointer transition hover:bg-slate-800" @click="handleSearch">
               搜索
             </button>
           </div>
 
           <div class="mt-4 flex gap-4">
-            <div ref="mapContainer" class="h-[360px] flex-1 rounded-[16px] bg-slate-100" />
+            <div ref="mapContainer" class="rounded-[16px] bg-slate-100 flex-1 h-[360px]" />
 
-            <div v-if="searchResults.length > 0" class="w-[220px] shrink-0 overflow-y-auto space-y-2" style="max-height: 360px">
+            <div v-if="searchResults.length > 0" class="shrink-0 w-[220px] overflow-y-auto space-y-2" style="max-height: 360px">
               <div
                 v-for="poi in searchResults"
                 :key="poi.location"
-                class="cursor-pointer rounded-[12px] px-3 py-2.5 text-[13px] transition hover:bg-amber-50"
+                class="text-[13px] px-3 py-2.5 rounded-[12px] cursor-pointer transition hover:bg-amber-50"
                 @click="selectPoi(poi)"
               >
                 <div class="text-slate-900 font-medium">
                   {{ poi.name }}
                 </div>
-                <div class="mt-0.5 truncate text-[12px] text-slate-500">
+                <div class="text-[12px] text-slate-500 mt-0.5 truncate">
                   {{ poi.address || '暂无地址' }}
                 </div>
               </div>
             </div>
           </div>
 
-          <div class="mt-4 flex justify-end gap-3">
-            <button type="button" class="h-[42px] cursor-pointer border border-slate-200 rounded-[12px] bg-white px-5 text-[13px] text-slate-700 transition hover:bg-slate-50" @click="showMap = false">
+          <div class="mt-4 flex gap-3 justify-end">
+            <button type="button" class="text-[13px] text-slate-700 px-5 border border-slate-200 rounded-[12px] bg-white h-[42px] cursor-pointer transition hover:bg-slate-50" @click="showMap = false">
               取消
             </button>
-            <button class="h-[42px] cursor-pointer rounded-[12px] bg-slate-950 px-5 text-[13px] text-white transition hover:bg-slate-800" @click="confirmLocation">
+            <button class="text-[13px] text-white px-5 rounded-[12px] bg-slate-950 h-[42px] cursor-pointer transition hover:bg-slate-800" @click="confirmLocation">
               确认
             </button>
           </div>

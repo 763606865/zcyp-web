@@ -24,14 +24,14 @@ function handleInput(event: Event) {
 </script>
 
 <template>
-  <label class="text-[13px] text-[#8a6b34] space-y-2" :class="[wrapperClass]">
+  <label class="text-[14px] text-[#222] space-y-2" :class="[wrapperClass]">
     <span v-if="label">{{ label }}</span>
     <textarea
       :value="modelValue"
       :rows="rows"
       :placeholder="placeholder"
       :disabled="disabled"
-      class="resume-form-control w-full border border-[#ecd8a9] rounded-[14px] bg-white px-4 py-3 text-[14px] text-[#24180c] outline-none disabled:cursor-not-allowed disabled:bg-[#f8f1df] disabled:text-[#9b8d70]"
+      class="resume-form-control text-[14px] text-[#24180c] mt-[8px] px-4 py-3 outline-none border border-[#ecd8a9] rounded-[14px] bg-white w-full disabled:text-[#9b8d70] disabled:bg-[#f8f1df] disabled:cursor-not-allowed"
       @input="handleInput"
     />
   </label>
