@@ -104,11 +104,14 @@ function handleClickOutside() {
           <span v-else class="text-[20px] text-[#24180c] tracking-tight font-bold">PR OFFER</span>
         </NuxtLink>
         <div class="pl-[18px] flex flex-1 gap-4 items-center">
-          <button type="button" class="portal-city-button text-[#616161] relative z-[55]" @click.stop="handleGoCitySelect">
+          <!-- <button type="button" class="portal-city-button text-[#616161] relative z-[55]" @click.stop="handleGoCitySelect">
             <span class="i-carbon-location-filled text-[#FFA500]" />
             <span>{{ displayCity }}</span>
             <span>[切换城市]</span>
-          </button>
+          </button> -->
+          <div type="button" class="portal-city-button text-[20px] text-[#222] font-bold relative z-[55]">
+            <span>{{ currentOrgName || '' }}</span>
+          </div>
           <div class="ml-auto relative" @click.stop>
             <button type="button" class="text-[12px] text-[#FFA500] px-[9px] rounded-[4px] bg-[#FFF6E6] flex gap-[4px] h-[24px] items-center" @click="showSwitchPanel = !showSwitchPanel">
               <img class="h-[16px] w-[16px]" src="/assets/images/employer/enterprise-select-icon.png" alt="切换企业">
