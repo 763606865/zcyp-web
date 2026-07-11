@@ -12,6 +12,7 @@ definePageMeta({
 
 const userStore = useUserStore()
 const metaStore = useMetaStore()
+const router = useRouter()
 
 const isOrgApproved = computed(() => {
   const info = userStore.currentIdentityInfo
@@ -593,7 +594,7 @@ async function handleDeleteJob(jobId: number) {
           暂无职位数据，点击上方按钮发布。
         </div>
         <div v-else>
-          <div v-for="job in displayedJobs" :key="job.id" class="mb-[16px] bg-white">
+          <div v-for="job in displayedJobs" :key="job.id" class="mb-[16px] bg-white cursor-pointer" @click="router.push(`/employer/jobs/view/${job.id}`)">
             <!-- 标题行 -->
             <div class="px-[32px] py-[20px] border-[1px] border-[#EBEDF0]">
               <div class="mb-[14px] flex items-center justify-between">
@@ -618,26 +619,27 @@ async function handleDeleteJob(jobId: number) {
                   <NuxtLink
                     :to="`/employer/jobs/edit/${job.id}`"
                     class="text-[14px] text-[#FFA500] no-underline hover:underline"
+                    @click.stop
                   >
                     编辑
                   </NuxtLink>
                   <button
                     v-if="job.status === 2"
                     class="text-[14px] text-[#FFA500] border-none bg-transparent cursor-pointer hover:underline"
-                    @click="handlePublishJob(job.id)"
+                    @click.stop="handlePublishJob(job.id)"
                   >
                     发布职位
                   </button>
                   <button
                     v-if="job.status === 1"
                     class="text-[14px] text-[#FFA500] border-none bg-transparent cursor-pointer hover:underline"
-                    @click="handleCloseJob(job.id)"
+                    @click.stop="handleCloseJob(job.id)"
                   >
                     关闭
                   </button>
                   <button
                     class="text-[14px] text-[#FFA500] border-none bg-transparent cursor-pointer hover:underline"
-                    @click="handleDeleteJob(job.id)"
+                    @click.stop="handleDeleteJob(job.id)"
                   >
                     删除
                   </button>

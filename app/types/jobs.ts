@@ -61,6 +61,8 @@ export interface JobSavePayload {
   salary_min?: number | null
   salary_max?: number | null
   salary_unit?: number | null
+  salary_multiplier?: number | null
+  salary_negotiable?: boolean | null
   city_code?: string | null
   workplace?: string | null
   headcount?: number | null
