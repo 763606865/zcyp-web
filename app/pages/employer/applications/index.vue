@@ -79,6 +79,7 @@ async function loadApplications() {
   if (!userStore.authHeader)
     return
   try {
+    await metaStore.ensureAllLoaded(userStore.authHeader)
     if (resumeStatus.value === 2) {
       const res = await getFavoriteTalentResumes({
         page: currentPage.value,

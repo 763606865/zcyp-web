@@ -74,10 +74,25 @@ export const useMetaStore = defineStore('meta', () => {
   const loadError = ref('')
   const normalizedAreas = computed(() => unwrapAreaRoot(areas.value))
 
+  let _areasLoadPromise: Promise<void> | null = null
+
   async function ensureAreasLoaded(authorization: string) {
     if (areas.value.length > 0)
       return
 
+    if (_areasLoadPromise)
+      return _areasLoadPromise
+
+    _areasLoadPromise = _doLoadAreas(authorization)
+    try {
+      await _areasLoadPromise
+    }
+    finally {
+      _areasLoadPromise = null
+    }
+  }
+
+  async function _doLoadAreas(authorization: string) {
     const cached = readLocalCache<RcAreaNode[]>(AREAS_STORAGE_KEY)
 
     try {
@@ -104,10 +119,25 @@ export const useMetaStore = defineStore('meta', () => {
     }
   }
 
+  let _industriesLoadPromise: Promise<void> | null = null
+
   async function ensureIndustriesLoaded(authorization: string) {
     if (industries.value.length > 0)
       return
 
+    if (_industriesLoadPromise)
+      return _industriesLoadPromise
+
+    _industriesLoadPromise = _doLoadIndustries(authorization)
+    try {
+      await _industriesLoadPromise
+    }
+    finally {
+      _industriesLoadPromise = null
+    }
+  }
+
+  async function _doLoadIndustries(authorization: string) {
     const cached = readLocalCache<RcIndustryNode[]>(INDUSTRIES_STORAGE_KEY)
 
     try {
@@ -131,10 +161,25 @@ export const useMetaStore = defineStore('meta', () => {
     }
   }
 
+  let _positionsLoadPromise: Promise<void> | null = null
+
   async function ensurePositionsLoaded(authorization: string) {
     if (positions.value.length > 0)
       return
 
+    if (_positionsLoadPromise)
+      return _positionsLoadPromise
+
+    _positionsLoadPromise = _doLoadPositions(authorization)
+    try {
+      await _positionsLoadPromise
+    }
+    finally {
+      _positionsLoadPromise = null
+    }
+  }
+
+  async function _doLoadPositions(authorization: string) {
     const cached = readLocalCache<RcPositionNode[]>(POSITIONS_STORAGE_KEY)
 
     try {
