@@ -89,8 +89,8 @@ function onSearchJoined() {
   refreshJoined()
 }
 
-function goConfigureJobs(activityId: number) {
-  router.push(`/employer/activities/${activityId}/jobs`)
+function goConfigureJobs(activityId: number, activityType: number) {
+  router.push(`/employer/activities/${activityId}/jobs?type=${activityType}`)
 }
 
 async function handleConfirm(activityId: number) {
@@ -382,7 +382,7 @@ watch(availableTypeFilter, () => {
                 </div>
               </div>
               <div class="flex shrink-0 items-center gap-2">
-                <button v-if="item.activity.type === 2" class="h-[32px] flex cursor-pointer items-center gap-1 border border-[#ecd8a9] rounded-[10px] bg-white px-3 text-[12px] text-[#8a6b34] transition hover:border-[#d79a19] hover:text-[#d79a19]" @click="goConfigureJobs(item.activity.id)">
+                <button class="h-[32px] flex cursor-pointer items-center gap-1 border border-[#ecd8a9] rounded-[10px] bg-white px-3 text-[12px] text-[#8a6b34] transition hover:border-[#d79a19] hover:text-[#d79a19]" @click="goConfigureJobs(item.activity.id, item.activity.type)">
                   <span class="i-carbon-list-boxes text-[13px]" />
                   配置职位
                 </button>
