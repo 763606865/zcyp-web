@@ -1,5 +1,5 @@
-import type { ResumeEducation, ResumeIntention, ResumeListResponse, ResumeWork } from '~/types/resume'
-import { getJson } from './http'
+import type { ResumeCertificate, ResumeEducation, ResumeIntention, ResumeLanguage, ResumeListResponse, ResumePortfolio, ResumeProject, ResumeTraining, ResumeWork } from '~/types/resume'
+import { delJson, getJson, postJson } from './http'
 
 interface ApiResponse<T> {
   code: number
@@ -46,6 +46,9 @@ export interface TalentResumeDetailResponse {
   current_residence_city: string | null
   avatar: string | null
   display_avatar: string | null
+  file_url?: string | null
+  file_name?: string | null
+  file_ext?: string | null
   marital_status: number
   political_status: string
   native_place: string | null
@@ -55,14 +58,26 @@ export interface TalentResumeDetailResponse {
   work_start_date: string | null
   current_salary: string | null
   salary_remark: string | null
+  phone?: string | null
+  email?: string | null
   is_primary: number
   status: number
+  is_favorited?: boolean
   extra: Record<string, unknown> | null
   created_at: string | null
   updated_at: string | null
   works: ResumeWork[]
   educations: ResumeEducation[]
   intentions: ResumeIntention[]
+  projects?: ResumeProject[]
+  trainings?: ResumeTraining[]
+  languages?: ResumeLanguage[]
+  certificates?: ResumeCertificate[]
+  portfolios?: ResumePortfolio[]
+}
+
+export interface TalentResumeFavoriteResponse {
+  is_favorited: boolean
 }
 
 export async function recommendTalentResumes(query: TalentSearchQuery, authorization: string) {
@@ -78,6 +93,33 @@ export async function searchTalentResumes(query: TalentSearchQuery, authorizatio
   const response = await getJson<ApiResponse<ResumeListResponse>>(
     '/rc/talent/resumes',
     query as Record<string, string | number | undefined>,
+    createAuthHeaders(authorization),
+  )
+  return response.data
+}
+
+export async function getFavoriteTalentResumes(query: Pick<TalentSearchQuery, 'page' | 'per_page'>, authorization: string) {
+  const response = await getJson<ApiResponse<ResumeListResponse>>(
+    '/rc/talent/favorites/resumes',
+    query as Record<string, string | number | undefined>,
+    createAuthHeaders(authorization),
+  )
+  return response.data
+}
+
+export async function favoriteTalentResume(id: number, authorization: string) {
+  const response = await postJson<ApiResponse<TalentResumeFavoriteResponse>>(
+    `/rc/talent/resumes/${id}/favorite`,
+    undefined,
+    createAuthHeaders(authorization),
+  )
+  return response.data
+}
+
+export async function unfavoriteTalentResume(id: number, authorization: string) {
+  const response = await delJson<ApiResponse<TalentResumeFavoriteResponse>>(
+    `/rc/talent/resumes/${id}/favorite`,
+    undefined,
     createAuthHeaders(authorization),
   )
   return response.data

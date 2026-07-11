@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import type { ApplicationItem } from '~/services/application'
+import type { ResumeRecord } from '~/types/resume'
 import { getApplications } from '~/services/application'
+import { getFavoriteTalentResumes, unfavoriteTalentResume } from '~/services/talent'
 import { useMetaStore } from '~/stores/meta'
+import { pushGlobalNotice } from '~/utils/notice'
 
 definePageMeta({
   layout: 'default',
@@ -15,6 +18,7 @@ const resumeStatus = ref(1)
 const statusFilter = ref(-1)
 const searchQuery = ref('')
 const currentPage = ref(1)
+const unfavoritingResumeId = ref<number | null>(null)
 
 const applicationStatusOptions = [
   { label: '全部', value: -1 },
@@ -47,6 +51,8 @@ const DAY_MS = 24 * 60 * 60 * 1000
 
 interface ApplicationListItem {
   id: number
+  resume_id: number
+  detail_path: string
   avatar: string
   name: string
   gender: number
@@ -73,6 +79,15 @@ async function loadApplications() {
   if (!userStore.authHeader)
     return
   try {
+    if (resumeStatus.value === 2) {
+      const res = await getFavoriteTalentResumes({
+        page: currentPage.value,
+        per_page: 15,
+      }, userStore.authHeader)
+      applicationList.value = (res.data || []).map(mapFavoriteResumeItem)
+      return
+    }
+
     const res = await getApplications(userStore.authHeader, {
       status: statusFilter.value === -1 ? undefined : statusFilter.value,
       keyword: searchQuery.value || undefined,
@@ -86,6 +101,38 @@ async function loadApplications() {
   }
 }
 
+function mapFavoriteResumeItem(resume: ResumeRecord): ApplicationListItem {
+  const firstWork = Array.isArray((resume as any).works) ? (resume as any).works[0] : null
+  const firstEducation = Array.isArray((resume as any).educations) ? (resume as any).educations[0] : null
+  const firstIntention = Array.isArray((resume as any).intentions) ? (resume as any).intentions[0] : null
+  const expectedCityCode = firstIntention?.expected_city_code || resume.current_city_code || resume.current_residence_city || ''
+  const expectedPositionId = firstIntention?.expected_position_id
+
+  return {
+    id: resume.id,
+    resume_id: resume.id,
+    detail_path: `/employer/talent/resume/${resume.id}`,
+    avatar: resume.display_avatar || resume.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(resume.resume_no || resume.full_name || String(resume.id))}`,
+    name: resume.full_name || resume.title || '匿名求职者',
+    gender: resume.gender || 0,
+    unread_count: 0,
+    salary: formatExpectedSalary(resume.expected_salary_min, resume.expected_salary_max),
+    job_expectation_city: expectedCityCode ? metaStore.buildAreaLabel(expectedCityCode) || expectedCityCode : '不限城市',
+    job_expectation_position: expectedPositionId ? metaStore.buildPositionLabel(Number(expectedPositionId)) || '目标职位' : '目标职位',
+    age: resume.age || 0,
+    work_years: resume.work_years || 0,
+    education: formatEducation(resume.highest_education_level),
+    employment_status: formatJobStatus(firstIntention?.job_status),
+    available_time: formatAvailableTime(firstIntention?.available_date),
+    work_experience_company: firstWork?.company_name || String(resume.extra?.last_company || '暂无'),
+    work_experience_position: firstWork?.position || String(resume.extra?.last_position || '暂无'),
+    education_school: firstEducation?.school_name || String(resume.extra?.school_name || '暂无'),
+    education_major: firstEducation?.major || String(resume.extra?.major || '暂无'),
+    status: -1,
+    status_label: '已收藏',
+  }
+}
+
 function mapApplicationItem(item: ApplicationItem): ApplicationListItem {
   const resume = item.resume || item.resume_snapshot
   const firstWork = Array.isArray((resume as any)?.works) ? (resume as any).works[0] : null
@@ -96,6 +143,8 @@ function mapApplicationItem(item: ApplicationItem): ApplicationListItem {
 
   return {
     id: item.id,
+    resume_id: resume?.id || item.resume_id,
+    detail_path: `/employer/applications/${item.id}`,
     avatar: resume?.display_avatar || resume?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(resume?.resume_no || resume?.full_name || String(item.id))}`,
     name: resume?.full_name || item.candidate?.full_name || '匿名求职者',
     gender: resume?.gender || item.candidate?.gender || 0,
@@ -180,6 +229,26 @@ async function handleSearch() {
   currentPage.value = 1
   await refreshEmployerApplications()
 }
+
+async function handleUnfavoriteResume(app: ApplicationListItem) {
+  if (!userStore.authHeader || unfavoritingResumeId.value)
+    return
+
+  unfavoritingResumeId.value = app.resume_id
+  try {
+    const result = await unfavoriteTalentResume(app.resume_id, userStore.authHeader)
+    if (!result.is_favorited)
+      applicationList.value = applicationList.value.filter(item => item.resume_id !== app.resume_id)
+    pushGlobalNotice('已取消收藏')
+  }
+  catch (e) {
+    console.error('取消收藏简历失败:', e)
+    pushGlobalNotice('取消收藏失败，请稍后重试', 'error')
+  }
+  finally {
+    unfavoritingResumeId.value = null
+  }
+}
 </script>
 
 <template>
@@ -230,7 +299,7 @@ async function handleSearch() {
         </div>
         <div v-else class="flex flex-col gap-[16px]">
           <NuxtLink
-            v-for="app in applicationList" :key="app.id" :to="`/employer/applications/${app.id}`"
+            v-for="app in applicationList" :key="`${resumeStatus}-${app.id}`" :to="app.detail_path"
             class="border-1 border-[transparent] rounded-[2px] bg-[#ffffff] no-underline block shadow-[0_-1px_0px_0_rgba(148,92,0,0.06)] transition hover:border-[#FFA500]"
             style="height: 119px;"
           >
@@ -242,12 +311,18 @@ async function handleSearch() {
                 <img v-else src="/assets/images/employer/woman.png" alt="女" class="h-[16px] w-[16px] bottom-[-2px] right-[1px] absolute">
               </div>
               <EmployerResumeSummary :item="app" />
-              <div v-if="resumeStatus === 2" class="border-[1px] border-[#FFA500] rounded-[4px] bg-[#FFffff] flex gap-[4px] h-[32px] w-[88px] items-center right-[24px] top-[20px] justify-center absolute">
+              <button
+                v-if="resumeStatus === 2"
+                type="button"
+                class="border-[1px] border-[#FFA500] rounded-[4px] bg-[#FFffff] flex gap-[4px] h-[32px] w-[88px] cursor-pointer items-center right-[24px] top-[20px] justify-center absolute disabled:opacity-60"
+                :disabled="unfavoritingResumeId === app.resume_id"
+                @click.prevent.stop="handleUnfavoriteResume(app)"
+              >
                 <img class="h-[16px] w-[16px]" src="/assets/images/employer/interview-collection-icon.png" alt="取消收藏">
                 <p class="text-[14px] text-[#FFA500]">
-                  取消收藏
+                  {{ unfavoritingResumeId === app.resume_id ? '取消中' : '取消收藏' }}
                 </p>
-              </div>
+              </button>
             </div>
           </NuxtLink>
         </div>
