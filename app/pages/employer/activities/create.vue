@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { UploadCustomRequestOptions } from 'naive-ui'
+import type { UploadCustomRequestOptions, UploadFileInfo } from 'naive-ui'
 import type { CreateActivityPayload } from '~/services/company'
 import type { RcAreaNode } from '~/types/meta'
 import { isClient } from '@vueuse/core'
-import { NDatePicker, NImage, NSelect, NUpload } from 'naive-ui'
+import { NDatePicker, NSelect, NUpload } from 'naive-ui'
 import { createCompanyActivity, updateCompanyActivity } from '~/services/company'
 import { ApiRequestError } from '~/services/http'
 import { upload } from '~/services/upload'
@@ -49,9 +49,8 @@ const areaCascaderValue = ref<string[]>([])
 const saving = ref(false)
 const uploadingCover = ref(false)
 const loadingSchools = ref(false)
-const previewImageUrl = ref('')
-const showPreview = ref(false)
 const uploadRef = ref()
+const coverFileList = ref<UploadFileInfo[]>([])
 
 const areaCascaderOptions = computed(() => {
   function mapArea(n: RcAreaNode): { value: string, label: string, children?: any[] } {
@@ -109,12 +108,6 @@ async function handleCoverUpload({ file, onFinish, onError }: UploadCustomReques
     const res = await upload(file.file as File, 'file', userStore.authHeader)
     form.value.cover_image = res.path
     form.value.display_cover_image = res.url
-    // 清空 NUpload 内部文件列表，允许重新上传
-    if (uploadRef.value) {
-      const internal = uploadRef.value as any
-      if (internal.fileList?.length)
-        internal.fileList = []
-    }
     onFinish()
   }
   catch (e) {
@@ -125,16 +118,14 @@ async function handleCoverUpload({ file, onFinish, onError }: UploadCustomReques
   return { abort: () => {} }
 }
 
+function handleCoverChange({ file, fileList }: { file: UploadFileInfo, fileList: UploadFileInfo[] }) {
+  coverFileList.value = fileList.slice(-1)
+}
+
 function handleCoverRemove() {
   form.value.cover_image = null
   form.value.display_cover_image = null
-}
-
-function handleCoverPreview() {
-  if (form.value.display_cover_image) {
-    previewImageUrl.value = form.value.display_cover_image
-    showPreview.value = true
-  }
+  coverFileList.value = []
 }
 
 async function loadSchools() {
@@ -330,38 +321,17 @@ await useAsyncData(
             活动封面图 <span class="text-red-500">*</span>
           </label>
           <div class="space-y-2">
-            <NImage
-              v-if="form.display_cover_image"
-              :src="form.display_cover_image"
-              :width="200"
-              :height="120"
-              object-fit="cover"
-              class="rounded-[4px]"
-              style="border: 1px solid #E8E8E8;"
-            />
-            <div
-              v-else
-              class="border border-[#E8E8E8] rounded-[4px] border-dashed bg-[#FAFAFA] flex h-[120px] w-[200px] items-center justify-center"
-            >
-              <span class="i-carbon-image text-[32px] text-[#D0D0D0]" />
-            </div>
             <ClientOnly>
               <NUpload
                 ref="uploadRef"
+                v-model:file-list="coverFileList"
+                list-type="image-card"
                 :custom-request="handleCoverUpload"
-                :show-file-list="false"
                 :max="1"
                 accept="image/jpeg,image/png"
+                @change="handleCoverChange"
                 @remove="handleCoverRemove"
-                @preview="handleCoverPreview"
-              >
-                <button
-                  type="button" :disabled="uploadingCover"
-                  class="text-[13px] text-[#222] px-4 border border-[#E8E8E8] rounded-[4px] bg-white h-[32px] cursor-pointer transition hover:text-[#FFA500] hover:border-[#FFA500]"
-                >
-                  {{ uploadingCover ? '上传中…' : (form.cover_image ? '重新上传' : '上传图片') }}
-                </button>
-              </NUpload>
+              />
             </ClientOnly>
             <span class="text-[12px] text-[#999]">建议上传16:9的图片，支持jpg/png格式</span>
           </div>
@@ -486,16 +456,6 @@ await useAsyncData(
         </button>
       </div>
     </div>
-
-    <!-- 图片预览 -->
-    <ClientOnly>
-      <NImage
-        v-if="previewImageUrl"
-        :src="previewImageUrl"
-        :show="showPreview"
-        @update:show="showPreview = $event"
-      />
-    </ClientOnly>
   </div>
 </template>
 
