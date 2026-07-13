@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { AvailableActivityItem, CompanyActivityItem, CompanyActivityParams, OrganizedActivityItem } from '~/services/company'
 import {
-  applySchoolActivity,
   confirmActivityAttendance,
   deleteCompanyActivity,
   endActivity,
@@ -282,7 +281,6 @@ function showQrCode(inviteCode: string) {
 const availableKeyword = ref('')
 const availablePage = ref(1)
 const availableTypeFilter = ref<number | null>(null)
-const applyingId = ref<number | null>(null)
 
 const availableTypeOptions = [
   { value: null, label: '全部' },
@@ -330,21 +328,6 @@ const availableTotal = computed(() => availableActivitiesData.value?.meta?.total
 function onSearchAvailable() {
   availablePage.value = 1
   refreshAvailable()
-}
-
-async function handleApply(activityId: number) {
-  if (!userStore.authHeader) {
-    pushGlobalNotice('请先登录', 'warning')
-    return
-  }
-  applyingId.value = activityId
-  try {
-    await applySchoolActivity(userStore.authHeader, activityId)
-    pushGlobalNotice('申请成功，请等待审核')
-    await refreshAvailable()
-  }
-  catch { pushGlobalNotice('申请失败', 'error') }
-  finally { applyingId.value = null }
 }
 
 // --- tab switching ---
@@ -597,10 +580,9 @@ watch(availableTypeFilter, () => {
                 </span>
                 <button
                   class="text-[12px] text-white px-3 rounded-[2px] border-none bg-[#ffa500] h-[28px] cursor-pointer transition hover:bg-[#e69500]"
-                  :disabled="applyingId === item.id"
-                  @click="handleApply(item.id)"
+                  @click="router.push(`/employer/activities/registration/${item.id}`)"
                 >
-                  {{ applyingId === item.id ? '申请中…' : '报名' }}
+                  报名
                 </button>
               </div>
             </div>
