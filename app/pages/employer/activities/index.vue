@@ -428,7 +428,7 @@ watch(availableTypeFilter, () => {
           暂无参与的活动。
         </div>
         <div v-else class="mt-4 gap-[16px] grid grid-cols-4">
-          <div v-for="item in joinedItems" :key="item.application.id" class="border border-[#f0f0f0] rounded-[8px] bg-white transition overflow-hidden hover:shadow-md">
+          <div v-for="item in joinedItems" :key="item.application.id" class="border border-[#f0f0f0] rounded-[8px] bg-white cursor-pointer transition overflow-hidden hover:shadow-md" @click="router.push(`/employer/activities/details/${item.activity.id}`)">
             <!-- 封面图 -->
             <div class="w-full relative overflow-hidden from-[#e8f4fd] to-[#d0e8f7] bg-gradient-to-br" style="aspect-ratio: 271/136;">
               <img v-if="item.activity.display_cover_image" :src="item.activity.display_cover_image" :alt="item.activity.title" class="h-full w-full object-cover">
@@ -506,7 +506,7 @@ watch(availableTypeFilter, () => {
           暂无主办的活动。
         </div>
         <div v-else class="mt-4 gap-4 grid grid-cols-4">
-          <div v-for="item in organizedItems" :key="item.id" class="border border-[#f0f0f0] rounded-[8px] bg-white transition overflow-hidden hover:shadow-md">
+          <div v-for="item in organizedItems" :key="item.id" class="border border-[#f0f0f0] rounded-[8px] bg-white cursor-pointer transition overflow-hidden hover:shadow-md" @click="router.push(`/employer/activities/details/${item.id}?type=organized`)">
             <!-- 封面图 -->
             <div class="w-full relative overflow-hidden from-[#1a3a6b] to-[#2d6ccf] bg-gradient-to-br" style="aspect-ratio: 271/136;">
               <img v-if="item.display_cover_image" :src="item.display_cover_image" :alt="item.title" class="h-full w-full object-cover">
