@@ -1,16 +1,18 @@
 <script setup lang="ts">
-definePageMeta({
-  layout: 'default',
-  middleware: ['auth', 'identity-required'],
-})
-
+import type { UploadCustomRequestOptions } from 'naive-ui'
 import type { CreateActivityPayload } from '~/services/company'
+import type { RcAreaNode } from '~/types/meta'
 import { isClient } from '@vueuse/core'
-import { NDatePicker, NSelect } from 'naive-ui'
+import { NDatePicker, NImage, NSelect, NUpload } from 'naive-ui'
 import { createCompanyActivity, updateCompanyActivity } from '~/services/company'
 import { ApiRequestError } from '~/services/http'
 import { upload } from '~/services/upload'
 import { pushGlobalNotice } from '~/utils/notice'
+
+definePageMeta({
+  layout: 'default',
+  middleware: ['auth', 'identity-required'],
+})
 
 const router = useRouter()
 const route = useRoute()
@@ -21,8 +23,8 @@ const isEdit = computed(() => !!route.query.edit)
 const editId = computed(() => route.query.id ? Number(route.query.id) : null)
 
 const typeOptions = [
-  { value: 0, label: '招聘会', desc: '线下招聘会，企业可设置展位，学生到场投递简历' },
-  { value: 1, label: '宣讲会', desc: '线上或线下宣讲会，企业 HR 介绍公司文化与招聘需求' },
+  { value: 0, label: '招聘会', desc: '线下招聘会，企业可设置展位，学生到场投递简历', icon: '/assets/images/employer/jobfair-icon.png' },
+  { value: 1, label: '宣讲会', desc: '线上或线下宣讲会，企业 HR 介绍公司文化与招聘需求', icon: '/assets/images/employer/careertalk-icon.png' },
 ]
 
 const form = ref({
@@ -31,10 +33,8 @@ const form = ref({
   description: '',
   cover_image: null as string | null,
   display_cover_image: null as string | null,
-  register_start_date: null as number | null,
-  register_end_date: null as number | null,
-  start_time: null as number | null,
-  end_time: null as number | null,
+  register_date_range: null as [number, number] | null,
+  event_date_range: null as [number, number] | null,
   contact_name: userStore.user?.nickname || userStore.user?.name || '',
   contact_phone: userStore.user?.phone || '',
   province_code: '',
@@ -44,21 +44,23 @@ const form = ref({
   school_codes: [] as string[],
 })
 
+const areaCascaderValue = ref<string[]>([])
+
 const saving = ref(false)
 const uploadingCover = ref(false)
 const loadingSchools = ref(false)
+const previewImageUrl = ref('')
+const showPreview = ref(false)
+const uploadRef = ref()
 
-const cityOptions = computed(() => {
-  if (!form.value.province_code)
-    return []
-  return metaStore.getCitiesByProvinceCode(form.value.province_code)
+const areaCascaderOptions = computed(() => {
+  function mapArea(n: RcAreaNode): { value: string, label: string, children?: any[] } {
+    return { value: n.code, label: n.name, children: n.children?.length ? n.children.map(mapArea) : undefined }
+  }
+  return (metaStore.normalizedAreas || []).map(mapArea)
 })
 
-const districtOptions = computed(() => {
-  if (!form.value.city_code)
-    return []
-  return metaStore.getDistrictsByCityCode(form.value.city_code)
-})
+const schoolOptions = computed(() => metaStore.schools)
 
 watch(() => form.value.province_code, () => {
   form.value.city_code = ''
@@ -69,6 +71,26 @@ watch(() => form.value.city_code, () => {
   form.value.district_code = ''
 })
 
+watch(areaCascaderValue, (val) => {
+  if (!val || val.length === 0) {
+    form.value.province_code = ''
+    form.value.city_code = ''
+    form.value.district_code = ''
+    return
+  }
+  const level = val.length
+  if (level >= 1)
+    form.value.province_code = val[0] || ''
+  if (level >= 2)
+    form.value.city_code = val[1] || ''
+  else
+    form.value.city_code = ''
+  if (level >= 3)
+    form.value.district_code = val[2] || ''
+  else
+    form.value.district_code = ''
+})
+
 function tsToStr(ts: number | null): string | null {
   if (ts == null)
     return null
@@ -77,31 +99,42 @@ function tsToStr(ts: number | null): string | null {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`
 }
 
-async function uploadCover() {
-  const input = document.createElement('input')
-  input.type = 'file'
-  input.accept = 'image/*'
-  input.onchange = async () => {
-    const file = input.files?.[0]
-    if (!file || !userStore.authHeader)
-      return
-    uploadingCover.value = true
-    try {
-      const res = await upload(file, 'file', userStore.authHeader)
-      form.value.cover_image = res.path
-      form.value.display_cover_image = res.url
-    }
-    catch (e) {
-      pushGlobalNotice(e instanceof ApiRequestError ? e.message : '封面上传失败', 'error')
-    }
-    finally { uploadingCover.value = false }
+async function handleCoverUpload({ file, onFinish, onError }: UploadCustomRequestOptions) {
+  if (!userStore.authHeader) {
+    onError()
+    return { abort: () => {} }
   }
-  input.click()
+  uploadingCover.value = true
+  try {
+    const res = await upload(file.file as File, 'file', userStore.authHeader)
+    form.value.cover_image = res.path
+    form.value.display_cover_image = res.url
+    // 清空 NUpload 内部文件列表，允许重新上传
+    if (uploadRef.value) {
+      const internal = uploadRef.value as any
+      if (internal.fileList?.length)
+        internal.fileList = []
+    }
+    onFinish()
+  }
+  catch (e) {
+    pushGlobalNotice(e instanceof ApiRequestError ? e.message : '封面上传失败', 'error')
+    onError()
+  }
+  finally { uploadingCover.value = false }
+  return { abort: () => {} }
 }
 
-function removeCover() {
+function handleCoverRemove() {
   form.value.cover_image = null
   form.value.display_cover_image = null
+}
+
+function handleCoverPreview() {
+  if (form.value.display_cover_image) {
+    previewImageUrl.value = form.value.display_cover_image
+    showPreview.value = true
+  }
 }
 
 async function loadSchools() {
@@ -131,10 +164,12 @@ function loadEditData() {
     form.value.description = data.description || ''
     form.value.cover_image = data.cover_image
     form.value.display_cover_image = data.display_cover_image
-    form.value.register_start_date = data.register_start_date ? new Date(data.register_start_date).getTime() : null
-    form.value.register_end_date = data.register_end_date ? new Date(data.register_end_date).getTime() : null
-    form.value.start_time = data.start_time ? new Date(data.start_time).getTime() : null
-    form.value.end_time = data.end_time ? new Date(data.end_time).getTime() : null
+    form.value.register_date_range = (data.register_start_date && data.register_end_date)
+      ? [new Date(data.register_start_date).getTime(), new Date(data.register_end_date).getTime()]
+      : null
+    form.value.event_date_range = (data.start_time && data.end_time)
+      ? [new Date(data.start_time).getTime(), new Date(data.end_time).getTime()]
+      : null
     form.value.contact_name = data.contact_name || ''
     form.value.contact_phone = data.contact_phone || ''
     form.value.province_code = data.province_code || ''
@@ -142,6 +177,16 @@ function loadEditData() {
     form.value.district_code = data.district_code || ''
     form.value.address = data.address || ''
     form.value.school_codes = data.schools?.map((s: any) => s.school_code) || []
+
+    // 还原级联选择器的值
+    const path: string[] = []
+    if (data.province_code)
+      path.push(data.province_code)
+    if (data.city_code)
+      path.push(data.city_code)
+    if (data.district_code)
+      path.push(data.district_code)
+    areaCascaderValue.value = path
   }
   catch {
     // ignore
@@ -169,12 +214,14 @@ async function handleSubmit() {
       address: form.value.address || null,
       cover_image: form.value.cover_image,
     }
-    if (form.value.type === 0) {
-      payload.register_start_date = tsToStr(form.value.register_start_date)
-      payload.register_end_date = tsToStr(form.value.register_end_date)
+    if (form.value.type === 0 && form.value.register_date_range) {
+      payload.register_start_date = tsToStr(form.value.register_date_range[0])
+      payload.register_end_date = tsToStr(form.value.register_date_range[1])
     }
-    payload.start_time = tsToStr(form.value.start_time)
-    payload.end_time = tsToStr(form.value.end_time)
+    if (form.value.event_date_range) {
+      payload.start_time = tsToStr(form.value.event_date_range[0])
+      payload.end_time = tsToStr(form.value.event_date_range[1])
+    }
     if (form.value.school_codes.length)
       payload.school_codes = form.value.school_codes
     if (isEdit.value && editId.value) {
@@ -191,6 +238,10 @@ async function handleSubmit() {
     pushGlobalNotice('创建失败', 'error')
   }
   finally { saving.value = false }
+}
+
+function handleSaveDraft() {
+  pushGlobalNotice('草稿功能开发中', 'warning')
 }
 
 await callOnce(async () => {
@@ -219,197 +270,270 @@ await useAsyncData(
 
 <template>
   <div>
-    <button
-      class="mb-6 flex cursor-pointer items-center gap-1 border-none bg-transparent text-[13px] text-[#8a6b34] hover:text-[#d79a19]"
-      @click="router.back()"
-    >
-      <span class="i-carbon-arrow-left" />
-      返回
-    </button>
+    <!-- 两级导航 -->
+    <div class="text-[14px] mb-4 flex gap-2 items-center">
+      <NuxtLink to="/employer/activities" class="text-[#222] no-underline hover:underline">
+        校企活动
+      </NuxtLink>
+      <span class="text-[#ccc]">/</span>
+      <span class="text-[#BBBDBF]">发布活动</span>
+    </div>
 
-    <h1 class="text-[24px] text-[#24180c] font-bold">
-      {{ isEdit ? '编辑活动' : '发起活动' }}
-    </h1>
-    <p class="mt-2 text-[14px] text-[#6f6556]">
-      {{ isEdit ? '修改已创建的校企活动。' : '创建招聘会或宣讲会活动。' }}
-    </p>
+    <!-- 白色卡片表单 -->
+    <div class="rounded-[4px] bg-white" style="padding: 20px 32px;">
+      <!-- 卡片标题 + 分隔线 -->
+      <div class="mb-4">
+        <h2 class="text-[18px] text-[#222] font-semibold">
+          {{ isEdit ? '编辑活动' : '发布活动' }}
+        </h2>
+        <div class="mt-4 bg-[#ECECEC] h-[1px]" />
+      </div>
 
-    <div class="mt-8 max-w-[720px] space-y-6">
-      <div>
-        <label class="mb-2 block text-[14px] text-[#24180c] font-medium">活动类型</label>
-        <div class="grid grid-cols-2 gap-3">
+      <!-- 活动类型选择 -->
+      <div class="mb-6">
+        <div class="gap-4 grid grid-cols-2">
           <label
             v-for="opt in typeOptions" :key="opt.value"
-            class="cursor-pointer border-2 rounded-[14px] p-4 transition" :class="form.type === opt.value
-              ? 'border-[#ffa500] bg-[#fff7e6]'
-              : 'border-[#ecd8a9] bg-white hover:border-[#d8b96f]'"
+            class="p-4 border-2 rounded-[4px] cursor-pointer transition"
+            :class="form.type === opt.value
+              ? 'border-[#FFA500] bg-[#FFF7E6]'
+              : 'border-[#E8E8E8] bg-[#FAFAFA] hover:border-[#D0D0D0]'"
           >
             <input v-model="form.type" type="radio" :value="opt.value" class="sr-only">
-            <div class="text-[15px] text-[#24180c] font-semibold">{{ opt.label }}</div>
-            <div class="mt-1 text-[12px] text-[#8a6e45]">{{ opt.desc }}</div>
+            <div class="flex gap-3 items-center">
+              <img :src="opt.icon" :alt="opt.label" class="h-[44px] w-[44px] object-contain">
+              <div>
+                <div class="text-[15px] text-[#222] font-semibold">{{ opt.label }}</div>
+                <div class="text-[12px] text-[#999] mt-1">{{ opt.desc }}</div>
+              </div>
+            </div>
           </label>
         </div>
       </div>
 
-      <label class="block">
-        <span class="text-[14px] text-[#24180c] font-medium">活动标题 <span class="text-red-400">*</span></span>
-        <input
-          v-model="form.title" type="text" placeholder="输入活动标题" maxlength="100"
-          class="mt-1.5 h-[42px] w-full border border-[#ecd8a9] rounded-[12px] bg-white px-4 text-[13px] text-[#24180c] outline-none transition focus:border-[#d79a19]"
-        >
-      </label>
-
-      <!-- cover -->
-      <label class="block">
-        <span class="text-[14px] text-[#24180c] font-medium">封面图</span>
-        <div class="mt-1.5 flex items-start gap-3">
-          <div
-            class="h-24 w-40 flex shrink-0 items-center justify-center overflow-hidden border border-[#ecd8a9] rounded-[12px] bg-[#fefbf5]"
+      <!-- 表单字段 -->
+      <div class="gap-x-6 gap-y-5 grid grid-cols-2">
+        <!-- 活动标题 - 跨两列 -->
+        <div class="col-span-2 space-y-2">
+          <label class="text-[14px] text-[#222] font-medium">
+            活动标题 <span class="text-red-500">*</span>
+          </label>
+          <input
+            v-model="form.title" type="text" placeholder="请输入活动标题" maxlength="100"
+            class="text-[14px] text-[#222] px-3 outline-none border border-[#E8E8E8] rounded-[4px] bg-white h-[40px] w-full transition focus:border-[#FFA500]"
           >
-            <img v-if="form.display_cover_image" :src="form.display_cover_image" class="h-full w-full object-cover">
-            <span v-else class="i-carbon-image text-[24px] text-[#e0cfa0]" />
-          </div>
-          <div class="flex flex-col gap-2">
-            <button
-              type="button" :disabled="uploadingCover"
-              class="h-[36px] cursor-pointer border border-[#ecd8a9] rounded-[10px] bg-white px-4 text-[12px] text-[#8a6b34] transition hover:border-[#d79a19]"
-              @click="uploadCover"
+        </div>
+
+        <!-- 活动封面图 - 跨两列 -->
+        <div class="col-span-2 space-y-2">
+          <label class="text-[14px] text-[#222] font-medium">
+            活动封面图 <span class="text-red-500">*</span>
+          </label>
+          <div class="space-y-2">
+            <NImage
+              v-if="form.display_cover_image"
+              :src="form.display_cover_image"
+              :width="200"
+              :height="120"
+              object-fit="cover"
+              class="rounded-[4px]"
+              style="border: 1px solid #E8E8E8;"
+            />
+            <div
+              v-else
+              class="border border-[#E8E8E8] rounded-[4px] border-dashed bg-[#FAFAFA] flex h-[120px] w-[200px] items-center justify-center"
             >
-              {{ uploadingCover ? '上传中…' : '上传封面' }}
-            </button>
-            <button
-              v-if="form.cover_image" type="button"
-              class="h-[36px] cursor-pointer border border-red-200 rounded-[10px] bg-white px-4 text-[12px] text-red-500 transition hover:border-red-400"
-              @click="removeCover"
-            >移除</button>
+              <span class="i-carbon-image text-[32px] text-[#D0D0D0]" />
+            </div>
+            <ClientOnly>
+              <NUpload
+                ref="uploadRef"
+                :custom-request="handleCoverUpload"
+                :show-file-list="false"
+                :max="1"
+                accept="image/jpeg,image/png"
+                @remove="handleCoverRemove"
+                @preview="handleCoverPreview"
+              >
+                <button
+                  type="button" :disabled="uploadingCover"
+                  class="text-[13px] text-[#222] px-4 border border-[#E8E8E8] rounded-[4px] bg-white h-[32px] cursor-pointer transition hover:text-[#FFA500] hover:border-[#FFA500]"
+                >
+                  {{ uploadingCover ? '上传中…' : (form.cover_image ? '重新上传' : '上传图片') }}
+                </button>
+              </NUpload>
+            </ClientOnly>
+            <span class="text-[12px] text-[#999]">建议上传16:9的图片，支持jpg/png格式</span>
           </div>
         </div>
-      </label>
 
-      <!-- description -->
-      <div class="block">
-        <span class="text-[14px] text-[#24180c] font-medium">活动描述</span>
-        <div class="mt-1.5">
-          <TiptapEditor v-model="form.description" placeholder="活动详情介绍…" />
-        </div>
-      </div>
-
-      <!-- school picker -->
-      <label class="block">
-        <span class="text-[14px] text-[#24180c] font-medium">
-          {{ form.type === 1 ? '申请进入的学校' : '关联院校' }}
-          <span v-if="form.type === 1" class="text-red-400">*</span>
-          <span v-else class="text-[12px] text-[#b6a27a] font-normal">（选填）</span>
-        </span>
-        <NSelect
-          v-model:value="form.school_codes" :options="metaStore.schools" :loading="loadingSchools" multiple
-          filterable placeholder="搜索并选择学校…" class="mt-1.5"
-        />
-      </label>
-
-      <!-- registration dates (only for 招聘会) -->
-      <template v-if="form.type === 0">
-        <div class="grid grid-cols-2 gap-4">
-          <label class="block">
-            <span class="text-[14px] text-[#24180c] font-medium">报名开始时间</span>
-            <NDatePicker
-              v-model:value="form.register_start_date" type="datetime" placeholder="选择日期和时间"
-              class="mt-1.5 w-full" clearable
-            />
+        <!-- 活动描述 - 跨两列 -->
+        <div class="col-span-2 space-y-2">
+          <label class="text-[14px] text-[#222] font-medium">
+            活动描述 <span class="text-red-500">*</span>
           </label>
-          <label class="block">
-            <span class="text-[14px] text-[#24180c] font-medium">报名结束时间</span>
-            <NDatePicker
-              v-model:value="form.register_end_date" type="datetime" placeholder="选择日期和时间"
-              class="mt-1.5 w-full" clearable
-            />
+          <TiptapEditor v-model="form.description" placeholder="Type here..." />
+        </div>
+
+        <!-- 关联院校 - 跨两列 -->
+        <div class="col-span-2 space-y-2">
+          <label class="text-[14px] text-[#222] font-medium">
+            关联院校
+            <span v-if="form.type === 1" class="text-red-500">*</span>
+            <span v-else class="text-[12px] text-[#999] font-normal">（选填）</span>
           </label>
+          <ClientOnly>
+            <NSelect
+              v-model:value="form.school_codes" :options="schoolOptions" :loading="loadingSchools" multiple
+              filterable placeholder="搜索并选择学校…"
+            />
+          </ClientOnly>
         </div>
-      </template>
 
-      <div class="grid grid-cols-2 gap-4">
-        <label class="block">
-          <span class="text-[14px] text-[#24180c] font-medium">举办开始时间</span>
-          <NDatePicker
-            v-model:value="form.start_time" type="datetime" placeholder="选择日期和时间" class="mt-1.5 w-full"
-            clearable
-          />
-        </label>
-        <label class="block">
-          <span class="text-[14px] text-[#24180c] font-medium">举办结束时间</span>
-          <NDatePicker
-            v-model:value="form.end_time" type="datetime" placeholder="选择日期和时间" class="mt-1.5 w-full"
-            clearable
-          />
-        </label>
-      </div>
-
-      <!-- address: province / city / district cascade -->
-      <div class="block">
-        <span class="text-[14px] text-[#24180c] font-medium">活动地区</span>
-        <div class="grid grid-cols-3 mt-1.5 gap-3">
-          <NSelect
-            v-model:value="form.province_code" :options="metaStore.provinceOptions" placeholder="选择省" filterable
-            clearable
-          />
-          <NSelect
-            v-model:value="form.city_code" :options="cityOptions" placeholder="选择市"
-            :disabled="!form.province_code" filterable clearable
-          />
-          <NSelect
-            v-model:value="form.district_code" :options="districtOptions" placeholder="选择区"
-            :disabled="!form.city_code" filterable clearable
-          />
+        <!-- 选择报名时间 -->
+        <div class="space-y-2">
+          <label class="text-[14px] text-[#222] font-medium">选择报名时间</label>
+          <ClientOnly>
+            <NDatePicker
+              v-model:value="form.register_date_range"
+              type="datetimerange"
+              placeholder="开始日期 至 结束日期"
+              clearable
+              class="w-full"
+            />
+          </ClientOnly>
         </div>
-      </div>
 
-      <!-- address: detailed address via AmapLocationPicker + manual input -->
-      <label class="block">
-        <span class="text-[14px] text-[#24180c] font-medium">详细地址</span>
-        <div class="mt-1.5 flex gap-2">
-          <input
-            v-model="form.address" type="text" placeholder="街道、门牌号等详细地址"
-            class="h-[42px] flex-1 border border-[#ecd8a9] rounded-[12px] bg-white px-4 text-[13px] text-[#24180c] outline-none transition focus:border-[#d79a19]"
-          >
-          <AmapLocationPicker
-            :model-value="form.address || undefined"
-            @update:model-value="form.address = $event ?? ''"
+        <!-- 选择举办时间 -->
+        <div class="space-y-2">
+          <label class="text-[14px] text-[#222] font-medium">选择举办时间</label>
+          <ClientOnly>
+            <NDatePicker
+              v-model:value="form.event_date_range"
+              type="datetimerange"
+              placeholder="开始日期 至 结束日期"
+              clearable
+              class="w-full"
+            />
+          </ClientOnly>
+        </div>
+
+        <!-- 活动地区 -->
+        <div class="space-y-2">
+          <label class="text-[14px] text-[#222] font-medium">活动地区</label>
+          <NaiveClientCascader
+            v-model:value="areaCascaderValue"
+            :options="areaCascaderOptions as any"
+            placeholder="请选择地区"
+            filterable
+            clearable
+            class="w-full"
           />
         </div>
-      </label>
 
-      <div class="grid grid-cols-2 gap-4">
-        <label class="block">
-          <span class="text-[14px] text-[#24180c] font-medium">联系人</span>
+        <!-- 详细地址 -->
+        <div class="space-y-2">
+          <label class="text-[14px] text-[#222] font-medium">详细地址</label>
+          <ClientOnly>
+            <AmapLocationPicker
+              class="locationStyle"
+              :model-value="form.address || undefined"
+              @update:model-value="form.address = $event ?? ''"
+            />
+          </ClientOnly>
+        </div>
+
+        <!-- 联系人 -->
+        <div class="space-y-2">
+          <label class="text-[14px] text-[#222] font-medium">联系人</label>
           <input
-            v-model="form.contact_name" type="text" placeholder="联系人姓名"
-            class="mt-1.5 h-[42px] w-full border border-[#ecd8a9] rounded-[12px] bg-white px-4 text-[13px] text-[#24180c] outline-none transition focus:border-[#d79a19]"
+            v-model="form.contact_name" type="text" placeholder="请输入联系人"
+            class="text-[14px] text-[#222] px-3 outline-none border border-[#E8E8E8] rounded-[4px] bg-white h-[40px] w-full transition focus:border-[#FFA500]"
           >
-        </label>
-        <label class="block">
-          <span class="text-[14px] text-[#24180c] font-medium">联系电话</span>
+        </div>
+
+        <!-- 联系电话 -->
+        <div class="space-y-2">
+          <label class="text-[14px] text-[#222] font-medium">联系电话</label>
           <input
-            v-model="form.contact_phone" type="text" placeholder="手机号"
-            class="mt-1.5 h-[42px] w-full border border-[#ecd8a9] rounded-[12px] bg-white px-4 text-[13px] text-[#24180c] outline-none transition focus:border-[#d79a19]"
+            v-model="form.contact_phone" type="text" placeholder="请输入联系电话"
+            class="text-[14px] text-[#222] px-3 outline-none border border-[#E8E8E8] rounded-[4px] bg-white h-[40px] w-full transition focus:border-[#FFA500]"
           >
-        </label>
+        </div>
       </div>
 
-      <div class="flex justify-end gap-3 pt-4">
+      <!-- 底部按钮 -->
+      <div class="mt-8 flex gap-3">
+        <button
+          class="text-[14px] text-white font-medium px-6 rounded-[4px] border-none bg-[#FFA500] h-[40px] cursor-pointer transition hover:bg-[#E69500] disabled:opacity-50"
+          :disabled="saving || !form.title.trim()" @click="handleSubmit"
+        >
+          {{ saving ? '发布中…' : (isEdit ? '保存修改' : '立即发布') }}
+        </button>
         <button
           type="button"
-          class="h-[44px] cursor-pointer border border-slate-200 rounded-[12px] bg-white px-6 text-[13px] text-slate-700 transition hover:bg-slate-50"
+          class="text-[14px] text-[#222] px-6 border border-[#E8E8E8] rounded-[4px] bg-white h-[40px] cursor-pointer transition hover:bg-[#FAFAFA]"
+          @click="handleSaveDraft"
+        >
+          存为草稿
+        </button>
+        <button
+          type="button"
+          class="text-[14px] text-[#222] px-6 border border-[#E8E8E8] rounded-[4px] bg-white h-[40px] cursor-pointer transition hover:bg-[#FAFAFA]"
           @click="router.back()"
         >
           取消
         </button>
-        <button
-          class="h-[44px] cursor-pointer rounded-[14px] border-none from-[#ffbe3b] to-[#ea9400] bg-gradient-to-r px-6 text-[14px] text-white font-semibold shadow-[0_8px_16px_rgba(255,165,0,0.15)] transition disabled:opacity-50 hover:brightness-105"
-          :disabled="saving || !form.title.trim()" @click="handleSubmit"
-        >
-          {{ saving ? '保存中…' : (isEdit ? '保存修改' : '创建活动') }}
-        </button>
       </div>
     </div>
+
+    <!-- 图片预览 -->
+    <ClientOnly>
+      <NImage
+        v-if="previewImageUrl"
+        :src="previewImageUrl"
+        :show="showPreview"
+        @update:show="showPreview = $event"
+      />
+    </ClientOnly>
   </div>
 </template>
+
+<style scoped>
+:deep(.n-base-selection) {
+  height: 40px;
+  border-radius: 4px;
+  background: transparent !important;
+}
+:deep(.n-base-selection-tags) {
+  background: transparent !important;
+  height: 100%;
+  padding-top: 0;
+}
+:deep(.n-base-selection__border) {
+  border-color: #e8e8e8;
+}
+:deep(.n-base-selection-placeholder) {
+  color: #999;
+}
+:deep(.n-input) {
+  background: transparent !important;
+  height: 40px;
+  border-radius: 4px;
+}
+:deep(.n-input__border) {
+  border-color: #e8e8e8;
+}
+:deep(.n-input__placeholder) {
+  color: #999;
+}
+:deep(.n-base-selection-label) {
+  height: 100%;
+}
+:deep(.locationMapDialog) {
+  border-color: #e8e8e8 !important;
+  span:first-child {
+    color: #999;
+  }
+}
+</style>

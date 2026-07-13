@@ -144,7 +144,7 @@ function confirmLocation() {
 <template>
   <div>
     <div
-      class="text-[14px] px-4 border border-[#ecd8a9] rounded-[4px] bg-white flex gap-2 h-[40px] cursor-pointer transition items-center hover:border-[#e0bd69]"
+      class="locationMapDialog text-[14px] px-4 border border-[#ecd8a9] rounded-[4px] bg-white flex gap-2 h-[40px] cursor-pointer transition items-center hover:border-[#e0bd69]"
       @click="openMap"
     >
       <span class="i-carbon-location text-[16px] text-[#b89243]" />
