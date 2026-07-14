@@ -545,3 +545,21 @@ export async function deleteCompanyActivity(authorization: string, activityId: n
   )
   return response.data
 }
+
+export interface RecruiterStatsResponse {
+  current_open_jobs: number
+  received_resumes: number
+  unread_resumes: number
+  job_refresh_count: number
+  membership_expires_at: string | null
+  posted_jobs_count: number
+}
+
+export async function getRecruiterStats(authorization: string) {
+  const response = await getJson<ApiResponse<RecruiterStatsResponse>>(
+    '/rc/users/recruiter/stats',
+    undefined,
+    createAuthHeaders(authorization),
+  )
+  return response.data
+}

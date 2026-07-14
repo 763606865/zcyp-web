@@ -1,34 +1,48 @@
 <script setup lang="ts">
+import { getRecruiterStats } from '~/services/company'
+
 definePageMeta({
   layout: 'default',
   middleware: ['auth', 'identity-required'],
 })
 const userStore = useUserStore()
 
-const stats = ref({
-  jobCount: 0,
-  receivedCount: 0,
-  unreadCount: 0,
-})
 interface DashboardData {
-  serviceDays: number
   employerCount: number
   resumeCount: number
   noReadResumeCount: number
   vidTime: string
   refreshCount: number
   issueCount: number
-  interViewTime: string
 }
 const dashboardData = ref<DashboardData>({
-  serviceDays: 0,
   employerCount: 0,
   resumeCount: 0,
   noReadResumeCount: 0,
   vidTime: '-',
   refreshCount: 0,
   issueCount: 0,
-  interViewTime: '',
+})
+
+async function fetchDashboardStats() {
+  try {
+    const data = await getRecruiterStats(userStore.authHeader)
+    dashboardData.value = {
+      employerCount: data.current_open_jobs ?? 0,
+      resumeCount: data.received_resumes ?? 0,
+      noReadResumeCount: data.unread_resumes ?? 0,
+      vidTime: data.membership_expires_at ?? '-',
+      refreshCount: data.job_refresh_count ?? 0,
+      issueCount: data.posted_jobs_count ?? 0,
+    }
+  }
+  catch (e) {
+    console.error('Failed to fetch recruiter stats:', e)
+  }
+}
+
+onMounted(() => {
+  fetchDashboardStats()
 })
 interface InterviewTab {
   code: string
@@ -93,9 +107,9 @@ const timestamp = ref(Date.now())
           <div class="text-[28px] text-[#222222] font-bold mb-[4px]">
             下午好，欢迎回来！
           </div>
-          <div class="text-[14px] text-[#999999]">
+          <!-- <div class="text-[14px] text-[#999999]">
             今天是中测易聘为您服务的{{ dashboardData.serviceDays }}天
-          </div>
+          </div> -->
         </div>
       </div>
       <div class="mt-[16px] flex gap-[62px]">
