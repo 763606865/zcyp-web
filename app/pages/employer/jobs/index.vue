@@ -14,7 +14,7 @@ const userStore = useUserStore()
 const metaStore = useMetaStore()
 const router = useRouter()
 
-const isOrgApproved = computed(() => {
+const _isOrgApproved = computed(() => {
   const info = userStore.currentIdentityInfo
   return info && typeof info === 'object' && info.identity_type === 2 && info.organization?.status === 1
 })
@@ -23,362 +23,133 @@ const errorMessage = ref('')
 
 // 筛选相关
 const searchKeyword = ref('')
-const filterStatus = ref<number | null>(null) // null=全部, 1=招聘中, 2=已关闭
-const filterNature = ref<string>('') // 岗位性质
+const filterStatus = ref<number | null>(null) // null=全部, 0=草稿, 1=已发布, 2=暂停, 3=关闭, 4=过期
+const filterEmploymentType = ref<number | null>(null) // 用工类型
 
 const statusOptions = [
   { label: '全部', value: null },
-  { label: '招聘中', value: 1 },
-  { label: '已关闭', value: 2 },
+  { label: '草稿', value: 0 },
+  { label: '已发布', value: 1 },
+  { label: '暂停', value: 2 },
+  { label: '关闭', value: 3 },
+  { label: '过期', value: 4 },
 ]
 
-const natureOptions = [
-  '社招全职',
-  '兼职招聘',
-  '实习生招聘',
-  '应届生校招',
-  '派遣外包',
+const employmentTypeOptions = [
+  { label: '全职', value: 1 },
+  { label: '兼职', value: 2 },
+  { label: '实习', value: 3 },
+  { label: '校招', value: 4 },
+  { label: '外包', value: 5 },
 ]
 
-// Mock数据
-interface MockJob {
-  id: number
-  title: string
-  area: string
-  is_urgent: boolean
-  status: number // 1=招聘中, 2=已关闭
-  status_label: string
-  salary: string
-  experience: string
-  education: string
-  age_range: string
-  nature: string
-  headcount: number
-  updated_at: string
-  stats: {
-    views: number
-    communicated: number
-    received: number
-    interviewed: number
-    offered: number
-  }
+// 格式化工具函数
+function formatSalary(job: JobRecord): string {
+  if (!job.salary_min && !job.salary_max)
+    return '面议'
+  const min = job.salary_min ? `${Number(job.salary_min) / 1000}K` : ''
+  const max = job.salary_max ? `${Number(job.salary_max) / 1000}K` : ''
+  const unit = job.salary_unit_label || '月'
+  return `${min}-${max}·${unit}`
 }
 
-const allMockJobs: MockJob[] = [
-  {
-    id: 1,
-    title: '行政专员/助理',
-    area: '上海·徐汇区·漕河泾',
-    is_urgent: true,
-    status: 1,
-    status_label: '招聘中',
-    salary: '7-11K·13薪',
-    experience: '1-3年',
-    education: '大专',
-    age_range: '25-35岁',
-    nature: '社招全职',
-    headcount: 2,
-    updated_at: '2026-07-24至2026-08-13',
-    stats: { views: 100, communicated: 30, received: 10, interviewed: 3, offered: 0 },
-  },
-  {
-    id: 2,
-    title: '行政专员/助理',
-    area: '上海·徐汇区·漕河泾',
-    is_urgent: false,
-    status: 2,
-    status_label: '已关闭',
-    salary: '7-11K·13薪',
-    experience: '1-3年',
-    education: '大专',
-    age_range: '25-35岁',
-    nature: '社招全职',
-    headcount: 2,
-    updated_at: '2026-07-24至2026-08-13',
-    stats: { views: 100, communicated: 30, received: 10, interviewed: 3, offered: 2 },
-  },
-  {
-    id: 3,
-    title: '前端开发工程师',
-    area: '北京·海淀区·中关村',
-    is_urgent: true,
-    status: 1,
-    status_label: '招聘中',
-    salary: '15-25K·14薪',
-    experience: '3-5年',
-    education: '本科',
-    age_range: '25-35岁',
-    nature: '社招全职',
-    headcount: 3,
-    updated_at: '2026-07-20至2026-08-20',
-    stats: { views: 256, communicated: 89, received: 45, interviewed: 12, offered: 3 },
-  },
-  {
-    id: 4,
-    title: '后端开发工程师',
-    area: '北京·海淀区·中关村',
-    is_urgent: false,
-    status: 1,
-    status_label: '招聘中',
-    salary: '18-30K·14薪',
-    experience: '3-5年',
-    education: '本科',
-    age_range: '25-40岁',
-    nature: '社招全职',
-    headcount: 2,
-    updated_at: '2026-07-18至2026-08-18',
-    stats: { views: 198, communicated: 67, received: 34, interviewed: 8, offered: 2 },
-  },
-  {
-    id: 5,
-    title: 'UI设计师',
-    area: '上海·浦东新区·陆家嘴',
-    is_urgent: false,
-    status: 1,
-    status_label: '招聘中',
-    salary: '12-18K·13薪',
-    experience: '1-3年',
-    education: '本科',
-    age_range: '22-30岁',
-    nature: '社招全职',
-    headcount: 1,
-    updated_at: '2026-07-22至2026-08-22',
-    stats: { views: 145, communicated: 52, received: 28, interviewed: 6, offered: 1 },
-  },
-  {
-    id: 6,
-    title: '产品经理',
-    area: '深圳·南山区·科技园',
-    is_urgent: true,
-    status: 1,
-    status_label: '招聘中',
-    salary: '20-35K·15薪',
-    experience: '5-10年',
-    education: '本科',
-    age_range: '28-40岁',
-    nature: '社招全职',
-    headcount: 1,
-    updated_at: '2026-07-15至2026-08-15',
-    stats: { views: 312, communicated: 98, received: 56, interviewed: 15, offered: 4 },
-  },
-  {
-    id: 7,
-    title: '运营专员',
-    area: '广州·天河区·珠江新城',
-    is_urgent: false,
-    status: 2,
-    status_label: '已关闭',
-    salary: '8-12K·13薪',
-    experience: '1-3年',
-    education: '本科',
-    age_range: '23-30岁',
-    nature: '社招全职',
-    headcount: 2,
-    updated_at: '2026-07-10至2026-08-10',
-    stats: { views: 178, communicated: 65, received: 32, interviewed: 10, offered: 2 },
-  },
-  {
-    id: 8,
-    title: '市场营销经理',
-    area: '北京·朝阳区·CBD',
-    is_urgent: false,
-    status: 1,
-    status_label: '招聘中',
-    salary: '15-25K·14薪',
-    experience: '3-5年',
-    education: '本科',
-    age_range: '26-35岁',
-    nature: '社招全职',
-    headcount: 1,
-    updated_at: '2026-07-25至2026-08-25',
-    stats: { views: 223, communicated: 78, received: 41, interviewed: 11, offered: 3 },
-  },
-  {
-    id: 9,
-    title: '人力资源专员',
-    area: '上海·静安区·南京西路',
-    is_urgent: false,
-    status: 1,
-    status_label: '招聘中',
-    salary: '10-15K·13薪',
-    experience: '1-3年',
-    education: '本科',
-    age_range: '24-32岁',
-    nature: '社招全职',
-    headcount: 2,
-    updated_at: '2026-07-23至2026-08-23',
-    stats: { views: 167, communicated: 58, received: 29, interviewed: 7, offered: 2 },
-  },
-  {
-    id: 10,
-    title: '财务专员',
-    area: '杭州·西湖区·文三路',
-    is_urgent: false,
-    status: 2,
-    status_label: '已关闭',
-    salary: '8-12K·13薪',
-    experience: '1-3年',
-    education: '本科',
-    age_range: '24-32岁',
-    nature: '社招全职',
-    headcount: 1,
-    updated_at: '2026-07-12至2026-08-12',
-    stats: { views: 134, communicated: 45, received: 22, interviewed: 5, offered: 1 },
-  },
-  {
-    id: 11,
-    title: '客服专员',
-    area: '成都·高新区·天府软件园',
-    is_urgent: true,
-    status: 1,
-    status_label: '招聘中',
-    salary: '5-8K·12薪',
-    experience: '不限',
-    education: '大专',
-    age_range: '20-30岁',
-    nature: '兼职招聘',
-    headcount: 5,
-    updated_at: '2026-07-26至2026-08-26',
-    stats: { views: 289, communicated: 112, received: 67, interviewed: 20, offered: 5 },
-  },
-  {
-    id: 12,
-    title: '实习生-前端开发',
-    area: '北京·海淀区·西二旗',
-    is_urgent: false,
-    status: 1,
-    status_label: '招聘中',
-    salary: '3-5K·日薪',
-    experience: '不限',
-    education: '本科',
-    age_range: '20-25岁',
-    nature: '实习生招聘',
-    headcount: 3,
-    updated_at: '2026-07-28至2026-08-28',
-    stats: { views: 456, communicated: 178, received: 89, interviewed: 25, offered: 8 },
-  },
-  {
-    id: 13,
-    title: '应届生-管理培训生',
-    area: '上海·浦东新区·张江',
-    is_urgent: false,
-    status: 1,
-    status_label: '招聘中',
-    salary: '8-12K·13薪',
-    experience: '不限',
-    education: '本科',
-    age_range: '22-26岁',
-    nature: '应届生校招',
-    headcount: 10,
-    updated_at: '2026-07-30至2026-09-30',
-    stats: { views: 678, communicated: 234, received: 123, interviewed: 45, offered: 15 },
-  },
-  {
-    id: 14,
-    title: '外包-测试工程师',
-    area: '深圳·南山区·前海',
-    is_urgent: false,
-    status: 1,
-    status_label: '招聘中',
-    salary: '12-18K·12薪',
-    experience: '1-3年',
-    education: '本科',
-    age_range: '23-32岁',
-    nature: '派遣外包',
-    headcount: 4,
-    updated_at: '2026-07-21至2026-08-21',
-    stats: { views: 198, communicated: 72, received: 38, interviewed: 9, offered: 3 },
-  },
-  {
-    id: 15,
-    title: '兼职-内容编辑',
-    area: '远程办公',
-    is_urgent: false,
-    status: 1,
-    status_label: '招聘中',
-    salary: '3-6K·日薪',
-    experience: '1-3年',
-    education: '本科',
-    age_range: '不限',
-    nature: '兼职招聘',
-    headcount: 2,
-    updated_at: '2026-07-27至2026-08-27',
-    stats: { views: 156, communicated: 54, received: 27, interviewed: 8, offered: 2 },
-  },
-]
+function formatExperience(job: JobRecord): string {
+  if (job.experience_min == null && job.experience_max == null)
+    return '经验不限'
+  const min = job.experience_min != null ? `${job.experience_min}年` : ''
+  const max = job.experience_max != null ? `${job.experience_max}年` : ''
+  return min && max ? `${min}-${max}` : min || max
+}
 
-// 无限滚动相关
+// 分页相关
 const PAGE_SIZE = 15
 const currentPage = ref(1)
 const isLoadingMore = ref(false)
 const hasMore = ref(true)
-const displayedJobs = ref<MockJob[]>([])
+const displayedJobs = ref<JobRecord[]>([])
 
-// 过滤后的数据
-const filteredJobs = computed(() => {
-  let result = allMockJobs
-
-  // 搜索过滤
-  if (searchKeyword.value) {
-    const keyword = searchKeyword.value.toLowerCase()
-    result = result.filter(job =>
-      job.title.toLowerCase().includes(keyword)
-      || job.area.toLowerCase().includes(keyword),
-    )
+function buildQuery(page: number): Record<string, string | number | undefined> {
+  const query: Record<string, string | number | undefined> = {
+    per_page: PAGE_SIZE,
+    page,
   }
-
-  // 状态过滤
-  if (filterStatus.value !== null) {
-    result = result.filter(job => job.status === filterStatus.value)
-  }
-
-  // 岗位性质过滤
-  if (filterNature.value) {
-    result = result.filter(job => job.nature === filterNature.value)
-  }
-
-  return result
-})
-
-// 加载第一页
-function loadFirstPage() {
-  currentPage.value = 1
-  displayedJobs.value = filteredJobs.value.slice(0, PAGE_SIZE)
-  hasMore.value = filteredJobs.value.length > PAGE_SIZE
+  if (filterStatus.value !== null)
+    query.status = filterStatus.value
+  if (filterEmploymentType.value !== null)
+    query.employment_type = filterEmploymentType.value
+  if (searchKeyword.value)
+    query.keyword = searchKeyword.value
+  return query
 }
 
-// 加载下一页
-function loadNextPage() {
-  if (isLoadingMore.value || !hasMore.value)
+async function fetchJobsPage(page: number): Promise<JobRecord[]> {
+  if (!userStore.authHeader)
+    return []
+  const query = buildQuery(page)
+  const res = await getJobs(userStore.authHeader, query)
+  return res.data || []
+}
+
+// 加载状态
+const isLoadingJobs = ref(false)
+
+// 加载第一页（初始加载 & 筛选变化时复用）
+async function loadFirstPage() {
+  if (!userStore.authHeader)
+    return
+  isLoadingJobs.value = true
+  isLoadingMore.value = false
+  try {
+    const jobs = await fetchJobsPage(1)
+    displayedJobs.value = jobs
+    currentPage.value = 1
+    hasMore.value = jobs.length >= PAGE_SIZE
+  }
+  catch {
+    displayedJobs.value = []
+    hasMore.value = false
+  }
+  finally {
+    isLoadingJobs.value = false
+  }
+}
+
+await callOnce(async () => {
+  if (userStore.authHeader)
+    await metaStore.ensureAllLoaded(userStore.authHeader)
+})
+
+// 初始加载
+onMounted(() => {
+  loadFirstPage()
+})
+
+// 加载下一页（无限滚动）
+async function loadNextPage() {
+  if (isLoadingMore.value || !hasMore.value || !userStore.authHeader)
     return
 
   isLoadingMore.value = true
-
-  // 模拟网络延迟
-  setTimeout(() => {
+  try {
     const nextPage = currentPage.value + 1
-    const startIndex = (nextPage - 1) * PAGE_SIZE
-    const endIndex = startIndex + PAGE_SIZE
-    const newJobs = filteredJobs.value.slice(startIndex, endIndex)
-
+    const newJobs = await fetchJobsPage(nextPage)
     displayedJobs.value = [...displayedJobs.value, ...newJobs]
     currentPage.value = nextPage
-    hasMore.value = endIndex < filteredJobs.value.length
+    hasMore.value = newJobs.length >= PAGE_SIZE
+  }
+  catch {
+    // 加载失败静默处理
+  }
+  finally {
     isLoadingMore.value = false
-  }, 500)
-}
-
-// 筛选条件变化时重新加载
-function handleFilterChange() {
-  loadFirstPage()
+  }
 }
 
 // 清空筛选条件
 function clearFilters() {
   searchKeyword.value = ''
   filterStatus.value = null
-  filterNature.value = ''
-  loadFirstPage()
+  filterEmploymentType.value = null
 }
 
 // 无限滚动容器引用
@@ -390,58 +161,20 @@ function handleScroll() {
     return
 
   const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.value
-  // 距离底部100px时触发加载
   if (scrollHeight - scrollTop - clientHeight < 100) {
     loadNextPage()
   }
 }
 
-// 初始化
-onMounted(() => {
+// 监听筛选变化（统一走 loadFirstPage）
+watch([searchKeyword, filterStatus, filterEmploymentType], () => {
   loadFirstPage()
 })
 
-// 监听筛选变化
-watch([searchKeyword, filterStatus, filterNature], () => {
-  handleFilterChange()
-})
-
-// 保留原有接口方法（暂不使用）
-const _jobStatusOptions: Record<number, string> = { 0: '草稿', 1: '已发布', 2: '暂停', 3: '关闭', 4: '过期' }
-const _jobStatusColors: Record<number, string> = {
-  0: 'bg-[#fff4dc] text-[#8d6517] ring-1 ring-[#eed39a]',
-  1: 'bg-[#eefaf0] text-[#2f8a4b] ring-1 ring-[#cfe9d6]',
-  2: 'bg-[#ffe8d0] text-[#b8772b] ring-1 ring-[#f0d098]',
-  3: 'bg-[#f5f0eb] text-[#8a7a6a] ring-1 ring-[#e0d6cc]',
+// 操作后刷新列表
+async function refreshList() {
+  await loadFirstPage()
 }
-
-async function loadJobs() {
-  if (!userStore.authHeader)
-    return null
-
-  try {
-    return await getJobs(userStore.authHeader, { per_page: 50 })
-  }
-  catch {
-    return null
-  }
-}
-
-await callOnce(async () => {
-  if (userStore.authHeader)
-    await metaStore.ensureAllLoaded(userStore.authHeader)
-})
-
-const { data: jobsData, pending: isLoadingJobs, refresh: refreshJobs } = await useAsyncData(
-  'employer-jobs',
-  loadJobs,
-  {
-    server: false,
-    default: () => null,
-  },
-)
-
-const _jobList = computed<JobRecord[]>(() => jobsData.value?.data || [])
 
 async function handlePublishJob(jobId: number) {
   if (!userStore.authHeader)
@@ -449,20 +182,20 @@ async function handlePublishJob(jobId: number) {
   try {
     await publishJob(jobId, userStore.authHeader)
     pushGlobalNotice('职位已发布')
-    await refreshJobs()
+    await refreshList()
   }
   catch (error) {
     errorMessage.value = error instanceof ApiRequestError ? error.message : '发布失败。'
   }
 }
 
-async function _handlePauseJob(jobId: number) {
+async function handlePauseJob(jobId: number) {
   if (!userStore.authHeader)
     return
   try {
     await pauseJob(jobId, userStore.authHeader)
     pushGlobalNotice('职位已暂停')
-    await refreshJobs()
+    await refreshList()
   }
   catch (error) {
     errorMessage.value = error instanceof ApiRequestError ? error.message : '暂停失败。'
@@ -475,7 +208,7 @@ async function handleCloseJob(jobId: number) {
   try {
     await closeJob(jobId, userStore.authHeader)
     pushGlobalNotice('职位已关闭')
-    await refreshJobs()
+    await refreshList()
   }
   catch (error) {
     errorMessage.value = error instanceof ApiRequestError ? error.message : '关闭失败。'
@@ -491,7 +224,7 @@ async function handleDeleteJob(jobId: number) {
   try {
     await deleteJob(jobId, userStore.authHeader)
     pushGlobalNotice('职位已删除')
-    await refreshJobs()
+    await refreshList()
   }
   catch (error) {
     errorMessage.value = error instanceof ApiRequestError ? error.message : '删除失败。'
@@ -550,16 +283,16 @@ async function handleDeleteJob(jobId: number) {
           </option>
         </select>
 
-        <!-- 岗位性质下拉 -->
+        <!-- 用工类型下拉 -->
         <select
-          v-model="filterNature"
+          v-model="filterEmploymentType"
           class="text-[14px] px-3 outline-none border border-[#EBEDF0] rounded-[6px] bg-white h-[36px] w-[264px] cursor-pointer transition focus:border-[#FFA500]"
         >
-          <option value="">
-            选择岗位性质
+          <option :value="null">
+            选择用工类型
           </option>
-          <option v-for="nature in natureOptions" :key="nature" :value="nature">
-            {{ nature }}
+          <option v-for="opt in employmentTypeOptions" :key="opt.value" :value="opt.value">
+            {{ opt.label }}
           </option>
         </select>
 
@@ -600,13 +333,7 @@ async function handleDeleteJob(jobId: number) {
               <div class="mb-[14px] flex items-center justify-between">
                 <div class="flex flex-1 min-w-0 items-center">
                   <span class="text-[16px] text-[#222] font-medium truncate">
-                    {{ job.title }}【{{ job.area }}】
-                  </span>
-                  <span
-                    v-if="job.is_urgent"
-                    class="text-[14px] text-[#DF412C] ml-[29px] px-[8px] py-[2px] border-[1px] border-[#DF412C] rounded-[4px] bg-[rgba(223,65,44,0.10)] shrink-0"
-                  >
-                    紧急
+                    {{ job.title }}<template v-if="job.workplace">【{{ job.workplace }}】</template>
                   </span>
                   <span
                     class="text-[14px] ml-[16px] px-[8px] py-[2px] border-[1px] border-[transparent] rounded-[4px] shrink-0"
@@ -624,11 +351,18 @@ async function handleDeleteJob(jobId: number) {
                     编辑
                   </NuxtLink>
                   <button
-                    v-if="job.status === 2"
+                    v-if="job.status === 0 || job.status === 2"
                     class="text-[14px] text-[#FFA500] border-none bg-transparent cursor-pointer hover:underline"
                     @click.stop="handlePublishJob(job.id)"
                   >
                     发布职位
+                  </button>
+                  <button
+                    v-if="job.status === 1"
+                    class="text-[14px] text-[#FFA500] border-none bg-transparent cursor-pointer hover:underline"
+                    @click.stop="handlePauseJob(job.id)"
+                  >
+                    暂停
                   </button>
                   <button
                     v-if="job.status === 1"
@@ -646,14 +380,12 @@ async function handleDeleteJob(jobId: number) {
                 </div>
               </div>
 
-              <!-- 第二行：薪资、经验、学历、年龄、岗位性质 -->
+              <!-- 第二行：薪资、经验、学历、用工类型 -->
               <div class="mb-[13px] flex flex-wrap gap-[8px] items-center">
-                <span class="text-[14px] text-[#FFA500]">{{ job.salary }}</span>
-                <span class="text-[14px] text-[#262626] px-[8px] py-[2px] rounded-[4px] bg-[#F7F8FA]">{{ job.experience }}</span>
-                <span class="text-[14px] text-[#262626] px-[8px] py-[2px] rounded-[4px] bg-[#F7F8FA]">{{ job.experience }}</span>
-                <span class="text-[14px] text-[#262626] px-[8px] py-[2px] rounded-[4px] bg-[#F7F8FA]">{{ job.education }}</span>
-                <span class="text-[14px] text-[#262626] px-[8px] py-[2px] rounded-[4px] bg-[#F7F8FA]">{{ job.age_range }}</span>
-                <span class="text-[14px] text-[#262626] px-[8px] py-[2px] rounded-[4px] bg-[#F7F8FA]">{{ job.nature }}</span>
+                <span class="text-[14px] text-[#FFA500]">{{ formatSalary(job) }}</span>
+                <span class="text-[14px] text-[#262626] px-[8px] py-[2px] rounded-[4px] bg-[#F7F8FA]">{{ formatExperience(job) }}</span>
+                <span v-if="job.education_level_label" class="text-[14px] text-[#262626] px-[8px] py-[2px] rounded-[4px] bg-[#F7F8FA]">{{ job.education_level_label }}</span>
+                <span v-if="job.employment_type_label" class="text-[14px] text-[#262626] px-[8px] py-[2px] rounded-[4px] bg-[#F7F8FA]">{{ job.employment_type_label }}</span>
               </div>
 
               <!-- 第三行：招聘人数 + 更新时间 -->
@@ -669,23 +401,11 @@ async function handleDeleteJob(jobId: number) {
             >
               <div class="w-[160px]">
                 <span class="text-[14px] text-[#595959]">被查看数：</span>
-                <span class="text-[16px] text-[#FFA500] font-medium">{{ job.stats.views }}</span>
-              </div>
-              <div class="w-[160px]">
-                <span class="text-[14px] text-[#595959]">沟通过：</span>
-                <span class="text-[16px] text-[#FFA500] font-medium">{{ job.stats.communicated }}</span>
+                <span class="text-[16px] text-[#FFA500] font-medium">{{ job.stats?.views ?? 0 }}</span>
               </div>
               <div class="w-[160px]">
                 <span class="text-[14px] text-[#595959]">接收简历：</span>
-                <span class="text-[16px] text-[#FFA500] font-medium">{{ job.stats.received }}</span>
-              </div>
-              <div class="w-[160px]">
-                <span class="text-[14px] text-[#595959]">面试邀约：</span>
-                <span class="text-[16px] text-[#FFA500] font-medium">{{ job.stats.interviewed }}</span>
-              </div>
-              <div class="w-[160px]">
-                <span class="text-[14px] text-[#595959]">发出offer：</span>
-                <span class="text-[16px] text-[#FFA500] font-medium">{{ job.stats.offered }}</span>
+                <span class="text-[16px] text-[#FFA500] font-medium">{{ job.stats?.applications ?? 0 }}</span>
               </div>
             </div>
           </div>

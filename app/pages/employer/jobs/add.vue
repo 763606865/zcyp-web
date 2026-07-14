@@ -27,7 +27,7 @@ const jobForm = ref({
   benefit: [] as string[],
   positionCode: '',
   educationLevel: 0,
-  experience: '',
+  experience: 'unlimited',
   salaryMin: null as number | null,
   salaryMax: null as number | null,
   salaryUnit: 1,
@@ -75,12 +75,12 @@ const educationLevelOptions = [
 ]
 
 const experienceOptions = [
-  { label: '不限', value: '' },
-  { label: '一年以下', value: '1年以下' },
-  { label: '1-3年', value: '1-3年' },
-  { label: '3-5年', value: '3-5年' },
-  { label: '5-10年', value: '5-10年' },
-  { label: '10年以上', value: '10年以上' },
+  { label: '不限', value: 'unlimited', min: null as number | null, max: null as number | null },
+  { label: '一年以下', value: '<1', min: 0, max: 1 },
+  { label: '1-3年', value: '1-3', min: 1, max: 3 },
+  { label: '3-5年', value: '3-5', min: 3, max: 5 },
+  { label: '5-10年', value: '5-10', min: 5, max: 10 },
+  { label: '10年以上', value: '10+', min: 10, max: null },
 ]
 
 const salaryUnitOptions = [
@@ -121,13 +121,13 @@ function buildPayload(status: number) {
     requirement: jobForm.value.requirement.trim() || null,
     benefit: jobForm.value.benefit.length > 0 ? jobForm.value.benefit.join(',') : null,
     education_level: jobForm.value.educationLevel || null,
-    experience_min: jobForm.value.experience || null,
-    experience_max: null,
-    salary_min: salaryMin,
-    salary_max: salaryMax,
+    ...(() => {
+      const exp = experienceOptions.find(o => o.value === jobForm.value.experience)
+      return { experience_min: exp?.min ?? null, experience_max: exp?.max ?? null }
+    })(),
+    salary_min: jobForm.value.salaryNegotiable ? null : salaryMin,
+    salary_max: jobForm.value.salaryNegotiable ? null : salaryMax,
     salary_unit: jobForm.value.salaryUnit,
-    salary_multiplier: jobForm.value.salaryMultiplier,
-    salary_negotiable: jobForm.value.salaryNegotiable,
     city_code: jobForm.value.cityCode || null,
     workplace: jobForm.value.workplace.trim() || null,
     headcount: jobForm.value.headcount || 1,
@@ -158,11 +158,28 @@ async function handleSave() {
   }
 }
 
+function validatePublish(): string | null {
+  if (!jobForm.value.title.trim())
+    return '请填写职位名称'
+  if (!jobForm.value.positionCode)
+    return '请选择职位类别'
+  if (!jobForm.value.description.trim())
+    return '请填写职位描述'
+  if (!jobForm.value.workplace.trim())
+    return '请输入工作地址'
+  if (!jobForm.value.educationLevel)
+    return '请选择最低学历'
+  if (!jobForm.value.headcount || jobForm.value.headcount < 1)
+    return '招聘人数至少为1'
+  return null
+}
+
 async function handlePublish() {
   if (!userStore.authHeader || isSaving.value)
     return
-  if (!jobForm.value.title.trim()) {
-    pushGlobalNotice('请填写职位名称')
+  const err = validatePublish()
+  if (err) {
+    pushGlobalNotice(err)
     return
   }
   isSaving.value = true
@@ -189,8 +206,8 @@ function addKeyword() {
     pushGlobalNotice('该关键词已存在')
     return
   }
-  if (jobForm.value.keywords.length >= 15) {
-    pushGlobalNotice('最多添加15个关键词')
+  if (jobForm.value.keywords.length >= 20) {
+    pushGlobalNotice('最多添加20个关键词')
     return
   }
   jobForm.value.keywords.push(keyword)
@@ -279,23 +296,27 @@ await callOnce(async () => {
               <div class="my-[24px] gap-4 grid grid-cols-2">
                 <div class="space-y-2">
                   <label class="text-[14px] text-[#222] font-medium">职位类别</label>
-                  <NCascader
-                    v-model:value="jobForm.positionCode"
-                    :options="positionCascaderOptions as any"
-                    placeholder="如：高级后端工程师"
-                    filterable
-                    clearable
-                    class="mt-[8px] w-full"
-                  />
+                  <ClientOnly>
+                    <NCascader
+                      v-model:value="jobForm.positionCode"
+                      :options="positionCascaderOptions as any"
+                      placeholder="如：高级后端工程师"
+                      filterable
+                      clearable
+                      class="mt-[8px] w-full"
+                    />
+                  </ClientOnly>
                 </div>
                 <div class="space-y-2">
                   <label class="text-[14px] text-[#222] font-medium">招聘人数</label>
-                  <NInputNumber
-                    v-model:value="jobForm.headcount"
-                    :min="1"
-                    placeholder="请输入"
-                    class="mt-[8px] w-full"
-                  />
+                  <ClientOnly>
+                    <NInputNumber
+                      v-model:value="jobForm.headcount"
+                      :min="1"
+                      placeholder="请输入"
+                      class="mt-[8px] w-full"
+                    />
+                  </ClientOnly>
                 </div>
               </div>
 
@@ -309,14 +330,16 @@ await callOnce(async () => {
               <!-- 福利待遇 -->
               <div class="space-y-2">
                 <label class="text-[14px] text-[#222] font-medium">福利待遇(选填)</label>
-                <NSelect
-                  v-model:value="jobForm.benefit"
-                  :options="benefitOptions"
-                  placeholder="请选择"
-                  multiple
-                  filterable
-                  class="mt-[8px] w-full"
-                />
+                <ClientOnly>
+                  <NSelect
+                    v-model:value="jobForm.benefit"
+                    :options="benefitOptions"
+                    placeholder="请选择"
+                    multiple
+                    filterable
+                    class="mt-[8px] w-full"
+                  />
+                </ClientOnly>
               </div>
             </div>
 
@@ -329,21 +352,25 @@ await callOnce(async () => {
               <div class="gap-4 grid grid-cols-2">
                 <div class="space-y-2">
                   <label class="text-[14px] text-[#222] font-medium">最低学历</label>
-                  <NSelect
-                    v-model:value="jobForm.educationLevel"
-                    :options="educationLevelOptions as any"
-                    placeholder="请选择"
-                    class="mt-[8px] w-full"
-                  />
+                  <ClientOnly>
+                    <NSelect
+                      v-model:value="jobForm.educationLevel"
+                      :options="educationLevelOptions as any"
+                      placeholder="请选择"
+                      class="mt-[8px] w-full"
+                    />
+                  </ClientOnly>
                 </div>
                 <div class="space-y-2">
                   <label class="text-[14px] text-[#222] font-medium">工作经验</label>
-                  <NSelect
-                    v-model:value="jobForm.experience"
-                    :options="experienceOptions"
-                    placeholder="一年以下"
-                    class="mt-[8px] w-full"
-                  />
+                  <ClientOnly>
+                    <NSelect
+                      v-model:value="jobForm.experience"
+                      :options="experienceOptions"
+                      placeholder="不限"
+                      class="mt-[8px] w-full"
+                    />
+                  </ClientOnly>
                 </div>
               </div>
 
@@ -351,30 +378,38 @@ await callOnce(async () => {
               <div class="space-y-2">
                 <label class="text-[14px] text-[#222] font-medium">薪资范围</label>
                 <div class="mt-[8px] flex gap-3 items-center">
-                  <NSelect
-                    v-model:value="jobForm.salaryUnit"
-                    :options="salaryUnitOptions"
-                    class="w-[100px]"
-                  />
-                  <NInputNumber
-                    v-model:value="jobForm.salaryMin"
-                    :min="0"
-                    placeholder="最低薪资"
-                    class="flex-1"
-                  />
+                  <ClientOnly>
+                    <NSelect
+                      v-model:value="jobForm.salaryUnit"
+                      :options="salaryUnitOptions"
+                      class="w-[100px]"
+                    />
+                  </ClientOnly>
+                  <ClientOnly>
+                    <NInputNumber
+                      v-model:value="jobForm.salaryMin"
+                      :min="0"
+                      placeholder="最低薪资"
+                      class="flex-1"
+                    />
+                  </ClientOnly>
                   <span class="text-[14px] text-gray-400 shrink-0">—</span>
-                  <NInputNumber
-                    v-model:value="jobForm.salaryMax"
-                    :min="0"
-                    placeholder="最高薪资"
-                    class="flex-1"
-                  />
+                  <ClientOnly>
+                    <NInputNumber
+                      v-model:value="jobForm.salaryMax"
+                      :min="0"
+                      placeholder="最高薪资"
+                      class="flex-1"
+                    />
+                  </ClientOnly>
                   <span class="text-[14px] text-gray-400 shrink-0">×</span>
-                  <NInputNumber
-                    v-model:value="jobForm.salaryMultiplier"
-                    :min="12"
-                    class="w-[80px]"
-                  />
+                  <ClientOnly>
+                    <NInputNumber
+                      v-model:value="jobForm.salaryMultiplier"
+                      :min="12"
+                      class="w-[80px]"
+                    />
+                  </ClientOnly>
                   <span class="text-[14px] text-[#333] shrink-0">薪</span>
                   <label class="text-[14px] text-[#333] ml-2 flex gap-1.5 cursor-pointer items-center">
                     <input
@@ -390,14 +425,16 @@ await callOnce(async () => {
               <!-- 工作地点 -->
               <div class="space-y-2">
                 <label class="text-[14px] text-[#222] font-medium">工作地点</label>
-                <NCascader
-                  v-model:value="jobForm.cityCode"
-                  :options="areaCascaderOptions as any"
-                  placeholder="请选择"
-                  filterable
-                  clearable
-                  class="mt-[8px] w-full"
-                />
+                <ClientOnly>
+                  <NCascader
+                    v-model:value="jobForm.cityCode"
+                    :options="areaCascaderOptions as any"
+                    placeholder="请选择"
+                    filterable
+                    clearable
+                    class="mt-[8px] w-full"
+                  />
+                </ClientOnly>
               </div>
 
               <!-- 详细地址 -->
@@ -507,8 +544,8 @@ await callOnce(async () => {
 
             <!-- 经验 + 学历 -->
             <div class="text-[12px] text-[#555] mt-[16px] flex gap-[8px] items-center">
-              <div v-if="jobForm.experience" class="px-[8px] py-[3px] border-[1px] border-[#ECECEC] rounded-[4px]">
-                {{ jobForm.experience }}经验
+              <div v-if="jobForm.experience && jobForm.experience !== 'unlimited'" class="px-[8px] py-[3px] border-[1px] border-[#ECECEC] rounded-[4px]">
+                {{ experienceOptions.find(o => o.value === jobForm.experience)?.label }}经验
               </div>
               <div v-if="jobForm.educationLevel" class="px-[8px] py-[3px] border-[1px] border-[#ECECEC] rounded-[4px]">
                 {{ educationLevelOptions.find(o => o.value === jobForm.educationLevel)?.label }}
