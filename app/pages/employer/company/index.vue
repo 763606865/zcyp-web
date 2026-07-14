@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import type { UploadCustomRequestOptions, UploadFileInfo } from 'naive-ui'
+import type { CompanyAlbumItem, CompanyAlbumPayload } from '~/services/company'
 import type { CompanyProfile } from '~/types/company'
-import { NDatePicker, NSelect } from 'naive-ui'
-import { getCompanyProfile, updateCompanyProfile } from '~/services/company'
+import { NImage, NModal, NSelect, NTabPane, NTabs, NUpload } from 'naive-ui'
+import { createCompanyAlbum, deleteCompanyAlbum, getCompanyAlbums, updateCompanyAlbum, updateCompanyProfile } from '~/services/company'
 import { upload } from '~/services/upload'
 import { useMetaStore } from '~/stores/meta'
 import { pushGlobalNotice } from '~/utils/notice'
@@ -11,6 +13,45 @@ definePageMeta({
   middleware: ['auth', 'identity-required'],
 })
 
+// ── Mock 开关：开发阶段使用，上线前改为 false ──
+const USE_MOCK = true
+
+const mockProfile: CompanyProfile = {
+  id: 1,
+  company_id: 1,
+  short_name: '星瀚智能科技有限公司',
+  logo: '/assets/images/employer/businessalbum1.png',
+  display_logo: '/assets/images/employer/businessalbum1.png',
+  city_code: '310100',
+  scale_type: 4,
+  scale_type_label: '500-999人',
+  nature_type: 1,
+  nature_type_label: '民营企业',
+  industry_codes: ['tech', 'internet'],
+  industry_labels: ['互联网', '人工智能'],
+  founded_at: '2018-03-15',
+  website: 'https://www.xinghan-tech.com',
+  introduction: '星瀚智能科技成立于2018年，是一家专注于人工智能和产业数字化的高新技术企业。公司核心团队来自 BAT 等一线互联网公司，拥有丰富的技术研发和产业落地经验。目前已服务超过 200 家企业客户，覆盖金融、制造、零售等多个行业领域。我们致力于用 AI 技术推动产业升级，创造更大的社会价值。',
+  benefit_tags: ['social_insurance', 'housing_fund', 'weekend_off', 'annual_bonus', 'paid_leave', 'flexible_work', 'stock_option', 'meal_allowance'],
+  benefit_tag_labels: ['五险一金', '住房公积金', '双休', '年终奖', '带薪年假', '弹性工作', '股票期权', '餐补'],
+  funding_stage: 4,
+  funding_stage_label: 'B轮',
+  profile_status: 1,
+  profile_status_label: '已审核',
+  is_certified: true,
+}
+
+const mockAlbums: CompanyAlbumItem[] = [
+  { id: 101, company_id: 1, title: '现代化开放式办公区', image: '/assets/images/employer/businessalbum1.png', display_image: '/assets/images/employer/businessalbum1.png', description: '宽敞明亮的办公环境，配备人体工学座椅', type: 1, type_label: '办公环境', sort: 1, status: 1, status_label: '启用', extra: null, created_at: '2026-01-10 10:00:00', updated_at: '2026-01-10 10:00:00' },
+  { id: 102, company_id: 1, title: '智能会议室', image: '/assets/images/employer/businessalbum2.png', display_image: '/assets/images/employer/businessalbum2.png', description: '配备智能投屏和视频会议系统', type: 1, type_label: '办公环境', sort: 2, status: 1, status_label: '启用', extra: null, created_at: '2026-01-11 10:00:00', updated_at: '2026-01-11 10:00:00' },
+  { id: 103, company_id: 1, title: '休闲茶歇区', image: '/assets/images/employer/businessalbum3.png', display_image: '/assets/images/employer/businessalbum3.png', description: '免费咖啡和零食，放松身心', type: 1, type_label: '办公环境', sort: 3, status: 1, status_label: '启用', extra: null, created_at: '2026-01-12 10:00:00', updated_at: '2026-01-12 10:00:00' },
+  { id: 201, company_id: 1, title: '2025年度团建活动', image: '/assets/images/employer/businessalbum1.png', display_image: '/assets/images/employer/businessalbum1.png', description: '全员三亚团建，共度美好时光', type: 2, type_label: '企业文化相册', sort: 1, status: 1, status_label: '启用', extra: null, created_at: '2026-02-01 10:00:00', updated_at: '2026-02-01 10:00:00' },
+  { id: 202, company_id: 1, title: '技术分享沙龙', image: '/assets/images/employer/businessalbum2.png', display_image: '/assets/images/employer/businessalbum2.png', description: '每周技术分享会，共同成长', type: 2, type_label: '企业文化相册', sort: 2, status: 1, status_label: '启用', extra: null, created_at: '2026-02-05 10:00:00', updated_at: '2026-02-05 10:00:00' },
+  { id: 203, company_id: 1, title: '员工生日会', image: '/assets/images/employer/businessalbum3.png', display_image: '/assets/images/employer/businessalbum3.png', description: '每月集体生日会，温馨氛围', type: 2, type_label: '企业文化相册', sort: 3, status: 0, status_label: '停用', extra: null, created_at: '2026-02-10 10:00:00', updated_at: '2026-02-10 10:00:00' },
+  { id: 301, company_id: 1, title: '高新技术企业认证', image: '/assets/images/employer/businessalbum1.png', display_image: '/assets/images/employer/businessalbum1.png', description: '2025年获得高新技术企业认定', type: 3, type_label: '企业荣誉相册', sort: 1, status: 1, status_label: '启用', extra: null, created_at: '2026-03-01 10:00:00', updated_at: '2026-03-01 10:00:00' },
+  { id: 302, company_id: 1, title: '行业创新奖', image: '/assets/images/employer/businessalbum2.png', display_image: '/assets/images/employer/businessalbum2.png', description: '荣获2025年度行业创新企业奖', type: 3, type_label: '企业荣誉相册', sort: 2, status: 1, status_label: '启用', extra: null, created_at: '2026-03-05 10:00:00', updated_at: '2026-03-05 10:00:00' },
+]
+
 const userStore = useUserStore()
 const metaStore = useMetaStore()
 
@@ -18,6 +59,33 @@ const profile = ref<CompanyProfile | null>(null)
 const isSaving = ref(false)
 const isUploadingLogo = ref(false)
 const errorMessage = ref('')
+// 编辑弹窗 Logo：NUpload 文件列表 + 待上传文件（提交时才真正上传）
+const editLogoFileList = ref<UploadFileInfo[]>([])
+const editLogoPendingFile = ref<File | null>(null)
+
+// ── 编辑弹窗 ──
+const showEditDialog = ref(false)
+
+const editForm = reactive({
+  shortName: '',
+  logo: null as string | null,
+  displayLogo: null as string | null,
+  cityCode: '',
+  scaleType: null as number | null,
+  natureType: null as number | null,
+  industryCodes: [] as string[],
+  website: '',
+  introduction: '',
+  benefitTags: [] as string[],
+  fundingStage: null as number | null,
+})
+
+const editProvinceCode = ref('')
+const editCityCode = ref('')
+const editCityOptions = computed(() => metaStore.getCitiesByProvinceCode(editProvinceCode.value))
+watch(editProvinceCode, () => {
+  editCityCode.value = ''
+})
 
 const scaleTypeOptions = [
   { label: '0-20人', value: 1 },
@@ -59,11 +127,66 @@ const benefitTagOptions = [
   { label: '培训机会', value: 'training' },
 ]
 
+// ── Tab 状态 ──
+const activeTab = ref('overview')
+
+// ── 企业相册 ──
+const fileExtensionPattern = /\.[^.]+$/
+const albumTypeOptions = [
+  { label: '办公环境', value: 1 },
+  { label: '企业文化相册', value: 2 },
+  { label: '企业荣誉相册', value: 3 },
+  { label: '其他', value: 4 },
+]
+const albumStatusOptions = [
+  { label: '启用', value: 1 },
+  { label: '停用', value: 0 },
+]
+
+const albumKeyword = ref('')
+const albumFilterType = ref<number | null>(null)
+const albumFilterStatus = ref<number | null>(null)
+const albums = ref<CompanyAlbumItem[]>([])
+const isAlbumLoading = ref(false)
+const isAlbumSaving = ref(false)
+const isAlbumUploading = ref(false)
+const editingAlbum = ref<CompanyAlbumItem | null>(null)
+const previewAlbumImage = ref<string | null>(null)
+const albumImageFileList = ref<UploadFileInfo[]>([])
+
+const albumForm = reactive({
+  title: '',
+  image: '',
+  displayImage: '',
+  description: '',
+  type: 1,
+  sort: 0,
+  status: 1,
+})
+
+const activeAlbums = computed(() => albums.value.filter(item => item.status === 1).length)
+const disabledAlbums = computed(() => albums.value.filter(item => item.status === 0).length)
+
+const groupedAlbums = computed(() => {
+  const groups: Record<string, CompanyAlbumItem[]> = {}
+  const order: { type: number, label: string }[] = []
+  for (const item of albums.value) {
+    const label = item.type_label || '其他'
+    if (!groups[label]) {
+      groups[label] = []
+      order.push({ type: item.type, label })
+    }
+    groups[label].push(item)
+  }
+  return order.map(o => ({ label: o.label, items: groups[o.label] }))
+})
+
+// ── 数据加载 ──
 const provinceCode = ref('')
 const cityCode = ref('')
 const cityOptions = computed(() => metaStore.getCitiesByProvinceCode(provinceCode.value))
-watch(provinceCode, () => {
-  cityCode.value = ''
+watch(cityCode, (code) => {
+  // 仅用于展示
 })
 
 const form = reactive({
@@ -79,10 +202,6 @@ const form = reactive({
   introduction: '',
   benefitTags: [] as string[],
   fundingStage: null as number | null,
-})
-
-watch(cityCode, (code) => {
-  form.cityCode = code
 })
 
 function loadProfileToForm(p: CompanyProfile) {
@@ -110,16 +229,51 @@ function loadProfileToForm(p: CompanyProfile) {
   }
 }
 
+function loadProfileToEditForm(p: CompanyProfile) {
+  editForm.shortName = p.short_name || ''
+  editForm.logo = p.logo
+  editForm.displayLogo = p.display_logo
+  editForm.cityCode = p.city_code || ''
+  editForm.scaleType = p.scale_type
+  editForm.natureType = p.nature_type
+  editForm.industryCodes = p.industry_codes || []
+  editForm.website = p.website || ''
+  editForm.introduction = p.introduction || ''
+  editForm.benefitTags = p.benefit_tags || []
+  editForm.fundingStage = p.funding_stage
+
+  if (p.city_code && metaStore.areas.length) {
+    const area = metaStore.getAreaByCode(p.city_code)
+    if (area?.parent_code) {
+      editProvinceCode.value = area.parent_code
+      nextTick(() => {
+        editCityCode.value = p.city_code || ''
+      })
+    }
+  }
+
+  // 同步 Logo 文件列表（已有 logo 显示预览，新上传的等提交）
+  editLogoPendingFile.value = null
+  editLogoFileList.value = p.display_logo
+    ? [{ id: 'logo', name: 'logo', url: p.display_logo, status: 'finished' }]
+    : []
+}
+
 async function loadProfile() {
   if (!userStore.authHeader)
     return null
-
   errorMessage.value = ''
   try {
-    return await getCompanyProfile(userStore.authHeader)
+    const { getCompanyProfile } = await import('~/services/company')
+    const result = await getCompanyProfile(userStore.authHeader)
+    if (USE_MOCK && !result?.short_name)
+      return mockProfile
+    return result
   }
   catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '企业资料加载失败'
+    if (USE_MOCK)
+      return mockProfile
     return null
   }
 }
@@ -140,38 +294,54 @@ const { data: companyProfileData, pending: isLoading } = await useAsyncData(
 
 watch(companyProfileData, (value) => {
   profile.value = value
-  if (value)
+  if (value) {
     loadProfileToForm(value)
+    loadProfileToEditForm(value)
+  }
 }, { immediate: true })
 
-function toggleBenefitTag(code: string) {
-  const idx = form.benefitTags.indexOf(code)
-  if (idx >= 0)
-    form.benefitTags.splice(idx, 1)
-  else if (form.benefitTags.length < 20)
-    form.benefitTags.push(code)
+// ── 编辑弹窗操作 ──
+function openEditDialog() {
+  if (profile.value)
+    loadProfileToEditForm(profile.value)
+  showEditDialog.value = true
 }
 
-async function handleSave() {
+async function saveProfileWithStatus(status: number) {
   if (!userStore.authHeader || isSaving.value)
     return
   isSaving.value = true
   try {
+    // 如果有新选择的 Logo 文件（尚未上传），先上传
+    let logoPath = editForm.logo
+    if (editLogoPendingFile.value) {
+      isUploadingLogo.value = true
+      try {
+        const uploadResult = await upload(editLogoPendingFile.value, 'file', userStore.authHeader)
+        logoPath = uploadResult.path
+      }
+      finally {
+        isUploadingLogo.value = false
+      }
+    }
     const result = await updateCompanyProfile({
-      short_name: form.shortName || null,
-      logo: form.logo || null,
-      city_code: form.cityCode || null,
-      scale_type: form.scaleType,
-      nature_type: form.natureType,
-      industry_codes: form.industryCodes.length > 0 ? form.industryCodes : undefined,
-      founded_at: form.foundedAt || null,
-      website: form.website || null,
-      introduction: form.introduction || null,
-      benefit_tags: form.benefitTags.length > 0 ? form.benefitTags : undefined,
-      funding_stage: form.fundingStage,
-    }, userStore.authHeader)
+      short_name: editForm.shortName || null,
+      logo: logoPath || null,
+      city_code: editForm.cityCode || null,
+      scale_type: editForm.scaleType,
+      nature_type: editForm.natureType,
+      industry_codes: editForm.industryCodes.length > 0 ? editForm.industryCodes : undefined,
+      website: editForm.website || null,
+      introduction: editForm.introduction || null,
+      benefit_tags: editForm.benefitTags.length > 0 ? editForm.benefitTags : undefined,
+      funding_stage: editForm.fundingStage,
+      profile_status: status,
+    } as any, userStore.authHeader)
     profile.value = result
     loadProfileToForm(result)
+    loadProfileToEditForm(result)
+    showEditDialog.value = false
+    pushGlobalNotice(status === 0 ? '已保存为草稿' : '已提交审核')
   }
   catch (e) {
     pushGlobalNotice(e instanceof Error ? e.message : '保存失败')
@@ -181,10 +351,120 @@ async function handleSave() {
   }
 }
 
-async function uploadCompanyLogo() {
-  if (!userStore.authHeader || isUploadingLogo.value)
-    return
+// ── 编辑弹窗 Logo：NUpload 自定义请求（只存本地，不真正上传） ──
+async function handleEditLogoCustomRequest({ file, onFinish }: UploadCustomRequestOptions) {
+  // 保存文件引用，等提交表单时再上传
+  editLogoPendingFile.value = file as File
+  // 调用 onFinish 让 NUpload 显示预览
+  onFinish()
+  return { abort: () => {} }
+}
 
+function handleEditLogoChange({ fileList }: { fileList: UploadFileInfo[] }) {
+  editLogoFileList.value = fileList.slice(-1)
+  // 如果文件列表为空，清除待上传文件
+  if (fileList.length === 0) {
+    editLogoPendingFile.value = null
+    editForm.logo = null
+  }
+}
+
+function handleEditLogoRemove() {
+  editLogoPendingFile.value = null
+  editForm.logo = null
+  editLogoFileList.value = []
+}
+
+function toggleEditBenefitTag(code: string) {
+  const idx = editForm.benefitTags.indexOf(code)
+  if (idx >= 0)
+    editForm.benefitTags.splice(idx, 1)
+  else if (editForm.benefitTags.length < 20)
+    editForm.benefitTags.push(code)
+}
+
+// ── 企业相册操作 ──
+async function loadAlbums() {
+  if (!userStore.authHeader)
+    return
+  isAlbumLoading.value = true
+  try {
+    const result = await getCompanyAlbums(userStore.authHeader, {
+      keyword: albumKeyword.value.trim() || undefined,
+      type: albumFilterType.value ?? undefined,
+      status: albumFilterStatus.value ?? undefined,
+      per_page: 100,
+    })
+    const list = result.data || []
+    albums.value = (USE_MOCK && list.length === 0) ? mockAlbums : list
+  }
+  catch (error) {
+    pushGlobalNotice(error instanceof Error ? error.message : '企业相册加载失败', 'error')
+    if (USE_MOCK)
+      albums.value = mockAlbums
+  }
+  finally {
+    isAlbumLoading.value = false
+  }
+}
+
+watch(activeTab, (tab) => {
+  if (tab === 'albums' && albums.value.length === 0)
+    void loadAlbums()
+})
+
+watch([albumFilterType, albumFilterStatus], () => {
+  void loadAlbums()
+})
+
+function resetAlbumForm() {
+  editingAlbum.value = null
+  albumForm.title = ''
+  albumForm.image = ''
+  albumForm.displayImage = ''
+  albumForm.description = ''
+  albumForm.type = 1
+  albumForm.sort = 0
+  albumForm.status = 1
+  albumImageFileList.value = []
+}
+
+// ── 相册图片上传 ─
+async function handleAlbumImageUpload({ file, onFinish, onError }: UploadCustomRequestOptions) {
+  if (!userStore.authHeader) {
+    onError()
+    return { abort: () => {} }
+  }
+  isAlbumUploading.value = true
+  try {
+    const result = await upload(file as File, 'file', userStore.authHeader)
+    albumForm.image = result.path
+    albumForm.displayImage = result.url
+    if (!albumForm.title)
+      albumForm.title = (file as File).name.replace(fileExtensionPattern, '').slice(0, 100)
+    albumImageFileList.value = [{ id: 'album', name: 'album', url: result.url, status: 'finished' }]
+    pushGlobalNotice('图片上传成功')
+    onFinish()
+  }
+  catch (error) {
+    pushGlobalNotice(error instanceof Error ? error.message : '上传失败', 'error')
+    onError()
+  }
+  finally {
+    isAlbumUploading.value = false
+  }
+  return { abort: () => {} }
+}
+
+function onAlbumImageRemove() {
+  albumForm.image = ''
+  albumForm.displayImage = ''
+  albumImageFileList.value = []
+}
+
+function triggerAlbumUpload() {
+  if (!import.meta.client)
+    return
   const input = document.createElement('input')
   input.type = 'file'
   input.accept = 'image/*'
@@ -192,41 +472,91 @@ async function uploadCompanyLogo() {
     const file = input.files?.[0]
     if (!file)
       return
-
-    isUploadingLogo.value = true
-    try {
-      const result = await upload(file, 'file', userStore.authHeader!)
-      form.logo = result.path
-      form.displayLogo = result.url
-    }
-    catch (e) {
-      pushGlobalNotice(e instanceof Error ? e.message : '上传失败')
-    }
-    finally {
-      isUploadingLogo.value = false
-    }
+    await handleAlbumImageUpload({ file, onFinish: () => {}, onError: () => {} } as UploadCustomRequestOptions)
   }
   input.click()
 }
 
-const foundedAtTimestamp = computed(() => form.foundedAt
-  ? (() => {
-      const d = new Date(form.foundedAt)
-      return Number.isNaN(d.getTime()) ? null : d.getTime()
-    })()
-  : null)
-function onFoundedAtChange(ts: number | null) {
-  if (!ts) {
-    form.foundedAt = ''
+async function handleAlbumSave() {
+  if (!userStore.authHeader || isAlbumSaving.value)
+    return
+  if (!albumForm.image) {
+    pushGlobalNotice('请先上传相册图片', 'warning')
     return
   }
-  const d = new Date(ts)
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  form.foundedAt = `${y}-${m}-${day}`
+  isAlbumSaving.value = true
+  try {
+    const payload: CompanyAlbumPayload & { image: string } = {
+      title: albumForm.title.trim() || null,
+      image: albumForm.image,
+      description: albumForm.description.trim() || null,
+      type: albumForm.type,
+      sort: Number(albumForm.sort) || 0,
+      status: albumForm.status,
+    }
+    if (editingAlbum.value) {
+      const updated = await updateCompanyAlbum(editingAlbum.value.id, payload, userStore.authHeader)
+      albums.value = albums.value.map(item => item.id === updated.id ? updated : item)
+      pushGlobalNotice('相册图片已更新')
+    }
+    else {
+      const created = await createCompanyAlbum(payload, userStore.authHeader)
+      albums.value = [created, ...albums.value].sort((a, b) => a.sort - b.sort || b.id - a.id)
+      pushGlobalNotice('相册图片已新增')
+    }
+    resetAlbumForm()
+  }
+  catch (error) {
+    pushGlobalNotice(error instanceof Error ? error.message : '保存失败', 'error')
+  }
+  finally {
+    isAlbumSaving.value = false
+  }
 }
 
+async function toggleAlbumStatus(album: CompanyAlbumItem) {
+  if (!userStore.authHeader)
+    return
+  try {
+    const updated = await updateCompanyAlbum(album.id, { status: album.status === 1 ? 0 : 1 }, userStore.authHeader)
+    albums.value = albums.value.map(item => item.id === updated.id ? updated : item)
+    pushGlobalNotice(updated.status === 1 ? '已启用' : '已停用')
+  }
+  catch (error) {
+    pushGlobalNotice(error instanceof Error ? error.message : '操作失败', 'error')
+  }
+}
+
+async function handleAlbumDelete(album: CompanyAlbumItem) {
+  if (!userStore.authHeader)
+    return
+  const ok = typeof window === 'undefined' ? true : window.confirm(`确认删除「${album.title || album.type_label || '相册图片'}」吗？`) // eslint-disable-line no-alert
+  if (!ok)
+    return
+  try {
+    await deleteCompanyAlbum(album.id, userStore.authHeader)
+    albums.value = albums.value.filter(item => item.id !== album.id)
+    if (editingAlbum.value?.id === album.id)
+      resetAlbumForm()
+    pushGlobalNotice('已删除相册图片')
+  }
+  catch (error) {
+    pushGlobalNotice(error instanceof Error ? error.message : '删除失败', 'error')
+  }
+}
+
+function fillAlbumForm(album: CompanyAlbumItem) {
+  editingAlbum.value = album
+  albumForm.title = album.title || ''
+  albumForm.image = album.image
+  albumForm.displayImage = album.display_image || ''
+  albumForm.description = album.description || ''
+  albumForm.type = album.type
+  albumForm.sort = album.sort
+  albumForm.status = album.status
+}
+
+// ── 计算属性 ──
 const companyName = computed(() => {
   const info = userStore.currentIdentityInfo
   return info && typeof info === 'object' ? (info.organization?.name || '—') : '—'
@@ -235,207 +565,511 @@ const creditCode = computed(() => {
   const info = userStore.currentIdentityInfo
   return info && typeof info === 'object' ? (info.organization?.credit_code || '—') : '—'
 })
+const companyAddress = computed(() => {
+  const info = userStore.currentIdentityInfo
+  return info && typeof info === 'object' ? (info.organization?.address || '—') : '—'
+})
+const allInfoLabels = computed(() => {
+  if (!profile.value)
+    return []
+  const labels: string[] = []
+  if (profile.value.industry_labels?.length)
+    labels.push(...profile.value.industry_labels)
+  if (profile.value.scale_type_label)
+    labels.push(profile.value.scale_type_label)
+  if (profile.value.nature_type_label)
+    labels.push(profile.value.nature_type_label)
+  if (profile.value.funding_stage_label)
+    labels.push(profile.value.funding_stage_label)
+  return labels
+})
 </script>
 
 <template>
   <div>
-    <h1 class="text-[24px] text-[#24180c] font-bold">
-      企业信息
-    </h1>
-    <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
-      <p class="text-[14px] text-[#6f6556]">
-        管理企业基本资料与招聘信息。
-      </p>
-      <NuxtLink to="/employer/company/albums" class="h-[38px] inline-flex items-center gap-2 rounded-[12px] bg-[#fff4dc] px-4 text-[13px] text-[#8b6418] font-medium no-underline ring-1 ring-[#eed39a] transition hover:bg-[#ffeebe]">
-        <span class="i-carbon-image" />
-        企业相册
-      </NuxtLink>
+    <div class="text-[14px] mb-[20px]">
+      <span class="text-[#222]">企业信息</span>
     </div>
-
-    <!-- 企业基础信息（只读） -->
-    <div class="mt-8 rounded-[20px] bg-white p-6 shadow-[0_8px_24px_rgba(148,92,0,0.06)] ring-1 ring-[#f1e4c6]">
-      <div class="text-[18px] text-[#24180c] font-semibold">
-        企业基础信息
+    <!-- ═══════ 上Card：企业基础信息 ═══════ -->
+    <div class="rounded-[12px] bg-white ring-1 ring-[#f0f0f0]" style="padding: 16px 24px;">
+      <div class="flex items-center justify-between">
+        <div class="text-[16px] text-[#000] font-bold">
+          企业基础信息
+        </div>
+        <button
+          type="button"
+          class="text-[14px] text-white font-medium px-6 rounded-[6px] border-none h-[36px] cursor-pointer"
+          style="background: linear-gradient(135deg, #ffbe3b 0%, #ffa500 60%, #ea9400 100%);"
+          @click="openEditDialog"
+        >
+          编辑
+        </button>
       </div>
-      <p class="mt-1 text-[13px] text-[#b6a27a]">
-        此信息来源于企业绑定，如需修改请联系平台客服。
-      </p>
 
-      <div class="grid mt-5 gap-4 md:grid-cols-2">
-        <div class="rounded-[14px] bg-[#fcf9f3] px-4 py-3 ring-1 ring-[#f2e4c7]">
-          <div class="text-[12px] text-[#a27a2b]">
-            企业名称
+      <div class="mt-4 flex" style="gap: 19px;">
+        <!-- 左侧：企业Logo -->
+        <div class="rounded-[4px] bg-[#f5f5f5] flex shrink-0 items-center justify-center overflow-hidden" style="width: 64px; height: 64px;">
+          <img v-if="form.displayLogo" :src="form.displayLogo" alt="企业Logo" class="h-full w-full object-cover">
+          <span v-else class="i-carbon-building text-[32px] text-[#ccc]" />
+        </div>
+        <!-- 右侧：企业名+认证 / 标签 -->
+        <div class="flex flex-col min-w-0 justify-center">
+          <!-- 上方：企业名 + 认证状态 -->
+          <div class="flex items-center" style="gap: 22px;">
+            <span class="text-[18px] text-[#222] font-bold">{{ companyName }}</span>
+            <!-- TODO: 认证状态字段，后期替换为真实字段 is_certified -->
+            <span v-if="profile?.is_certified" class="text-[12px] text-[#52c41a] flex gap-1 items-center">
+              <span class="i-carbon-checkmark-filled" /> 已认证
+            </span>
           </div>
-          <div class="mt-1 text-[15px] text-[#24180c] font-medium">
-            {{ companyName }}
+          <!-- 下方：标签（竖线分隔） -->
+          <div class="mt-2 flex flex-wrap items-center">
+            <template v-for="(label, idx) in allInfoLabels" :key="idx">
+              <span v-if="idx > 0" class="inline-block" style="width: 1px; height: 10px; background: #CECECE; margin: 0 8px;" />
+              <span class="text-[14px] text-[#555555]">{{ label }}</span>
+            </template>
           </div>
         </div>
-        <div class="rounded-[14px] bg-[#fcf9f3] px-4 py-3 ring-1 ring-[#f2e4c7]">
-          <div class="text-[12px] text-[#a27a2b]">
+      </div>
+
+      <div class="text-[14px] mt-4 gap-3 grid grid-cols-1 md:grid-cols-3">
+        <div class="text-[#666] flex gap-2 items-center">
+          <span class="i-carbon-location text-[14px] text-[#222]" />
+          <span>{{ companyAddress }}</span>
+        </div>
+        <div class="text-[#222] flex gap-2 items-center">
+          <span class="text-[#999]">统一社会信用代码：</span>
+          <span>{{ creditCode }}</span>
+        </div>
+        <div class="text-[#222] flex gap-2 items-center">
+          <span class="text-[#999]">公司官网：</span>
+          <a v-if="form.website" :href="form.website" target="_blank" class="text-[#1890ff] no-underline">{{ form.website }}</a>
+          <span v-else>—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ 下Card：企业概况 / 企业相册 ═══════ -->
+    <ClientOnly>
+      <div class="mt-4 rounded-[12px] bg-white ring-1 ring-[#f0f0f0]" style="padding: 16px 24px;">
+        <NTabs v-model:value="activeTab" type="line" animated>
+          <!-- ── 企业概况 ── -->
+          <NTabPane name="overview" tab="企业概况">
+            <div class="py-4">
+              <div class="text-[14px] text-[#222] font-semibold mb-3">
+                公司简介
+              </div>
+              <div class="text-[14px] text-[#555] leading-7 whitespace-pre-wrap">
+                {{ form.introduction || '暂无企业简介' }}
+              </div>
+
+              <div class="text-[14px] text-[#222] font-semibold mb-3 mt-6">
+                企业福利
+              </div>
+              <!-- TODO: 工作时间、周末双休字段，后期替换为真实字段 -->
+              <div class="text-[14px] text-[#222] mb-3 flex gap-6 items-center">
+                <span class="flex gap-1 items-center">
+                  <span class="i-carbon-time text-[14px]" /> 上午9:00–下午17:30
+                </span>
+                <span class="flex gap-1 items-center">
+                  <span class="i-carbon-calendar text-[14px]" /> 周末双休
+                </span>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <span
+                  v-for="tag in form.benefitTags" :key="tag"
+                  class="text-[13px] text-[#555] px-3 py-1 rounded-[6px] bg-[#f5f5f5]"
+                >{{ benefitTagOptions.find(o => o.value === tag)?.label || tag }}</span>
+                <span v-if="form.benefitTags.length === 0" class="text-[13px] text-[#999]">暂无福利标签</span>
+              </div>
+            </div>
+          </NTabPane>
+
+          <!-- ── 企业相册 ── -->
+          <NTabPane name="albums" tab="企业相册">
+            <div class="py-4">
+              <!-- 3:7 布局 -->
+              <div class="gap-6 grid" style="grid-template-columns: 3fr 7fr;">
+                <!-- 左侧：上传表单 -->
+                <div>
+                  <!-- 上传区域 -->
+                  <div class="mb-3">
+                    <div
+                      v-if="!albumForm.displayImage"
+                      class="border-2 border-[#d9d9d9] rounded-[8px] border-dashed bg-[#fafafa] flex flex-col w-full cursor-pointer transition items-center justify-center hover:border-[#ffa500]"
+                      style="height: 160px;"
+                      @click="triggerAlbumUpload"
+                    >
+                      <img src="/assets/images/employer/businessupload-icon.png" alt="" class="mb-2" style="width: 48px;">
+                      <div class="text-[14px] text-[#ffa500]">
+                        点击上传图片
+                      </div>
+                      <div class="text-[12px] text-[#999] mt-1">
+                        支持jpg、png、webp等格式，文件大小需小于3M
+                      </div>
+                    </div>
+                    <div v-else class="group rounded-[8px] bg-[#f5f5f5] w-full relative overflow-hidden" style="height: 160px;">
+                      <ClientOnly>
+                        <NImage :src="albumForm.displayImage" object-fit="cover" class="h-full w-full" />
+                        <template #fallback>
+                          <img :src="albumForm.displayImage" class="h-full w-full object-cover">
+                        </template>
+                      </ClientOnly>
+                      <!-- 悬浮操作 -->
+                      <div class="bg-black/40 opacity-0 flex gap-3 transition items-center inset-0 justify-center absolute group-hover:opacity-100">
+                        <button type="button" class="border border-white/40 rounded-full bg-white/20 flex h-[32px] w-[32px] cursor-pointer items-center justify-center" title="预览" @click="previewAlbumImage = albumForm.displayImage">
+                          <span class="i-carbon-view text-[18px] text-white" />
+                        </button>
+                        <button type="button" class="border border-white/40 rounded-full bg-white/20 flex h-[32px] w-[32px] cursor-pointer items-center justify-center" title="删除" @click="onAlbumImageRemove">
+                          <span class="i-carbon-trash-can text-[18px] text-white" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="mt-4 space-y-3">
+                    <div>
+                      <div class="text-[13px] text-[#333] mb-1">
+                        图片名称
+                      </div>
+                      <input v-model="albumForm.title" placeholder="请输入名称如：公司团建照片" class="text-[13px] px-3 outline-none border border-[#d9d9d9] rounded-[6px] h-[36px] w-full focus:border-[#ffa500]">
+                    </div>
+                    <div class="gap-3 grid grid-cols-2">
+                      <div>
+                        <div class="text-[13px] text-[#333] mb-1">
+                          图片类型
+                        </div>
+                        <select v-model.number="albumForm.type" class="text-[13px] px-3 outline-none border border-[#d9d9d9] rounded-[6px] bg-white h-[36px] w-full">
+                          <option v-for="item in albumTypeOptions" :key="item.value" :value="item.value">
+                            {{ item.label }}
+                          </option>
+                        </select>
+                      </div>
+                      <div>
+                        <div class="text-[13px] text-[#333] mb-1">
+                          状态
+                        </div>
+                        <select v-model.number="albumForm.status" class="text-[13px] px-3 outline-none border border-[#d9d9d9] rounded-[6px] bg-white h-[36px] w-full">
+                          <option v-for="item in albumStatusOptions" :key="item.value" :value="item.value">
+                            {{ item.label }}
+                          </option>
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <div class="text-[13px] text-[#333] mb-1">
+                        排序
+                      </div>
+                      <input v-model.number="albumForm.sort" type="number" min="0" placeholder="1" class="text-[13px] px-3 outline-none border border-[#d9d9d9] rounded-[6px] h-[36px] w-full focus:border-[#ffa500]">
+                    </div>
+                    <div>
+                      <div class="text-[13px] text-[#333] mb-1">
+                        图片描述(选填)
+                      </div>
+                      <textarea v-model="albumForm.description" rows="3" placeholder="请对图片进行简单的介绍" class="text-[13px] px-3 py-2 outline-none border border-[#d9d9d9] rounded-[6px] w-full resize-none focus:border-[#ffa500]" />
+                    </div>
+                    <button
+                      type="button"
+                      class="text-[14px] text-white font-medium rounded-[6px] border-none h-[40px] w-full cursor-pointer"
+                      style="background: linear-gradient(135deg, #ffbe3b 0%, #ffa500 60%, #ea9400 100%);"
+                      :disabled="isAlbumSaving || isAlbumUploading"
+                      @click="handleAlbumSave"
+                    >
+                      {{ isAlbumSaving ? '保存中...' : (editingAlbum ? '保存修改' : '新增图片') }}
+                    </button>
+                  </div>
+                </div>
+
+                <!-- 右侧：统计 + 相册列表 -->
+                <div>
+                  <!-- 统计卡片 -->
+                  <div class="mb-[17px] gap-4 grid grid-cols-3">
+                    <div
+                      class="px-5 rounded-[8px] flex items-center justify-between overflow-hidden"
+                      style="aspect-ratio: 258 / 76; background: url('/assets/images/employer/businessalbum1.png') center/cover no-repeat;"
+                    >
+                      <div>
+                        <div class="text-[14px] text-[#222]">
+                          相册总数
+                        </div>
+                        <div class="text-[24px] text-[#FFA500] font-bold">
+                          {{ albums.length }}
+                        </div>
+                      </div>
+                    </div>
+                    <div
+                      class="px-5 rounded-[8px] flex items-center justify-between overflow-hidden"
+                      style="aspect-ratio: 258 / 76; background: url('/assets/images/employer/businessalbum2.png') center/cover no-repeat;"
+                    >
+                      <div>
+                        <div class="text-[14px] text-[#222]">
+                          启用数
+                        </div>
+                        <div class="text-[24px] text-[#25B270] font-bold">
+                          {{ activeAlbums }}
+                        </div>
+                      </div>
+                    </div>
+                    <div
+                      class="px-5 rounded-[8px] flex items-center justify-between overflow-hidden"
+                      style="aspect-ratio: 258 / 76; background: url('/assets/images/employer/businessalbum3.png') center/cover no-repeat;"
+                    >
+                      <div>
+                        <div class="text-[14px] text-[#222]">
+                          停用数
+                        </div>
+                        <div class="text-[24px] text-[#F16767] font-bold">
+                          {{ disabledAlbums }}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 相册列表 -->
+                  <div class="py-[13px] pl-[15px] pr-[24px] border-[1px] border-[#ECECEC] rounded-tl-[8px] rounded-tr-[8px] bg-[#F7F7F6] flex items-center justify-between">
+                    <div class="text-[14px] text-[#222] font-semibold">
+                      相册列表
+                    </div>
+                    <div class="flex gap-2 items-center">
+                      <input v-model="albumKeyword" placeholder="搜索标题/描述" class="text-[13px] px-3 outline-none border border-[#d9d9d9] rounded-[6px] bg-[#fff] h-[32px] w-[160px]" @keyup.enter="loadAlbums">
+                      <select v-model="albumFilterType" class="text-[13px] px-3 outline-none border border-[#d9d9d9] rounded-[6px] bg-white h-[32px]">
+                        <option :value="null">
+                          全部类型
+                        </option>
+                        <option v-for="item in albumTypeOptions" :key="item.value" :value="item.value">
+                          {{ item.label }}
+                        </option>
+                      </select>
+                      <select v-model="albumFilterStatus" class="text-[13px] px-3 outline-none border border-[#d9d9d9] rounded-[6px] bg-white h-[32px]">
+                        <option :value="null">
+                          全部状态
+                        </option>
+                        <option v-for="item in albumStatusOptions" :key="item.value" :value="item.value">
+                          {{ item.label }}
+                        </option>
+                      </select>
+                      <button type="button" class="text-[14px] text-[#666] border-none bg-transparent flex gap-1 cursor-pointer items-center" @click="loadAlbums">
+                        <span class="i-carbon-trash-can text-[14px] leading-none" /> <span class="leading-none">清空筛选条件</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div v-if="isAlbumLoading" class="text-[14px] text-[#999] py-10 text-center">
+                    加载中...
+                  </div>
+                  <div v-else-if="albums.length === 0" class="text-[14px] text-[#999] py-10 text-center">
+                    暂无企业相册图片
+                  </div>
+                  <div v-else class="px-[16px] py-[6px] border-[1px] border-[#ECECEC] rounded-bl-[8px] rounded-br-[8px] border-t-none">
+                    <div v-for="group in groupedAlbums" :key="group.label">
+                      <div class="text-[15px] text-[#333] font-medium mb-3">
+                        {{ group.label }}
+                      </div>
+                      <div class="gap-3 grid" style="grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));">
+                        <div v-for="album in group.items" :key="album.id" class="group rounded-[8px] bg-[#f5f5f5] relative overflow-hidden" style="aspect-ratio: 4/3;">
+                          <img v-if="album.display_image" :src="album.display_image" :alt="album.title || '相册'" class="h-full w-full object-cover">
+                          <div v-else class="text-[13px] text-[#ccc] flex h-full w-full items-center justify-center">
+                            暂无预览
+                          </div>
+                          <!-- 悬浮操作 -->
+                          <div class="bg-black/40 opacity-0 flex gap-2 transition items-center inset-0 justify-center absolute group-hover:opacity-100">
+                            <button type="button" class="text-[12px] text-white px-3 border border-white/40 rounded-[4px] bg-white/20 h-[28px] cursor-pointer" @click="fillAlbumForm(album)">
+                              编辑
+                            </button>
+                            <button type="button" class="text-[12px] text-white px-3 border border-white/40 rounded-[4px] bg-white/20 h-[28px] cursor-pointer" @click="toggleAlbumStatus(album)">
+                              {{ album.status === 1 ? '停用' : '启用' }}
+                            </button>
+                            <button type="button" class="text-[12px] text-white px-3 border border-red-400/60 rounded-[4px] bg-red-500/60 h-[28px] cursor-pointer" @click="handleAlbumDelete(album)">
+                              删除
+                            </button>
+                          </div>
+                          <!-- 状态角标 -->
+                          <div class="right-1 top-1 absolute">
+                            <span class="text-[11px] px-1.5 py-0.5 rounded-[3px]" :class="album.status === 1 ? 'bg-[#52c41a]/80 text-white' : 'bg-[#999]/80 text-white'">{{ album.status_label }}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </NTabPane>
+        </NTabs>
+      </div>
+    </ClientOnly>
+
+    <!-- ═══════ 编辑弹窗 ═══════ -->
+    <NModal v-model:show="showEditDialog" preset="card" :style="{ width: '720px', maxWidth: '95vw' }" title="编辑企业信息" :bordered="false" size="huge" role="dialog" aria-modal="true">
+      <div class="gap-x-6 gap-y-4 grid grid-cols-2">
+        <!-- 公司名称（只读） -->
+        <div>
+          <div class="text-[14px] text-[#333] mb-1">
+            公司名称
+          </div>
+          <input :value="companyName" readonly class="text-[13px] text-[#999] px-3 border border-[#d9d9d9] rounded-[6px] bg-[#f5f5f5] h-[36px] w-full">
+        </div>
+        <!-- 统一社会信用代码（只读） -->
+        <div>
+          <div class="text-[14px] text-[#333] mb-1">
             统一社会信用代码
           </div>
-          <div class="mt-1 text-[15px] text-[#24180c] font-medium">
-            {{ creditCode }}
-          </div>
+          <input :value="creditCode" readonly class="text-[13px] text-[#999] px-3 border border-[#d9d9d9] rounded-[6px] bg-[#f5f5f5] h-[36px] w-full">
         </div>
-      </div>
-    </div>
-
-    <div v-if="errorMessage" class="mt-4 rounded-[16px] bg-[#fff2ef] px-4 py-3 text-[13px] text-[#c24d2c] leading-6 ring-1 ring-[#f4cabd]">
-      {{ errorMessage }}
-    </div>
-
-    <!-- 企业招聘资料 -->
-    <div class="mt-6 rounded-[20px] bg-white p-6 shadow-[0_8px_24px_rgba(148,92,0,0.06)] ring-1 ring-[#f1e4c6]">
-      <div class="flex items-center justify-between">
+        <!-- 企业logo -->
         <div>
-          <div class="text-[18px] text-[#24180c] font-semibold">
-            企业招聘资料
+          <div class="text-[14px] text-[#333] mb-1">
+            企业logo
           </div>
-          <p class="mt-1 text-[13px] text-[#b6a27a]">
-            完善后将在职位详情页展示，提升企业吸引力。
-          </p>
-        </div>
-        <div v-if="profile" class="rounded-full px-4 py-1.5 text-[12px]" :class="profile.profile_status === 1 ? 'bg-[#eefaf0] text-[#2f8a4b]' : 'bg-[#fff4dc] text-[#8d6517]'">
-          {{ profile.profile_status === 1 ? '已完善' : '草稿' }}
-        </div>
-      </div>
-
-      <div v-if="isLoading" class="mt-6 py-8 text-center text-[14px] text-[#b6a27a]">
-        加载中...
-      </div>
-      <div v-else class="mt-6 space-y-5">
-        <div class="grid gap-4 md:grid-cols-2">
-          <div class="text-[13px] text-[#8a6b34] space-y-2">
-            <span>企业简称</span>
-            <input v-model="form.shortName" placeholder="如：中测" class="h-[46px] w-full border border-[#ecd8a9] rounded-[14px] bg-white px-4 text-[14px] text-[#24180c] outline-none transition focus:border-[#d79a19] focus:shadow-[0_0_0_3px_rgba(255,165,0,0.14)]">
-          </div>
-          <div class="text-[13px] text-[#8a6b34] space-y-2">
-            <span>企业 Logo</span>
-            <div class="flex items-center gap-4">
-              <button
-                type="button"
-                class="h-[72px] w-[72px] flex shrink-0 cursor-pointer items-center justify-center overflow-hidden border-2 border-[#ecd8a9] rounded-[16px] border-dashed bg-[#fef7e8] text-[12px] text-[#b89243] transition hover:border-[#d79a19] hover:bg-[#fdeece]"
-                :disabled="isUploadingLogo"
-                @click="uploadCompanyLogo"
-              >
-                <template v-if="isUploadingLogo">
-                  <span class="i-carbon-loop animate-spin text-[20px]" />
-                </template>
-                <template v-else-if="form.displayLogo">
-                  <img :src="form.displayLogo" alt="企业 Logo" class="h-full w-full object-contain">
-                </template>
-                <template v-else>
-                  <div class="text-center">
-                    <span class="i-carbon-camera text-[20px]" />
-                    <div>上传</div>
-                  </div>
-                </template>
-              </button>
-              <span class="text-[12px] text-[#b89243]">建议 200×200px，支持 JPG/PNG</span>
-            </div>
-          </div>
-          <div class="text-[13px] text-[#8a6b34] space-y-2">
-            <span>公司规模</span>
-            <div class="flex flex-wrap gap-2">
-              <label
-                v-for="opt in scaleTypeOptions" :key="opt.value"
-                class="flex cursor-pointer items-center gap-1.5 border rounded-[12px] px-4 py-2 text-[13px] transition"
-                :class="form.scaleType === opt.value ? 'border-[#ffa500] bg-[#fff7e6] text-[#8f6310] font-medium' : 'border-[#ecd8a9] bg-white text-[#6f5a31] hover:border-[#d8b96f]'"
-                @click="form.scaleType = opt.value"
-              >
-                <span>{{ opt.label }}</span>
-              </label>
-            </div>
-          </div>
-          <div class="text-[13px] text-[#8a6b34] space-y-2">
-            <span>公司性质</span>
-            <div class="flex flex-wrap gap-2">
-              <label
-                v-for="opt in natureTypeOptions" :key="opt.value"
-                class="flex cursor-pointer items-center gap-1.5 border rounded-[12px] px-4 py-2 text-[13px] transition"
-                :class="form.natureType === opt.value ? 'border-[#ffa500] bg-[#fff7e6] text-[#8f6310] font-medium' : 'border-[#ecd8a9] bg-white text-[#6f5a31] hover:border-[#d8b96f]'"
-                @click="form.natureType = opt.value"
-              >
-                <span>{{ opt.label }}</span>
-              </label>
-            </div>
-          </div>
-          <div class="text-[13px] text-[#8a6b34] space-y-2">
-            <span>融资阶段</span>
-            <div class="flex flex-wrap gap-2">
-              <label
-                v-for="opt in fundingStageOptions" :key="opt.value"
-                class="flex cursor-pointer items-center gap-1.5 border rounded-[12px] px-4 py-2 text-[13px] transition"
-                :class="form.fundingStage === opt.value ? 'border-[#ffa500] bg-[#fff7e6] text-[#8f6310] font-medium' : 'border-[#ecd8a9] bg-white text-[#6f5a31] hover:border-[#d8b96f]'"
-                @click="form.fundingStage = opt.value"
-              >
-                <span>{{ opt.label }}</span>
-              </label>
-            </div>
-          </div>
-          <div class="text-[13px] text-[#8a6b34] space-y-2">
-            <span>主办公城市</span>
-            <div class="flex gap-2">
-              <div class="flex-1">
-                <ClientOnly>
-                  <NSelect v-model:value="provinceCode" :options="metaStore.provinceOptions as any" placeholder="选择省份" filterable clearable class="w-full" />
-                  <template #fallback>
-                    <div class="h-[34px] w-full rounded-[3px] bg-white ring-1 ring-[#e0e0e6]" />
-                  </template>
-                </ClientOnly>
-              </div>
-              <div class="flex-1">
-                <ClientOnly>
-                  <NSelect v-model:value="cityCode" :options="cityOptions as any" placeholder="选择城市" filterable clearable class="w-full" />
-                  <template #fallback>
-                    <div class="h-[34px] w-full rounded-[3px] bg-white ring-1 ring-[#e0e0e6]" />
-                  </template>
-                </ClientOnly>
-              </div>
-            </div>
-          </div>
-          <div class="text-[13px] text-[#8a6b34] space-y-2">
-            <span>成立日期</span>
+          <div class="flex gap-3 items-start">
             <ClientOnly>
-              <NDatePicker :value="foundedAtTimestamp" type="date" placeholder="选择成立日期" class="w-full" @update:value="onFoundedAtChange" />
+              <NUpload
+                v-model:file-list="editLogoFileList"
+                list-type="image-card"
+                :custom-request="handleEditLogoCustomRequest"
+                :max="1"
+                accept="image/jpeg,image/png"
+                @change="handleEditLogoChange"
+                @remove="handleEditLogoRemove"
+              />
               <template #fallback>
-                <div class="h-[34px] w-full rounded-[3px] bg-white ring-1 ring-[#e0e0e6]" />
+                <div class="rounded-[8px] bg-[#f5f5f5] h-[72px] w-[72px]" />
+              </template>
+            </ClientOnly>
+            <div class="text-[12px] text-[#999] leading-5 mt-2">
+              建议上传200*200px<br>支持jpg/png格式
+            </div>
+          </div>
+        </div>
+        <!-- 公司性质 -->
+        <div>
+          <div class="text-[14px] text-[#333] mb-1">
+            公司性质
+          </div>
+          <select v-model="editForm.natureType" class="text-[13px] px-3 outline-none border border-[#d9d9d9] rounded-[6px] bg-white h-[36px] w-full">
+            <option :value="null">
+              请选择
+            </option>
+            <option v-for="opt in natureTypeOptions" :key="opt.value" :value="opt.value">
+              {{ opt.label }}
+            </option>
+          </select>
+        </div>
+        <!-- 公司规模 -->
+        <div>
+          <div class="text-[14px] text-[#333] mb-1">
+            公司规模
+          </div>
+          <select v-model="editForm.scaleType" class="text-[13px] px-3 outline-none border border-[#d9d9d9] rounded-[6px] bg-white h-[36px] w-full">
+            <option :value="null">
+              请选择
+            </option>
+            <option v-for="opt in scaleTypeOptions" :key="opt.value" :value="opt.value">
+              {{ opt.label }}
+            </option>
+          </select>
+        </div>
+        <!-- 融资阶段 -->
+        <div>
+          <div class="text-[14px] text-[#333] mb-1">
+            融资阶段
+          </div>
+          <select v-model="editForm.fundingStage" class="text-[13px] px-3 outline-none border border-[#d9d9d9] rounded-[6px] bg-white h-[36px] w-full">
+            <option :value="null">
+              请选择
+            </option>
+            <option v-for="opt in fundingStageOptions" :key="opt.value" :value="opt.value">
+              {{ opt.label }}
+            </option>
+          </select>
+        </div>
+        <!-- 公司官网 -->
+        <div>
+          <div class="text-[14px] text-[#333] mb-1">
+            公司官网(选填)
+          </div>
+          <input v-model="editForm.website" placeholder="请输入" class="text-[13px] px-3 outline-none border border-[#d9d9d9] rounded-[6px] h-[36px] w-full focus:border-[#ffa500]">
+        </div>
+        <!-- 主办公城市 -->
+        <div>
+          <div class="text-[14px] text-[#333] mb-1">
+            主办公城市
+          </div>
+          <div class="flex gap-2">
+            <ClientOnly>
+              <NSelect v-model:value="editProvinceCode" :options="metaStore.provinceOptions as any" placeholder="请选择" filterable clearable class="flex-1" size="small" />
+              <template #fallback>
+                <div class="rounded-[3px] bg-white flex-1 h-[34px] ring-1 ring-[#e0e0e6]" />
+              </template>
+            </ClientOnly>
+            <ClientOnly>
+              <NSelect v-model:value="editCityCode" :options="editCityOptions as any" placeholder="请选择" filterable clearable class="flex-1" size="small" />
+              <template #fallback>
+                <div class="rounded-[3px] bg-white flex-1 h-[34px] ring-1 ring-[#e0e0e6]" />
               </template>
             </ClientOnly>
           </div>
         </div>
-
-        <div class="text-[13px] text-[#8a6b34] space-y-2">
-          <span>官网</span>
-          <input v-model="form.website" placeholder="https://" class="h-[46px] w-full border border-[#ecd8a9] rounded-[14px] bg-white px-4 text-[14px] text-[#24180c] outline-none transition focus:border-[#d79a19] focus:shadow-[0_0_0_3px_rgba(255,165,0,0.14)]">
-        </div>
-
-        <div class="text-[13px] text-[#8a6b34] space-y-2">
-          <span>福利标签</span>
-          <div class="flex flex-wrap gap-2">
-            <label
-              v-for="opt in benefitTagOptions" :key="opt.value"
-              class="flex cursor-pointer items-center gap-1.5 border rounded-[12px] px-4 py-2 text-[13px] transition"
-              :class="form.benefitTags.includes(opt.value) ? 'border-[#ffa500] bg-[#fff7e6] text-[#8f6310] font-medium' : 'border-[#ecd8a9] bg-white text-[#6f5a31] hover:border-[#d8b96f]'"
-              @click="toggleBenefitTag(opt.value)"
-            >
-              <span>{{ opt.label }}</span>
-            </label>
+        <!-- 公司简介（全宽） -->
+        <div class="col-span-2">
+          <div class="text-[14px] text-[#333] mb-1">
+            公司简介
           </div>
+          <textarea v-model="editForm.introduction" rows="4" placeholder="请输入公司简介" class="text-[13px] px-3 py-2 outline-none border border-[#d9d9d9] rounded-[6px] w-full resize-none focus:border-[#ffa500]" />
         </div>
+      </div>
 
-        <div class="text-[13px] text-[#8a6b34] space-y-2">
-          <span>企业简介</span>
-          <textarea v-model="form.introduction" rows="5" placeholder="请介绍企业的核心业务、发展历程、团队文化等" class="w-full resize-none border border-[#ecd8a9] rounded-[14px] bg-white px-4 py-3 text-[14px] text-[#24180c] outline-none transition focus:border-[#d79a19] focus:shadow-[0_0_0_3px_rgba(255,165,0,0.14)]" />
-        </div>
+      <!-- 弹窗底部按钮 -->
+      <div class="mt-6 flex gap-3 justify-end">
+        <button type="button" class="text-[14px] px-6 border border-[#d9d9d9] rounded-[6px] bg-white h-[36px] cursor-pointer" @click="showEditDialog = false">
+          取消
+        </button>
+        <button type="button" class="text-[14px] px-6 border border-[#d9d9d9] rounded-[6px] bg-white h-[36px] cursor-pointer" :disabled="isSaving" @click="saveProfileWithStatus(0)">
+          存为草稿
+        </button>
+        <button
+          type="button"
+          class="text-[14px] text-white font-medium px-6 rounded-[6px] border-none h-[36px] cursor-pointer"
+          style="background: linear-gradient(135deg, #ffbe3b 0%, #ffa500 60%, #ea9400 100%);"
+          :disabled="isSaving"
+          @click="saveProfileWithStatus(1)"
+        >
+          {{ isSaving ? '提交中...' : '提交审核' }}
+        </button>
+      </div>
+    </NModal>
 
-        <div class="flex justify-end gap-3">
-          <button type="button" class="h-[46px] rounded-[14px] border-none bg-[linear-gradient(135deg,#ffbe3b_0%,#ffa500_60%,#ea9400_100%)] px-8 text-[15px] text-white font-semibold shadow-[0_10px_20px_rgba(255,165,0,0.18)] disabled:cursor-not-allowed disabled:opacity-60" :disabled="isSaving" @click="handleSave">
-            {{ isSaving ? '保存中...' : '保存资料' }}
-          </button>
-        </div>
+    <!-- 错误提示 -->
+    <div v-if="errorMessage" class="text-[13px] text-[#ff4d4f] mt-3 px-4 py-2 rounded-[8px] bg-[#fff2f0] ring-1 ring-[#ffccc7]">
+      {{ errorMessage }}
+    </div>
+
+    <!-- 相册图片预览 -->
+    <div v-if="previewAlbumImage" class="px-4 bg-black/60 flex items-center inset-0 justify-center fixed z-50" @click.self="previewAlbumImage = null">
+      <div class="max-h-[88vh] max-w-[90vw] relative">
+        <ClientOnly>
+          <NImage :src="previewAlbumImage" object-fit="contain" class="max-h-[80vh]" style="max-width: 90vw;" />
+          <template #fallback>
+            <img :src="previewAlbumImage" class="max-h-[80vh]" style="max-width: 90vw; object-fit: contain;">
+          </template>
+        </ClientOnly>
+        <button type="button" class="rounded-full bg-white flex h-[32px] w-[32px] cursor-pointer shadow items-center justify-center absolute -right-3 -top-3" @click="previewAlbumImage = null">
+          <span class="i-carbon-close text-[18px] text-[#333]" />
+        </button>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+:deep(.n-base-selection-label) {
+  height: 36px;
+  background: transparent;
+}
+:deep(.n-base-selection) {
+  border-radius: 4px;
+}
+:deep(.n-base-selection__border) {
+  border-color: #d9d9d9;
+}
+</style>

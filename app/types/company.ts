@@ -56,6 +56,7 @@ export interface CompanyProfile {
   nature_type: number | null
   nature_type_label: string | null
   industry_codes: string[]
+  industry_labels: string[] // TODO: 后端返回行业标签，替换占位
   founded_at: string | null
   website: string | null
   introduction: string | null
@@ -65,6 +66,8 @@ export interface CompanyProfile {
   funding_stage_label: string | null
   profile_status: number
   profile_status_label: string | null
+  // TODO: 认证状态字段，后期替换为真实字段
+  is_certified?: boolean
 }
 
 export interface CompanyProfileResponse {
