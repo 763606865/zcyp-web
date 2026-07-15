@@ -222,6 +222,8 @@ export interface CompanyActivityItem {
     sort: number
     booth_id: number | null
     invite_code: string
+    activity_mode: number | null
+    activity_mode_label: string | null
     created_at: string
     updated_at: string
   }
@@ -261,10 +263,7 @@ export interface CompanyActivityParams {
 export async function getCompanyActivities(authorization: string, params?: CompanyActivityParams) {
   const response = await getJson<ApiResponse<{
     data: CompanyActivityItem[]
-    total: number
-    current_page: number
-    last_page: number
-    per_page: number
+    meta: { current_page: number, per_page: number, total: number }
   }>>(
     '/rc/companies/school-activities',
     params as Record<string, string | number | undefined>,
@@ -303,8 +302,23 @@ export async function applySchoolActivity(authorization: string, activityId: num
 export interface MyApplicationResponse {
   application: {
     id: number
+    activity_id: number
+    company_id: number
+    activity_booth_id: number | null
+    join_source: number
+    join_source_label: string
     apply_status: number
     apply_status_label: string
+    apply_at: string
+    remark: string | null
+    activity_booth: {
+      id: number
+      booth_no: string
+      booth_area_name: string
+    } | null
+    activity_jobs: ActivityJobItem[]
+    created_at: string
+    updated_at: string
   }
 }
 
@@ -331,7 +345,52 @@ export interface ActivityJobItem {
     id: number
     title: string
     code: string
+    [key: string]: any
   }
+}
+
+export interface ActivityDetailResponse {
+  activity: Record<string, any> & {
+    id: number
+    type: number
+    type_label: string
+    title: string
+    cover_image: string | null
+    display_cover_image: string | null
+    description: string | null
+    address: string | null
+    register_start_date: string | null
+    register_end_date: string | null
+    start_time: string | null
+    end_time: string | null
+    status: number
+    status_label: string
+    invite_code: string
+    contact_name: string | null
+    contact_phone: string | null
+    schools?: { id: number, school_code: string, name: string }[]
+    company_count?: number
+    student_count?: number
+  }
+}
+
+export async function getActivityDetail(authorization: string, activityId: number) {
+  const response = await getJson<ApiResponse<any>>(
+    `/rc/companies/school-activities/${activityId}`,
+    undefined,
+    createAuthHeaders(authorization),
+  )
+  const data = response.data
+  // 兼容两种响应结构：{ activity: {...} } 或直接返回活动对象
+  if (data?.activity) {
+    return data as ActivityDetailResponse
+  }
+  // 如果 data 本身就是活动对象（包含 id、title 等字段），包装为 { activity: data }
+  if (data?.id) {
+    return { activity: data } as ActivityDetailResponse
+  }
+  console.warn('[getActivityDetail] 未知响应结构:', data)
+  return { activity: data } as ActivityDetailResponse
 }
 
 export async function getCompanyActivityJobs(authorization: string, activityId: number, params?: { per_page?: number, page?: number }) {
@@ -397,6 +456,8 @@ export interface AvailableActivityItem {
   start_time: string | null
   end_time: string | null
   invite_code: string
+  activity_mode: number | null
+  activity_mode_label: string | null
 }
 
 export interface AvailableActivityParams {
@@ -440,6 +501,8 @@ export interface OrganizedActivityItem {
   contact_phone: string | null
   schools: { id: number, school_code: string, name: string }[]
   invite_code: string
+  activity_mode: number | null
+  activity_mode_label: string | null
 }
 
 export interface OrganizedActivityParams {

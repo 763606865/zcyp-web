@@ -40,41 +40,7 @@ const paginationThemeOverrides = {
   itemMargin: '0 4px',
 }
 
-const PER_PAGE = 8
-
-// --- Mock 数据 ---
-const mockJoinedActivities: CompanyActivityItem[] = [
-  { activity: { id: 1, type: 0, type_label: '线上', title: '西安交通大学2026届毕业生线上双选会', cover_image: null, display_cover_image: null, description: null, link_url: null, province_code: null, city_code: null, district_code: null, address: null, register_start_date: '2026-06-24', register_end_date: '2026-07-28', start_time: '2026-06-24T09:00:00', end_time: '2026-07-28T18:00:00', organizer_type: null, organizer_type_label: null, organizer_id: null, contact_name: null, contact_phone: null, status: 1, status_label: '已发布', is_hot: false, sort: 0, booth_id: null, invite_code: 'ABC123', created_at: '2026-06-01T00:00:00', updated_at: '2026-06-01T00:00:00' }, application: { id: 1, activity_id: 1, company_id: 1, activity_booth_id: null, join_source: 1, join_source_label: '企业申请', apply_status: 0, apply_status_label: '待审核', apply_at: '2026-06-20T10:00:00', remark: null, activity_jobs_count: 5, activity_booth: null, created_at: '2026-06-20T10:00:00', updated_at: '2026-06-20T10:00:00' }, is_organizer: false },
-  { activity: { id: 2, type: 0, type_label: '线上', title: '东莞百日千万招聘专项行动直播宣讲会活动', cover_image: null, display_cover_image: null, description: null, link_url: null, province_code: null, city_code: null, district_code: null, address: null, register_start_date: '2026-06-24', register_end_date: '2026-07-28', start_time: '2026-06-24T09:00:00', end_time: '2026-07-28T18:00:00', organizer_type: null, organizer_type_label: null, organizer_id: null, contact_name: null, contact_phone: null, status: 1, status_label: '已发布', is_hot: false, sort: 0, booth_id: null, invite_code: 'DEF456', created_at: '2026-06-01T00:00:00', updated_at: '2026-06-01T00:00:00' }, application: { id: 2, activity_id: 2, company_id: 1, activity_booth_id: null, join_source: 0, join_source_label: '院校邀约', apply_status: 1, apply_status_label: '已通过', apply_at: '2026-06-18T10:00:00', remark: null, activity_jobs_count: 3, activity_booth: null, created_at: '2026-06-18T10:00:00', updated_at: '2026-06-18T10:00:00' }, is_organizer: false },
-  { activity: { id: 3, type: 0, type_label: '线上', title: '西安交通大学2026届毕业生线上双选会', cover_image: null, display_cover_image: null, description: null, link_url: null, province_code: null, city_code: null, district_code: null, address: null, register_start_date: '2026-06-24', register_end_date: '2026-07-28', start_time: '2026-06-24T09:00:00', end_time: '2026-07-28T18:00:00', organizer_type: null, organizer_type_label: null, organizer_id: null, contact_name: null, contact_phone: null, status: 1, status_label: '已发布', is_hot: false, sort: 0, booth_id: null, invite_code: 'GHI789', created_at: '2026-06-01T00:00:00', updated_at: '2026-06-01T00:00:00' }, application: { id: 3, activity_id: 3, company_id: 1, activity_booth_id: null, join_source: 1, join_source_label: '企业申请', apply_status: 2, apply_status_label: '已驳回', apply_at: '2026-06-15T10:00:00', remark: null, activity_jobs_count: 2, activity_booth: null, created_at: '2026-06-15T10:00:00', updated_at: '2026-06-15T10:00:00' }, is_organizer: false },
-  { activity: { id: 4, type: 0, type_label: '线上', title: '西安交通大学2026届毕业生线上双选会', cover_image: null, display_cover_image: null, description: null, link_url: null, province_code: null, city_code: null, district_code: null, address: null, register_start_date: '2026-06-24', register_end_date: '2026-07-28', start_time: '2026-06-24T09:00:00', end_time: '2026-07-28T18:00:00', organizer_type: null, organizer_type_label: null, organizer_id: null, contact_name: null, contact_phone: null, status: 1, status_label: '已发布', is_hot: false, sort: 0, booth_id: null, invite_code: 'JKL012', created_at: '2026-06-01T00:00:00', updated_at: '2026-06-01T00:00:00' }, application: { id: 4, activity_id: 4, company_id: 1, activity_booth_id: null, join_source: 2, join_source_label: '企业主办', apply_status: 2, apply_status_label: '已驳回', apply_at: '2026-06-10T10:00:00', remark: null, activity_jobs_count: 1, activity_booth: null, created_at: '2026-06-10T10:00:00', updated_at: '2026-06-10T10:00:00' }, is_organizer: false },
-  { activity: { id: 5, type: 0, type_label: '线上', title: '西安交通大学2026届毕业生线上双选会', cover_image: null, display_cover_image: null, description: null, link_url: null, province_code: null, city_code: null, district_code: null, address: null, register_start_date: '2026-06-24', register_end_date: '2026-07-28', start_time: '2026-06-24T09:00:00', end_time: '2026-07-28T18:00:00', organizer_type: null, organizer_type_label: null, organizer_id: null, contact_name: null, contact_phone: null, status: 1, status_label: '已发布', is_hot: false, sort: 0, booth_id: null, invite_code: 'MNO345', created_at: '2026-06-01T00:00:00', updated_at: '2026-06-01T00:00:00' }, application: { id: 5, activity_id: 5, company_id: 1, activity_booth_id: null, join_source: 1, join_source_label: '企业申请', apply_status: 0, apply_status_label: '待审核', apply_at: '2026-06-22T10:00:00', remark: null, activity_jobs_count: 4, activity_booth: null, created_at: '2026-06-22T10:00:00', updated_at: '2026-06-22T10:00:00' }, is_organizer: false },
-  { activity: { id: 6, type: 0, type_label: '线上', title: '西安交通大学2026届毕业生线上双选会', cover_image: null, display_cover_image: null, description: null, link_url: null, province_code: null, city_code: null, district_code: null, address: null, register_start_date: '2026-06-24', register_end_date: '2026-07-28', start_time: '2026-06-24T09:00:00', end_time: '2026-07-28T18:00:00', organizer_type: null, organizer_type_label: null, organizer_id: null, contact_name: null, contact_phone: null, status: 1, status_label: '已发布', is_hot: false, sort: 0, booth_id: null, invite_code: 'PQR678', created_at: '2026-06-01T00:00:00', updated_at: '2026-06-01T00:00:00' }, application: { id: 6, activity_id: 6, company_id: 1, activity_booth_id: null, join_source: 0, join_source_label: '院校邀约', apply_status: 1, apply_status_label: '已通过', apply_at: '2026-06-19T10:00:00', remark: null, activity_jobs_count: 6, activity_booth: null, created_at: '2026-06-19T10:00:00', updated_at: '2026-06-19T10:00:00' }, is_organizer: false },
-  { activity: { id: 7, type: 0, type_label: '线上', title: '西安交通大学2026届毕业生线上双选会', cover_image: null, display_cover_image: null, description: null, link_url: null, province_code: null, city_code: null, district_code: null, address: null, register_start_date: '2026-06-24', register_end_date: '2026-07-28', start_time: '2026-06-24T09:00:00', end_time: '2026-07-28T18:00:00', organizer_type: null, organizer_type_label: null, organizer_id: null, contact_name: null, contact_phone: null, status: 1, status_label: '已发布', is_hot: false, sort: 0, booth_id: null, invite_code: 'STU901', created_at: '2026-06-01T00:00:00', updated_at: '2026-06-01T00:00:00' }, application: { id: 7, activity_id: 7, company_id: 1, activity_booth_id: null, join_source: 1, join_source_label: '企业申请', apply_status: 2, apply_status_label: '已驳回', apply_at: '2026-06-12T10:00:00', remark: null, activity_jobs_count: 2, activity_booth: null, created_at: '2026-06-12T10:00:00', updated_at: '2026-06-12T10:00:00' }, is_organizer: false },
-  { activity: { id: 8, type: 0, type_label: '线上', title: '西安交通大学2026届毕业生线上双选会', cover_image: null, display_cover_image: null, description: null, link_url: null, province_code: null, city_code: null, district_code: null, address: null, register_start_date: '2026-06-24', register_end_date: '2026-07-28', start_time: '2026-06-24T09:00:00', end_time: '2026-07-28T18:00:00', organizer_type: null, organizer_type_label: null, organizer_id: null, contact_name: null, contact_phone: null, status: 1, status_label: '已发布', is_hot: false, sort: 0, booth_id: null, invite_code: 'VWX234', created_at: '2026-06-01T00:00:00', updated_at: '2026-06-01T00:00:00' }, application: { id: 8, activity_id: 8, company_id: 1, activity_booth_id: null, join_source: 2, join_source_label: '企业主办', apply_status: 2, apply_status_label: '已驳回', apply_at: '2026-06-08T10:00:00', remark: null, activity_jobs_count: 3, activity_booth: null, created_at: '2026-06-08T10:00:00', updated_at: '2026-06-08T10:00:00' }, is_organizer: false },
-]
-
-const mockOrganizedActivities: OrganizedActivityItem[] = [
-  { id: 101, type: 0, type_label: '线上', title: 'XXXXX公司百日千万招聘专项行动直播宣讲会活动', cover_image: null, display_cover_image: null, description: null, status: 1, status_label: '进行中', register_start_date: '2026-06-24', register_end_date: '2026-07-28', start_time: '2026-06-24T09:00:00', end_time: '2026-07-28T18:00:00', province_code: null, city_code: null, district_code: null, address: null, contact_name: null, contact_phone: null, schools: [], invite_code: 'ORG001' },
-  { id: 102, type: 0, type_label: '线上', title: 'XXXXX公司百日千万招聘专项行动直播宣讲会活动', cover_image: null, display_cover_image: null, description: null, status: 2, status_label: '已结束', register_start_date: '2026-06-24', register_end_date: '2026-07-28', start_time: '2026-06-24T09:00:00', end_time: '2026-07-28T18:00:00', province_code: null, city_code: null, district_code: null, address: null, contact_name: null, contact_phone: null, schools: [], invite_code: 'ORG002' },
-  { id: 103, type: 0, type_label: '线上', title: 'XXXXX公司百日千万招聘专项行动直播宣讲会活动', cover_image: null, display_cover_image: null, description: null, status: 0, status_label: '草稿', register_start_date: '2026-06-24', register_end_date: '2026-07-28', start_time: '2026-06-24T09:00:00', end_time: '2026-07-28T18:00:00', province_code: null, city_code: null, district_code: null, address: null, contact_name: null, contact_phone: null, schools: [], invite_code: 'ORG003' },
-  { id: 104, type: 0, type_label: '线上', title: 'XXXXX公司百日千万招聘专项行动直播宣讲会活动', cover_image: null, display_cover_image: null, description: null, status: 1, status_label: '进行中', register_start_date: '2026-06-24', register_end_date: '2026-07-28', start_time: '2026-06-24T09:00:00', end_time: '2026-07-28T18:00:00', province_code: null, city_code: null, district_code: null, address: null, contact_name: null, contact_phone: null, schools: [], invite_code: 'ORG004' },
-  { id: 105, type: 0, type_label: '线上', title: 'XXXXX公司百日千万招聘专项行动直播宣讲会活动', cover_image: null, display_cover_image: null, description: null, status: 2, status_label: '已结束', register_start_date: '2026-06-24', register_end_date: '2026-07-28', start_time: '2026-06-24T09:00:00', end_time: '2026-07-28T18:00:00', province_code: null, city_code: null, district_code: null, address: null, contact_name: null, contact_phone: null, schools: [], invite_code: 'ORG005' },
-  { id: 106, type: 0, type_label: '线上', title: 'XXXXX公司百日千万招聘专项行动直播宣讲会活动', cover_image: null, display_cover_image: null, description: null, status: 1, status_label: '进行中', register_start_date: '2026-06-24', register_end_date: '2026-07-28', start_time: '2026-06-24T09:00:00', end_time: '2026-07-28T18:00:00', province_code: null, city_code: null, district_code: null, address: null, contact_name: null, contact_phone: null, schools: [], invite_code: 'ORG006' },
-  { id: 107, type: 0, type_label: '线上', title: 'XXXXX公司百日千万招聘专项行动直播宣讲会活动', cover_image: null, display_cover_image: null, description: null, status: 0, status_label: '草稿', register_start_date: '2026-06-24', register_end_date: '2026-07-28', start_time: '2026-06-24T09:00:00', end_time: '2026-07-28T18:00:00', province_code: null, city_code: null, district_code: null, address: null, contact_name: null, contact_phone: null, schools: [], invite_code: 'ORG007' },
-  { id: 108, type: 0, type_label: '线上', title: 'XXXXX公司百日千万招聘专项行动直播宣讲会活动', cover_image: null, display_cover_image: null, description: null, status: 2, status_label: '已结束', register_start_date: '2026-06-24', register_end_date: '2026-07-28', start_time: '2026-06-24T09:00:00', end_time: '2026-07-28T18:00:00', province_code: null, city_code: null, district_code: null, address: null, contact_name: null, contact_phone: null, schools: [], invite_code: 'ORG008' },
-]
-
-const mockAvailableActivities: AvailableActivityItem[] = [
-  { id: 201, type: 0, type_label: '线上', title: '西安交通大学2026届毕业生线上双选会', cover_image: null, display_cover_image: null, status: 1, status_label: '已发布', register_start_date: '2026-06-24', register_end_date: '2026-07-28', start_time: '2026-06-24T09:00:00', end_time: '2026-07-28T18:00:00', invite_code: 'AVL001' },
-  { id: 202, type: 0, type_label: '线上', title: '西安交通大学2026届毕业生线上双选会', cover_image: null, display_cover_image: null, status: 1, status_label: '已发布', register_start_date: '2026-06-24', register_end_date: '2026-07-28', start_time: '2026-06-24T09:00:00', end_time: '2026-07-28T18:00:00', invite_code: 'AVL002' },
-  { id: 203, type: 0, type_label: '线上', title: '西安交通大学2026届毕业生线上双选会', cover_image: null, display_cover_image: null, status: 1, status_label: '已发布', register_start_date: '2026-06-24', register_end_date: '2026-07-28', start_time: '2026-06-24T09:00:00', end_time: '2026-07-28T18:00:00', invite_code: 'AVL003' },
-  { id: 204, type: 0, type_label: '线上', title: '西安交通大学2026届毕业生线上双选会', cover_image: null, display_cover_image: null, status: 1, status_label: '已发布', register_start_date: '2026-06-24', register_end_date: '2026-07-28', start_time: '2026-06-24T09:00:00', end_time: '2026-07-28T18:00:00', invite_code: 'AVL004' },
-  { id: 205, type: 0, type_label: '线上', title: '西安交通大学2026届毕业生线上双选会', cover_image: null, display_cover_image: null, status: 1, status_label: '已发布', register_start_date: '2026-06-24', register_end_date: '2026-07-28', start_time: '2026-06-24T09:00:00', end_time: '2026-07-28T18:00:00', invite_code: 'AVL005' },
-  { id: 206, type: 0, type_label: '线上', title: '西安交通大学2026届毕业生线上双选会', cover_image: null, display_cover_image: null, status: 1, status_label: '已发布', register_start_date: '2026-06-24', register_end_date: '2026-07-28', start_time: '2026-06-24T09:00:00', end_time: '2026-07-28T18:00:00', invite_code: 'AVL006' },
-  { id: 207, type: 0, type_label: '线上', title: '西安交通大学2026届毕业生线上双选会', cover_image: null, display_cover_image: null, status: 1, status_label: '已发布', register_start_date: '2026-06-24', register_end_date: '2026-07-28', start_time: '2026-06-24T09:00:00', end_time: '2026-07-28T18:00:00', invite_code: 'AVL007' },
-  { id: 208, type: 0, type_label: '线上', title: '西安交通大学2026届毕业生线上双选会', cover_image: null, display_cover_image: null, status: 1, status_label: '已发布', register_start_date: '2026-06-24', register_end_date: '2026-07-28', start_time: '2026-06-24T09:00:00', end_time: '2026-07-28T18:00:00', invite_code: 'AVL008' },
-]
+const PER_PAGE = 15
 
 // --- tab 0: 我参加的活动 ---
 const joinedKeyword = ref('')
@@ -106,45 +72,39 @@ const filterOptions = [
   { value: 2, label: '已驳回' },
 ]
 
-async function loadJoined() {
-  if (!userStore.authHeader)
-    return null
+const joinedActivitiesData = ref<any>(null)
+const joinedLoading = ref(false)
 
+async function fetchJoined() {
+  if (!userStore.authHeader)
+    return
+  joinedLoading.value = true
   try {
-    const params: CompanyActivityParams = { page: joinedPage.value, per_page: 15 }
+    const params: CompanyActivityParams = { page: joinedPage.value, per_page: PER_PAGE }
     if (applyStatusFilter.value !== null)
       params.apply_status = applyStatusFilter.value
     if (joinedKeyword.value)
       params.keyword = joinedKeyword.value
-    return await getCompanyActivities(userStore.authHeader, params)
+    joinedActivitiesData.value = await getCompanyActivities(userStore.authHeader, params)
   }
   catch {
-    return null
+    joinedActivitiesData.value = null
+  }
+  finally {
+    joinedLoading.value = false
   }
 }
 
-const { data: joinedActivitiesData, pending: joinedLoading, refresh: refreshJoined } = await useAsyncData(
-  'employer-joined-activities',
-  loadJoined,
-  {
-    server: false,
-    watch: [joinedPage],
-    immediate: true,
-    default: () => null,
-  },
-)
+onMounted(() => fetchJoined())
 
 const joinedItems = computed<CompanyActivityItem[]>(() => {
-  if (joinedActivitiesData.value?.data?.length)
-    return joinedActivitiesData.value.data
-  const start = (joinedPage.value - 1) * PER_PAGE
-  return mockJoinedActivities.slice(start, start + PER_PAGE)
+  return joinedActivitiesData.value?.data || []
 })
-const joinedTotal = computed(() => joinedActivitiesData.value?.total || mockJoinedActivities.length)
+const joinedTotal = computed(() => joinedActivitiesData.value?.meta?.total || 0)
 
 function onSearchJoined() {
   joinedPage.value = 1
-  refreshJoined()
+  fetchJoined()
 }
 
 function goConfigureJobs(activityId: number, activityType: number) {
@@ -157,7 +117,7 @@ async function handleConfirm(activityId: number) {
   try {
     await confirmActivityAttendance(userStore.authHeader, activityId)
     pushGlobalNotice('已确认参会')
-    await refreshJoined()
+    await fetchJoined()
   }
   catch { pushGlobalNotice('操作失败', 'error') }
 }
@@ -168,7 +128,7 @@ async function handleReject(activityId: number) {
   try {
     await rejectActivityAttendance(userStore.authHeader, activityId)
     pushGlobalNotice('已拒绝参会')
-    await refreshJoined()
+    await fetchJoined()
   }
   catch { pushGlobalNotice('操作失败', 'error') }
 }
@@ -185,45 +145,37 @@ const organizedStatusOptions = [
   { value: 0, label: '草稿' },
 ]
 
-async function loadOrganized() {
-  if (!userStore.authHeader)
-    return null
+const organizedActivitiesData = ref<any>(null)
+const organizedLoading = ref(false)
 
+async function fetchOrganized() {
+  if (!userStore.authHeader)
+    return
+  organizedLoading.value = true
   try {
-    const params: Record<string, any> = { page: organizedPage.value, per_page: 15 }
+    const params: Record<string, any> = { page: organizedPage.value, per_page: PER_PAGE }
     if (organizedStatusFilter.value !== null)
       params.status = organizedStatusFilter.value
     if (organizedKeyword.value)
       params.keyword = organizedKeyword.value
-    return await getOrganizedActivities(userStore.authHeader, params)
+    organizedActivitiesData.value = await getOrganizedActivities(userStore.authHeader, params)
   }
   catch {
-    return null
+    organizedActivitiesData.value = null
+  }
+  finally {
+    organizedLoading.value = false
   }
 }
 
-const { data: organizedActivitiesData, pending: organizedLoading, refresh: refreshOrganized } = await useAsyncData(
-  'employer-organized-activities',
-  loadOrganized,
-  {
-    server: false,
-    watch: [organizedPage],
-    immediate: false,
-    default: () => null,
-  },
-)
-
 const organizedItems = computed<OrganizedActivityItem[]>(() => {
-  if (organizedActivitiesData.value?.data?.length)
-    return organizedActivitiesData.value.data
-  const start = (organizedPage.value - 1) * PER_PAGE
-  return mockOrganizedActivities.slice(start, start + PER_PAGE)
+  return organizedActivitiesData.value?.data || []
 })
-const organizedTotal = computed(() => organizedActivitiesData.value?.meta?.total || mockOrganizedActivities.length)
+const organizedTotal = computed(() => organizedActivitiesData.value?.meta?.total || 0)
 
 function onSearchOrganized() {
   organizedPage.value = 1
-  refreshOrganized()
+  fetchOrganized()
 }
 
 async function handlePublish(activityId: number) {
@@ -232,7 +184,7 @@ async function handlePublish(activityId: number) {
   try {
     await publishActivity(userStore.authHeader, activityId)
     pushGlobalNotice('已发布')
-    await refreshOrganized()
+    await fetchOrganized()
   }
   catch { pushGlobalNotice('发布失败', 'error') }
 }
@@ -243,7 +195,7 @@ async function handleEnd(activityId: number) {
   try {
     await endActivity(userStore.authHeader, activityId)
     pushGlobalNotice('已结束')
-    await refreshOrganized()
+    await fetchOrganized()
   }
   catch { pushGlobalNotice('操作失败', 'error') }
 }
@@ -261,7 +213,7 @@ async function handleDelete(activityId: number) {
   try {
     await deleteCompanyActivity(userStore.authHeader, activityId)
     pushGlobalNotice('已删除')
-    await refreshOrganized()
+    await fetchOrganized()
   }
   catch { pushGlobalNotice('删除失败', 'error') }
 }
@@ -289,67 +241,63 @@ const availableTypeOptions = [
   { value: 2, label: '双选会' },
 ]
 
-async function loadAvailable() {
-  if (!userStore.authHeader)
-    return null
+const availableActivitiesData = ref<any>(null)
+const availableLoading = ref(false)
 
+async function fetchAvailable() {
+  if (!userStore.authHeader)
+    return
+  availableLoading.value = true
   try {
-    const params: Record<string, any> = { page: availablePage.value, per_page: 15 }
+    const params: Record<string, any> = { page: availablePage.value, per_page: PER_PAGE }
     if (availableTypeFilter.value !== null)
       params.type = availableTypeFilter.value
     if (availableKeyword.value)
       params.keyword = availableKeyword.value
-    return await getAvailableActivities(userStore.authHeader, params)
+    availableActivitiesData.value = await getAvailableActivities(userStore.authHeader, params)
   }
   catch {
-    return null
+    availableActivitiesData.value = null
+  }
+  finally {
+    availableLoading.value = false
   }
 }
 
-const { data: availableActivitiesData, pending: availableLoading, refresh: refreshAvailable } = await useAsyncData(
-  'employer-available-activities',
-  loadAvailable,
-  {
-    server: false,
-    watch: [availablePage],
-    immediate: false,
-    default: () => null,
-  },
-)
-
 const availableItems = computed<AvailableActivityItem[]>(() => {
-  if (availableActivitiesData.value?.data?.length)
-    return availableActivitiesData.value.data
-  const start = (availablePage.value - 1) * PER_PAGE
-  return mockAvailableActivities.slice(start, start + PER_PAGE)
+  return availableActivitiesData.value?.data || []
 })
-const availableTotal = computed(() => availableActivitiesData.value?.meta?.total || mockAvailableActivities.length)
+const availableTotal = computed(() => availableActivitiesData.value?.meta?.total || 0)
 
 function onSearchAvailable() {
   availablePage.value = 1
-  refreshAvailable()
+  fetchAvailable()
 }
 
 // --- tab switching ---
 watch(activeTab, (tab) => {
   if (tab === 1 && !organizedActivitiesData.value)
-    refreshOrganized()
+    fetchOrganized()
   if (tab === 2 && !availableActivitiesData.value)
-    refreshAvailable()
+    fetchAvailable()
 })
 
 watch(applyStatusFilter, () => {
   joinedPage.value = 1
-  refreshJoined()
+  fetchJoined()
 })
 watch(organizedStatusFilter, () => {
   organizedPage.value = 1
-  refreshOrganized()
+  fetchOrganized()
 })
 watch(availableTypeFilter, () => {
   availablePage.value = 1
-  refreshAvailable()
+  fetchAvailable()
 })
+
+watch(joinedPage, () => fetchJoined())
+watch(organizedPage, () => fetchOrganized())
+watch(availablePage, () => fetchAvailable())
 </script>
 
 <template>
@@ -398,7 +346,7 @@ watch(availableTypeFilter, () => {
           <div class="flex gap-2 items-center">
             <div class="px-3 border border-[#d9d9d9] rounded-[4px] bg-white flex h-[32px] w-[240px] items-center">
               <span class="i-carbon-search text-[14px] text-[#bbb] mr-2" />
-              <input v-model="joinedKeyword" type="text" placeholder="搜索已发布职位" class="text-[13px] text-[#333] outline-none border-none bg-transparent flex-1" @keyup.enter="onSearchJoined">
+              <input v-model="joinedKeyword" type="text" placeholder="搜索活动" class="text-[13px] text-[#333] outline-none border-none bg-transparent flex-1" @keyup.enter="onSearchJoined">
             </div>
           </div>
         </div>
@@ -418,7 +366,7 @@ watch(availableTypeFilter, () => {
               <div v-else class="flex h-full w-full items-center justify-center">
                 <span class="text-[40px] text-[#1a56db]/20 font-bold">双选会</span>
               </div>
-              <span class="text-[12px] text-white px-2.5 py-1 rounded-bl-[8px] rounded-tr-[8px] bg-[#1890ff] right-0 top-0 absolute">{{ item.activity.type_label }}</span>
+              <span class="text-[12px] text-white px-2.5 py-1 rounded-bl-[8px] rounded-tr-[8px] right-0 top-0 absolute" :style="{ background: item.activity.activity_mode === 0 ? '#3292FF' : '#25B270' }">{{ item.activity.activity_mode_label }}</span>
             </div>
             <!-- 内容 -->
             <div class="p-3">
@@ -465,7 +413,7 @@ watch(availableTypeFilter, () => {
     <!-- ========== tab 1: 我主办的活动 ========== -->
     <template v-if="activeTab === 1">
       <div class="mt-[16px] px-[25px] pb-[20px] pt-[12px] rounded-[4px] bg-white shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
-        <!-- 筛选行（无搜索） -->
+        <!-- 筛选行 -->
         <div class="flex items-center" style="border-bottom: 1px solid #ECECEC; padding-bottom: 7px;">
           <div class="flex h-[32px]">
             <button
@@ -497,7 +445,7 @@ watch(availableTypeFilter, () => {
                 <span class="text-[16px] font-bold">职引未来 筑梦青春</span>
                 <span class="text-[11px] mt-1 opacity-80">2026年百日千万招聘专项行动</span>
               </div>
-              <span class="text-[12px] text-white px-2.5 py-1 rounded-bl-[8px] rounded-tr-[8px] bg-[#1890ff] right-0 top-0 absolute">{{ item.type_label }}</span>
+              <span class="text-[12px] text-white px-2.5 py-1 rounded-bl-[8px] rounded-tr-[8px] right-0 top-0 absolute" :style="{ background: item.activity_mode === 0 ? '#3292FF' : '#25B270' }">{{ item.activity_mode_label }}</span>
             </div>
             <!-- 内容 -->
             <div class="p-3 flex flex-1 flex-col">
@@ -567,7 +515,7 @@ watch(availableTypeFilter, () => {
               <div v-else class="flex h-full w-full items-center justify-center">
                 <span class="text-[40px] text-[#1a56db]/20 font-bold">双选会</span>
               </div>
-              <span class="text-[12px] text-white px-2.5 py-1 rounded-bl-[8px] rounded-tr-[8px] bg-[#1890ff] right-0 top-0 absolute">{{ item.type_label }}</span>
+              <span class="text-[12px] text-white px-2.5 py-1 rounded-bl-[8px] rounded-tr-[8px] right-0 top-0 absolute" :style="{ background: item.activity_mode === 0 ? '#3292FF' : '#25B270' }">{{ item.activity_mode_label }}</span>
             </div>
             <!-- 内容 -->
             <div class="p-3">

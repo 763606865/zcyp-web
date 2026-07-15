@@ -2,9 +2,8 @@
 import type { UploadCustomRequestOptions, UploadFileInfo } from 'naive-ui'
 import type { CreateActivityPayload } from '~/services/company'
 import type { RcAreaNode } from '~/types/meta'
-import { isClient } from '@vueuse/core'
 import { NDatePicker, NSelect, NUpload } from 'naive-ui'
-import { createCompanyActivity, updateCompanyActivity } from '~/services/company'
+import { createCompanyActivity, getActivityDetail, publishActivity, updateCompanyActivity } from '~/services/company'
 import { ApiRequestError } from '~/services/http'
 import { upload } from '~/services/upload'
 import { pushGlobalNotice } from '~/utils/notice'
@@ -31,8 +30,6 @@ const form = ref({
   type: 0,
   title: '',
   description: '',
-  cover_image: null as string | null,
-  display_cover_image: null as string | null,
   register_date_range: null as [number, number] | null,
   event_date_range: null as [number, number] | null,
   contact_name: userStore.user?.nickname || userStore.user?.name || '',
@@ -49,7 +46,11 @@ const areaCascaderValue = ref<string[]>([])
 const saving = ref(false)
 const uploadingCover = ref(false)
 const loadingSchools = ref(false)
-const uploadRef = ref()
+const loadingEditData = ref(false)
+
+// 封面图：延迟上传，选文件时只存本地
+const pendingCoverFile = ref<File | null>(null)
+const coverRemoved = ref(false)
 const coverFileList = ref<UploadFileInfo[]>([])
 
 const areaCascaderOptions = computed(() => {
@@ -98,34 +99,21 @@ function tsToStr(ts: number | null): string | null {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`
 }
 
-async function handleCoverUpload({ file, onFinish, onError }: UploadCustomRequestOptions) {
-  if (!userStore.authHeader) {
-    onError()
-    return { abort: () => {} }
-  }
-  uploadingCover.value = true
-  try {
-    const res = await upload(file.file as File, 'file', userStore.authHeader)
-    form.value.cover_image = res.path
-    form.value.display_cover_image = res.url
-    onFinish()
-  }
-  catch (e) {
-    pushGlobalNotice(e instanceof ApiRequestError ? e.message : '封面上传失败', 'error')
-    onError()
-  }
-  finally { uploadingCover.value = false }
+function handleCoverUpload({ file, onFinish }: UploadCustomRequestOptions) {
+  pendingCoverFile.value = file.file as File
+  coverRemoved.value = false
+  // 调用 onFinish 让 NUpload 显示预览图，实际上传延迟到提交时
+  onFinish()
   return { abort: () => {} }
 }
 
-function handleCoverChange({ file, fileList }: { file: UploadFileInfo, fileList: UploadFileInfo[] }) {
+function handleCoverChange({ fileList }: { fileList: UploadFileInfo[] }) {
   coverFileList.value = fileList.slice(-1)
 }
 
 function handleCoverRemove() {
-  form.value.cover_image = null
-  form.value.display_cover_image = null
-  coverFileList.value = []
+  pendingCoverFile.value = null
+  coverRemoved.value = true
 }
 
 async function loadSchools() {
@@ -141,20 +129,18 @@ async function loadSchools() {
   finally { loadingSchools.value = false }
 }
 
-function loadEditData() {
-  if (!isClient)
+async function loadEditData() {
+  if (!userStore.authHeader || !editId.value)
     return
-  const raw = sessionStorage.getItem('zcgz-edit-activity')
-  if (!raw)
-    return
-  sessionStorage.removeItem('zcgz-edit-activity')
+  loadingEditData.value = true
   try {
-    const data = JSON.parse(raw)
-    form.value.type = data.type
+    const res = await getActivityDetail(userStore.authHeader, editId.value)
+    const data = res.activity
+    if (!data)
+      return
+    form.value.type = data.type ?? 0
     form.value.title = data.title || ''
     form.value.description = data.description || ''
-    form.value.cover_image = data.cover_image
-    form.value.display_cover_image = data.display_cover_image
     form.value.register_date_range = (data.register_start_date && data.register_end_date)
       ? [new Date(data.register_start_date).getTime(), new Date(data.register_end_date).getTime()]
       : null
@@ -168,7 +154,15 @@ function loadEditData() {
     form.value.district_code = data.district_code || ''
     form.value.address = data.address || ''
     form.value.school_codes = data.schools?.map((s: any) => s.school_code) || []
-
+    // 还原封面预览
+    if (data.display_cover_image) {
+      coverFileList.value = [{
+        id: 'existing',
+        name: 'cover',
+        url: data.display_cover_image,
+        status: 'finished',
+      }]
+    }
     // 还原级联选择器的值
     const path: string[] = []
     if (data.province_code)
@@ -180,83 +174,114 @@ function loadEditData() {
     areaCascaderValue.value = path
   }
   catch {
-    // ignore
+    pushGlobalNotice('加载活动数据失败', 'error')
   }
+  finally { loadingEditData.value = false }
 }
 
-async function handleSubmit() {
+async function uploadCoverIfNeeded(): Promise<string | null> {
+  if (!pendingCoverFile.value || !userStore.authHeader)
+    return null
+  uploadingCover.value = true
+  try {
+    const res = await upload(pendingCoverFile.value, 'file', userStore.authHeader)
+    return res.path
+  }
+  catch (e) {
+    pushGlobalNotice(e instanceof ApiRequestError ? e.message : '封面上传失败', 'error')
+    throw e
+  }
+  finally { uploadingCover.value = false }
+}
+
+function buildPayload(coverImagePath: string | null): CreateActivityPayload {
+  const payload: CreateActivityPayload = {
+    type: form.value.type,
+    title: form.value.title.trim(),
+    description: form.value.description || null,
+    contact_name: form.value.contact_name || null,
+    contact_phone: form.value.contact_phone || null,
+    province_code: form.value.province_code || null,
+    city_code: form.value.city_code || null,
+    district_code: form.value.district_code || null,
+    address: form.value.address || null,
+  }
+  // 仅当用户选择了新封面或主动移除了封面时才传 cover_image
+  if (coverImagePath !== null) {
+    payload.cover_image = coverImagePath
+  }
+  else if (coverRemoved.value) {
+    payload.cover_image = null
+  }
+  if (form.value.type === 0 && form.value.register_date_range) {
+    payload.register_start_date = tsToStr(form.value.register_date_range[0])
+    payload.register_end_date = tsToStr(form.value.register_date_range[1])
+  }
+  if (form.value.event_date_range) {
+    payload.start_time = tsToStr(form.value.event_date_range[0])
+    payload.end_time = tsToStr(form.value.event_date_range[1])
+  }
+  if (form.value.school_codes.length)
+    payload.school_codes = form.value.school_codes
+  return payload
+}
+
+async function handleSubmit(publishNow: boolean) {
   if (!userStore.authHeader)
     return
   if (!form.value.title.trim()) {
     pushGlobalNotice('请输入活动标题', 'error')
     return
   }
+  if (publishNow && form.value.type === 1 && form.value.school_codes.length === 0) {
+    pushGlobalNotice('宣讲会发布前须选择至少一所目标院校', 'error')
+    return
+  }
   saving.value = true
   try {
-    const payload: CreateActivityPayload = {
-      type: form.value.type,
-      title: form.value.title.trim(),
-      description: form.value.description || null,
-      contact_name: form.value.contact_name || null,
-      contact_phone: form.value.contact_phone || null,
-      province_code: form.value.province_code || null,
-      city_code: form.value.city_code || null,
-      district_code: form.value.district_code || null,
-      address: form.value.address || null,
-      cover_image: form.value.cover_image,
-    }
-    if (form.value.type === 0 && form.value.register_date_range) {
-      payload.register_start_date = tsToStr(form.value.register_date_range[0])
-      payload.register_end_date = tsToStr(form.value.register_date_range[1])
-    }
-    if (form.value.event_date_range) {
-      payload.start_time = tsToStr(form.value.event_date_range[0])
-      payload.end_time = tsToStr(form.value.event_date_range[1])
-    }
-    if (form.value.school_codes.length)
-      payload.school_codes = form.value.school_codes
+    // 1. 先上传封面图（如有新文件）
+    const coverPath = await uploadCoverIfNeeded()
+    // 2. 构建请求体
+    const payload = buildPayload(coverPath)
+    // 3. 创建或更新活动
+    let activityId: number | null = null
     if (isEdit.value && editId.value) {
       await updateCompanyActivity(userStore.authHeader, editId.value, payload)
       pushGlobalNotice('活动已更新')
     }
     else {
-      await createCompanyActivity(userStore.authHeader, payload)
-      pushGlobalNotice('活动已创建')
+      const res = await createCompanyActivity(userStore.authHeader, payload)
+      activityId = res?.activity?.id ?? null
+      pushGlobalNotice(publishNow ? '活动已创建' : '草稿已保存')
+    }
+    // 4. 立即发布（仅新建时）
+    if (publishNow && !isEdit.value && activityId) {
+      await publishActivity(userStore.authHeader, activityId)
+      pushGlobalNotice('活动已发布')
     }
     router.push('/employer/activities')
   }
-  catch {
-    pushGlobalNotice('创建失败', 'error')
+  catch (e) {
+    pushGlobalNotice(e instanceof ApiRequestError ? e.message : '操作失败', 'error')
   }
   finally { saving.value = false }
 }
 
 function handleSaveDraft() {
-  pushGlobalNotice('草稿功能开发中', 'warning')
+  handleSubmit(false)
 }
 
-await callOnce(async () => {
+onMounted(async () => {
   if (!userStore.authHeader)
     return
-
   await Promise.all([
     loadSchools(),
     metaStore.ensureAreasLoaded(userStore.authHeader),
   ])
+  if (isEdit.value) {
+    await loadEditData()
+  }
 })
-
-await useAsyncData(
-  `employer-activity-create-${String(editId.value || 'new')}`,
-  async () => {
-    if (isEdit.value)
-      loadEditData()
-    return true
-  },
-  {
-    server: false,
-    default: () => true,
-  },
-)
 </script>
 
 <template>
@@ -318,12 +343,11 @@ await useAsyncData(
         <!-- 活动封面图 - 跨两列 -->
         <div class="col-span-2 space-y-2">
           <label class="text-[14px] text-[#222] font-medium">
-            活动封面图 <span class="text-red-500">*</span>
+            活动封面图
           </label>
           <div class="space-y-2">
             <ClientOnly>
               <NUpload
-                ref="uploadRef"
                 v-model:file-list="coverFileList"
                 list-type="image-card"
                 :custom-request="handleCoverUpload"
@@ -436,7 +460,7 @@ await useAsyncData(
       <div class="mt-8 flex gap-3">
         <button
           class="text-[14px] text-white font-medium px-6 rounded-[4px] border-none bg-[#FFA500] h-[40px] cursor-pointer transition hover:bg-[#E69500] disabled:opacity-50"
-          :disabled="saving || !form.title.trim()" @click="handleSubmit"
+          :disabled="saving || uploadingCover || !form.title.trim()" @click="handleSubmit(true)"
         >
           {{ saving ? '发布中…' : (isEdit ? '保存修改' : '立即发布') }}
         </button>
@@ -495,5 +519,8 @@ await useAsyncData(
   span:first-child {
     color: #999;
   }
+}
+:deep(.n-input__input-el) {
+  height: 100%;
 }
 </style>

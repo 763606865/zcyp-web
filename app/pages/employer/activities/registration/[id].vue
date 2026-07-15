@@ -2,8 +2,11 @@
 import type { UploadCustomRequestOptions, UploadFileInfo } from 'naive-ui'
 import { createDiscreteApi, NSelect, NUpload } from 'naive-ui'
 
+import { applySchoolActivity, getActivityDetail, getCompanyProfile, getMySchoolApplication, submitCompanyActivityJobs } from '~/services/company'
 import { ApiRequestError } from '~/services/http'
+import { getJobs } from '~/services/jobs'
 import { upload } from '~/services/upload'
+import { useMetaStore } from '~/stores/meta'
 import { pushGlobalNotice } from '~/utils/notice'
 
 definePageMeta({
@@ -14,40 +17,94 @@ definePageMeta({
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
-const _activityId = computed(() => Number(route.params.id))
+const metaStore = useMetaStore()
+const activityId = computed(() => Number(route.params.id))
 
 const { dialog } = createDiscreteApi(['dialog'])
 
 // ==================== 步骤控制 ====================
 const currentStep = ref(1)
 
-// ==================== Mock 数据 ====================
-interface RegistrationActivityMock {
-  id: number
-  title: string
-  cover_image: string | null
-  register_start_date: string
-  register_end_date: string
-  company_count: number
-  student_count: number
+// ==================== API 数据 ====================
+const activityData = ref<any>(null)
+const companyProfileData = ref<any>(null)
+const applicationData = ref<any>(null)
+const activity = computed(() => activityData.value)
+const applied = ref(false)
+const approved = computed(() => applicationData.value?.apply_status === 1)
+const applying = ref(false)
+const jobsList = ref<any[]>([])
+const jobsLoading = ref(false)
+const submitting = ref(false)
+
+async function loadData() {
+  if (!userStore.authHeader)
+    return
+  try {
+    const [detail] = await Promise.all([
+      getActivityDetail(userStore.authHeader, activityId.value),
+      loadCompanyProfile(),
+      loadApplicationStatus(),
+    ])
+    activityData.value = detail?.activity || null
+    // 回填公司表单
+    if (companyProfileData.value) {
+      const p = companyProfileData.value
+      if (p.short_name)
+        companyForm.value.company_name = p.short_name
+      if (p.credit_code)
+        companyForm.value.credit_code = p.credit_code
+      if (p.scale_type != null)
+        companyForm.value.company_scale = p.scale_type
+      if (p.nature_type != null)
+        companyForm.value.company_nature = p.nature_type
+      if (p.industry_codes?.length)
+        companyForm.value.industry = p.industry_codes[0]
+    }
+  }
+  catch { activityData.value = null }
 }
 
-const mockActivity: RegistrationActivityMock = {
-  id: 1,
-  title: '中测校招-西安交通大学百日冲刺促就业行动暨2026届就业&2027届毕业生线上双选会',
-  cover_image: null,
-  register_start_date: '2026-08-24',
-  register_end_date: '2026-09-28',
-  company_count: 66,
-  student_count: 566,
+async function loadCompanyProfile() {
+  if (!userStore.authHeader)
+    return
+  try { companyProfileData.value = await getCompanyProfile(userStore.authHeader) }
+  catch { companyProfileData.value = null }
 }
 
-const mockGuideContent = '1. 请确保企业信息已完善，包括企业营业执照、企业简介等基本信息。\n2. 报名成功后，请在规定时间内上传招聘职位信息。\n3. 活动主办方将在3个工作日内完成审核，审核结果将通过系统通知告知。\n4. 审核通过后，请按时参加线上双选会，并提前做好面试准备。\n5. 如有疑问，请联系活动主办方。'
+async function loadApplicationStatus() {
+  if (!userStore.authHeader)
+    return
+  try {
+    const res = await getMySchoolApplication(userStore.authHeader, activityId.value)
+    applicationData.value = res?.application || null
+    applied.value = true
+  }
+  catch { applicationData.value = null; applied.value = false }
+}
+
+async function handleApply() {
+  if (!userStore.authHeader || applying.value)
+    return
+  applying.value = true
+  try {
+    await applySchoolActivity(userStore.authHeader, activityId.value)
+    applied.value = true
+    applicationData.value = { apply_status: 0 }
+    pushGlobalNotice('报名申请已提交，请等待审核')
+  }
+  catch (e) {
+    pushGlobalNotice(e instanceof ApiRequestError ? e.message : '报名失败', 'error')
+  }
+  finally { applying.value = false }
+}
+
+const guideContent = '1. 请确保企业信息已完善，包括企业营业执照、企业简介等基本信息。\n2. 报名成功后，请在规定时间内上传招聘职位信息。\n3. 活动主办方将在3个工作日内完成审核，审核结果将通过系统通知告知。\n4. 审核通过后，请按时参加线上双选会，并提前做好面试准备。\n5. 如有疑问，请联系活动主办方。'
 
 function showGuideDialog() {
   dialog.info({
     title: '报名指南',
-    content: mockGuideContent,
+    content: guideContent,
     positiveText: '知道了',
     maskClosable: true,
     style: { width: '480px' },
@@ -60,28 +117,34 @@ const companyForm = ref({
   license_display_image: null as string | null,
   company_name: '北京气质云知识产权代理有限公司',
   credit_code: '12345678008765432345678987654323455678',
-  company_scale: '100-499',
-  company_nature: 'private',
-  industry: 'construction',
+  company_scale: null as number | null,
+  company_nature: null as number | null,
+  industry: null as string | null,
 })
 
 const scaleOptions = [
-  { label: '100-499人', value: '100-499' },
-  { label: '500-999人', value: '500-999' },
-  { label: '1000人以上', value: '1000+' },
+  { label: '0-20人', value: 1 },
+  { label: '20-99人', value: 2 },
+  { label: '100-499人', value: 3 },
+  { label: '500-999人', value: 4 },
+  { label: '1000-9999人', value: 5 },
+  { label: '10000人以上', value: 6 },
 ]
 
 const natureOptions = [
-  { label: '民营', value: 'private' },
-  { label: '国企', value: 'state' },
-  { label: '外资', value: 'foreign' },
+  { label: '民营企业', value: 1 },
+  { label: '国有企业', value: 2 },
+  { label: '外资企业', value: 3 },
+  { label: '合资企业', value: 4 },
+  { label: '事业单位', value: 5 },
+  { label: '非营利组织', value: 6 },
+  { label: '其他', value: 7 },
 ]
 
-const industryOptions = [
-  { label: '建筑行业', value: 'construction' },
-  { label: '互联网', value: 'internet' },
-  { label: '金融', value: 'finance' },
-]
+const industryOptions = computed(() => metaStore.industries.flatMap(parent => parent.children?.length
+  ? parent.children.map(child => ({ label: `${parent.name} / ${child.name}`, value: child.code }))
+  : [{ label: parent.name, value: parent.code }],
+))
 
 const licenseFileList = ref<UploadFileInfo[]>([])
 
@@ -114,48 +177,38 @@ function handleLicenseRemove() {
 }
 
 function goNextStep() {
-  if (!companyForm.value.license_image) {
-    pushGlobalNotice('请上传公司营业执照', 'warning')
+  if (!applied.value) {
+    pushGlobalNotice('请先报名参会', 'warning')
     return
   }
-  if (!companyForm.value.company_name.trim()) {
-    pushGlobalNotice('请输入公司名称', 'warning')
-    return
-  }
-  if (!companyForm.value.credit_code.trim()) {
-    pushGlobalNotice('请输入统一社会信用代码', 'warning')
+  if (!approved.value) {
+    pushGlobalNotice('报名审核中，请等待审核通过', 'warning')
     return
   }
   currentStep.value = 2
+  loadJobs()
 }
 
 // ==================== Step2: 招聘岗位 ====================
-interface MockJobItem {
-  id: number
-  title: string
-  tags: string[]
-  salary_min: number
-  salary_max: number
-  salary_unit_label: string
-  headcount: number
+async function loadJobs() {
+  if (!userStore.authHeader)
+    return
+  jobsLoading.value = true
+  try {
+    const res = await getJobs(userStore.authHeader, { status: 1, per_page: 100 })
+    jobsList.value = res?.data || []
+  }
+  catch { jobsList.value = [] }
+  finally { jobsLoading.value = false }
 }
 
-const mockJobs: MockJobItem[] = [
-  { id: 1, title: '行政专员/助理【上海·徐汇区·漕河泾】', tags: ['行政管理专业', '英语四级', '专业前五'], salary_min: 7, salary_max: 11, salary_unit_label: '13薪', headcount: 2 },
-  { id: 2, title: '软件开发工程师【上海·徐汇区·漕河泾】', tags: ['计算机科学专业', '无要求', '专业前十'], salary_min: 10, salary_max: 18, salary_unit_label: '12薪', headcount: 5 },
-  { id: 3, title: '市场专员【上海·徐汇区·漕河泾】', tags: ['市场营销专业', '英语六级', '专业前三'], salary_min: 8, salary_max: 12, salary_unit_label: '15薪', headcount: 3 },
-  { id: 4, title: '行政专员/助理【上海·徐汇区·漕河泾】', tags: ['行政管理专业', '英语四级', '专业前五'], salary_min: 7, salary_max: 11, salary_unit_label: '13薪', headcount: 2 },
-  { id: 5, title: '软件开发工程师【上海·徐汇区·漕河泾】', tags: ['计算机科学专业', '无要求', '专业前十'], salary_min: 10, salary_max: 18, salary_unit_label: '12薪', headcount: 5 },
-  { id: 6, title: '市场专员【上海·徐汇区·漕河泾】', tags: ['市场营销专业', '英语六级', '专业前三'], salary_min: 8, salary_max: 12, salary_unit_label: '15薪', headcount: 3 },
-]
+const selectedJobIds = ref<number[]>([])
 
-const selectedJobIds = ref<number[]>([2, 3, 5, 6])
-
-const allSelected = computed(() => selectedJobIds.value.length === mockJobs.length && mockJobs.length > 0)
-const indeterminate = computed(() => selectedJobIds.value.length > 0 && selectedJobIds.value.length < mockJobs.length)
+const allSelected = computed(() => selectedJobIds.value.length === jobsList.value.length && jobsList.value.length > 0)
+const indeterminate = computed(() => selectedJobIds.value.length > 0 && selectedJobIds.value.length < jobsList.value.length)
 
 function toggleSelectAll(val: boolean) {
-  selectedJobIds.value = val ? mockJobs.map(j => j.id) : []
+  selectedJobIds.value = val ? jobsList.value.map((j: any) => j.id) : []
 }
 
 function toggleJob(jobId: number) {
@@ -170,14 +223,26 @@ function goPrevStep() {
   currentStep.value = 1
 }
 
-function handleSubmit() {
+async function handleSubmit() {
   if (selectedJobIds.value.length === 0) {
     pushGlobalNotice('请至少选择一个招聘岗位', 'warning')
     return
   }
-  pushGlobalNotice('报名提交成功')
-  router.push('/employer/activities')
+  if (!userStore.authHeader)
+    return
+  submitting.value = true
+  try {
+    await submitCompanyActivityJobs(userStore.authHeader, activityId.value, selectedJobIds.value)
+    pushGlobalNotice('报名提交成功')
+    router.push('/employer/activities')
+  }
+  catch (e) {
+    pushGlobalNotice(e instanceof ApiRequestError ? e.message : '提交失败', 'error')
+  }
+  finally { submitting.value = false }
 }
+
+onMounted(() => { loadData() })
 </script>
 
 <template>
@@ -196,7 +261,7 @@ function handleSubmit() {
       <div class="flex gap-[24px]">
         <!-- 封面图 -->
         <div class="rounded-[8px] shrink-0 overflow-hidden from-[#e8f4fd] to-[#d0e8f7] bg-gradient-to-br" style="width: 376px; height: 216px;">
-          <img v-if="mockActivity.cover_image" :src="mockActivity.cover_image" :alt="mockActivity.title" class="h-full w-full object-cover">
+          <img v-if="activity?.display_cover_image" :src="activity?.display_cover_image" :alt="activity?.title" class="h-full w-full object-cover">
           <div v-else class="flex h-full w-full items-center justify-center">
             <span class="text-[40px] text-[#1a56db]/20 font-bold">双选会</span>
           </div>
@@ -205,10 +270,10 @@ function handleSubmit() {
         <!-- 活动信息 -->
         <div class="flex flex-1 flex-col min-w-0" style="height: 216px;">
           <h1 class="text-[20px] text-[#222] leading-[28px] font-bold">
-            {{ mockActivity.title }}
+            {{ activity?.title || '加载中...' }}
           </h1>
           <div class="text-[14px] text-[#999] leading-none mt-[12px]">
-            报名时间：{{ mockActivity.register_start_date }}至{{ mockActivity.register_end_date }}
+            报名时间：{{ activity?.register_start_date || '--' }}至{{ activity?.register_end_date || '--' }}
           </div>
 
           <!-- 统计卡片 -->
@@ -220,7 +285,7 @@ function handleSubmit() {
                   已参加单位
                 </div>
                 <div class="text-[24px] text-[#222] font-bold">
-                  {{ mockActivity.company_count }}<span class="text-[12px] text-[#999] font-normal ml-[2px]">家</span>
+                  {{ activity?.company_count || 0 }}<span class="text-[12px] text-[#999] font-normal ml-[2px]">家</span>
                 </div>
               </div>
               <div class="rounded-[4px] bg-white flex h-[32px] w-[32px] shadow-[0_1px_4px_rgba(0,0,0,0.06)] items-center justify-center">
@@ -234,7 +299,7 @@ function handleSubmit() {
                   已报名学生数
                 </div>
                 <div class="text-[24px] text-[#222] font-bold">
-                  {{ mockActivity.student_count }}<span class="text-[12px] text-[#999] font-normal ml-[2px]">人</span>
+                  {{ activity?.student_count || 0 }}<span class="text-[12px] text-[#999] font-normal ml-[2px]">人</span>
                 </div>
               </div>
               <div class="rounded-[4px] bg-white flex h-[32px] w-[32px] shadow-[0_1px_4px_rgba(0,0,0,0.06)] items-center justify-center">
@@ -250,6 +315,13 @@ function handleSubmit() {
               @click="showGuideDialog"
             >
               报名指南
+            </button>
+            <button
+              class="text-[14px] text-white px-[24px] rounded-[4px] border-none bg-[#FFA500] h-[32px] cursor-pointer transition hover:bg-[#E69500]"
+              :disabled="applied || applying"
+              @click="handleApply"
+            >
+              {{ applying ? '提交中...' : (applied ? '已报名' : '报名参会') }}
             </button>
           </div>
         </div>
@@ -283,6 +355,7 @@ function handleSubmit() {
                   list-type="image-card"
                   :custom-request="handleLicenseUpload"
                   :max="1"
+                  disabled
                   accept="image/jpeg,image/png"
                   @change="handleLicenseChange"
                   @remove="handleLicenseRemove"
@@ -316,7 +389,7 @@ function handleSubmit() {
               <span class="text-[#ff4d4f]">*</span>公司名称
             </label>
             <input
-              v-model="companyForm.company_name" type="text" placeholder="请输入公司名称"
+              v-model="companyForm.company_name" type="text" placeholder="请输入公司名称" disabled
               class="text-[14px] text-[#222] px-3 outline-none border border-[#E8E8E8] rounded-[4px] bg-white h-[40px] w-full transition focus:border-[#FFA500]"
             >
           </div>
@@ -326,7 +399,7 @@ function handleSubmit() {
               <span class="text-[#ff4d4f]">*</span>统一社会信用代码
             </label>
             <input
-              v-model="companyForm.credit_code" type="text" placeholder="请输入统一社会信用代码"
+              v-model="companyForm.credit_code" type="text" placeholder="请输入统一社会信用代码" disabled
               class="text-[14px] text-[#222] px-3 outline-none border border-[#E8E8E8] rounded-[4px] bg-white h-[40px] w-full transition focus:border-[#FFA500]"
             >
           </div>
@@ -335,7 +408,7 @@ function handleSubmit() {
             <label class="text-[14px] text-[#222] font-medium">公司规模</label>
             <ClientOnly>
               <NSelect
-                v-model:value="companyForm.company_scale"
+                v-model:value="companyForm.company_scale" disabled
                 :options="scaleOptions"
                 placeholder="请选择公司规模"
               />
@@ -346,7 +419,7 @@ function handleSubmit() {
             <label class="text-[14px] text-[#222] font-medium">公司性质</label>
             <ClientOnly>
               <NSelect
-                v-model:value="companyForm.company_nature"
+                v-model:value="companyForm.company_nature" disabled
                 :options="natureOptions"
                 placeholder="请选择公司性质"
               />
@@ -357,7 +430,7 @@ function handleSubmit() {
             <label class="text-[14px] text-[#222] font-medium">所属行业</label>
             <ClientOnly>
               <NSelect
-                v-model:value="companyForm.industry"
+                v-model:value="companyForm.industry" disabled
                 :options="industryOptions"
                 placeholder="请选择所属行业"
               />
@@ -403,7 +476,7 @@ function handleSubmit() {
         <!-- 职位卡片列表 -->
         <div class="gap-[16px] grid grid-cols-3">
           <div
-            v-for="job in mockJobs"
+            v-for="job in jobsList"
             :key="job.id"
             class="border rounded-[8px] bg-white transition relative hover:shadow-md"
             :class="selectedJobIds.includes(job.id) ? 'border-[#FFA500]' : 'border-[#f0f0f0]'"
@@ -425,7 +498,7 @@ function handleSubmit() {
             </div>
             <div class="mb-[18px] flex flex-wrap gap-[8px]">
               <span
-                v-for="(tag, idx) in job.tags"
+                v-for="(tag, idx) in (job.keywords || [])"
                 :key="idx"
                 class="text-[12px] text-[#666] leading-none px-[8px] py-[4px] rounded-[2px] bg-[#f5f5f5]"
               >
@@ -434,7 +507,7 @@ function handleSubmit() {
             </div>
             <div class="flex items-center justify-between">
               <span class="text-[14px] text-[#FFA500] font-medium">
-                {{ job.salary_min }}~{{ job.salary_max }}K·{{ job.salary_unit_label }}
+                {{ job.salary_min || '?' }}~{{ job.salary_max || '?' }}K·{{ job.salary_unit_label || '--' }}
               </span>
               <span class="text-[14px]">
                 <span class="text-[#595959]">招聘人数：</span><span class="text-[#262626]">{{ job.headcount }}</span><span class="text-[#262626]">人</span>
