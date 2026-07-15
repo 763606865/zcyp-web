@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { getRecruiterStats } from '~/services/company'
+import type { InterviewItem } from '~/services/company'
+import { getCompanyInterviews, getRecruiterStats } from '~/services/company'
 
 definePageMeta({
   layout: 'default',
@@ -41,9 +42,6 @@ async function fetchDashboardStats() {
   }
 }
 
-onMounted(() => {
-  fetchDashboardStats()
-})
 interface InterviewTab {
   code: string
   name: string
@@ -54,45 +52,51 @@ const interviewData = ref<InterviewTab[]>([
   { code: 'end', name: '已结束' },
 ])
 const activeInterviewTab = ref('invited')
-const count = ref(0)
-const scrollEl = ref<HTMLElement>()
-function onScroll() {
-  const el = scrollEl.value
-  if (!el)
-    return
-  if (el.scrollTop + el.clientHeight >= el.scrollHeight - 10) {
-    count.value += 10
+const interviewList = ref<InterviewItem[]>([])
+const timestamp = ref(Date.now())
+
+const tabStatusMap: Record<string, number> = {
+  invited: 0,
+  pending: 1,
+  end: 2,
+}
+
+function formatDateRange(ts: number) {
+  const d = new Date(ts)
+  const start = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+  const end = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59)
+  return {
+    from: start.toISOString(),
+    to: end.toISOString(),
   }
 }
-interface UserInfo {
-  id: number
-  name: string
-  avatar: string
-  money: string
-  gender: string
-  hope: string
-  age: string
-  work: string
-  education: string
-  time: string
-  interview: string
+
+async function fetchInterviews() {
+  try {
+    const status = tabStatusMap[activeInterviewTab.value] ?? 0
+    const { from, to } = formatDateRange(timestamp.value)
+    const data = await getCompanyInterviews(userStore.authHeader, {
+      per_page: 50,
+      status,
+      interview_at_from: from,
+      interview_at_to: to,
+    })
+    interviewList.value = Array.isArray(data) ? data : []
+  }
+  catch (e) {
+    console.error('Failed to fetch interviews:', e)
+    interviewList.value = []
+  }
 }
-const interviewList = ref<UserInfo[]>([
-  {
-    id: 1,
-    name: '张三',
-    avatar: '/assets/images/employer/dashboard-logo.png',
-    money: '10000',
-    gender: '男',
-    hope: '北京',
-    age: '25',
-    work: '软件工程师',
-    education: '本科',
-    time: '2023-04-01',
-    interview: '已面试',
-  },
-])
-const timestamp = ref(Date.now())
+
+watch([activeInterviewTab, timestamp], () => {
+  fetchInterviews()
+})
+
+onMounted(() => {
+  fetchDashboardStats()
+  fetchInterviews()
+})
 </script>
 
 <template>
@@ -225,53 +229,56 @@ const timestamp = ref(Date.now())
           </div>
         </div>
         <div class="mb-[10px] mt-[-1px] bg-[#E6E8EB] h-[1px] w-[100%] relative z-1" />
-        <div ref="scrollEl" class="boxContent overflow-y-auto" @scroll="onScroll">
+        <div ref="scrollEl" class="boxContent overflow-y-auto">
+          <div v-if="interviewList.length === 0" class="text-[14px] text-[#999999] flex h-full items-center justify-center">
+            暂无数据
+          </div>
           <div
             v-for="item in interviewList" :key="item.id"
             class="mb-[10px] px-[20px] py-[12px] py-[8px] border-b-[1px] border-[#E6E8EB] flex h-[109px] w-[100%] justify-between last:mb-0 last:border-b-0"
           >
             <div class="mt-[4px] flex gap-[16px]">
               <div class="rounded-[50%] h-[48px] w-[48px] relative">
-                <img :src="item.avatar" alt="面试者头像" class="rounded-[50%] h-[48px] w-[48px]">
+                <img :src="item.application.resume_snapshot.avatar || '/assets/images/employer/dashboard-logo.png'" alt="面试者头像" class="rounded-[50%] h-[48px] w-[48px]">
                 <img
-                  v-if="item.gender === '男'" src="/assets/images/employer/man.png" alt="男"
+                  v-if="item.application.resume_snapshot.gender === '男'" src="/assets/images/employer/man.png" alt="男"
                   class="h-[16px] w-[16px] bottom-[-2px] right-[1px] absolute"
                 >
                 <img
-                  v-else src="/assets/images/employer/woman.png" alt="女"
+                  v-else-if="item.application.resume_snapshot.gender === '女'" src="/assets/images/employer/woman.png" alt="女"
                   class="h-[16px] w-[16px] bottom-[-2px] right-[1px] absolute"
                 >
               </div>
               <div>
                 <div class="flex items-center">
                   <div class="text-[16px] text-[#222222] font-bold mr-[11px]">
-                    {{ item.name }}
+                    {{ item.application.resume_snapshot.name || '-' }}
                   </div>
                   <div class="text-[16px] text-[#FFA500] mr-[16px]">
-                    {{ item.money }}
+                    {{ item.application.resume_snapshot.expected_salary || '-' }}
                   </div>
                   <div class="text-[14px] text-[#999999]">
                     求职期望：
                   </div>
                   <div class="text-[14px] text-[#222222]">
-                    {{ item.hope }}
+                    {{ item.application.resume_snapshot.expected_position || '-' }}
                   </div>
                 </div>
                 <div class="mt-[6px] flex items-center">
                   <div class="text-[14px] text-[#555555]">
-                    {{ item.age }}
+                    {{ item.application.resume_snapshot.age || '-' }}
                   </div>
                   <div class="ml-[8px] mr-[8px] bg-[#CECECE] h-[10px] w-[1px]" />
                   <div class="text-[14px] text-[#555555]">
-                    {{ item.work }}
+                    {{ item.application.resume_snapshot.work_experience || '-' }}
                   </div>
                   <div class="ml-[8px] mr-[8px] bg-[#CECECE] h-[10px] w-[1px]" />
                   <div class="text-[14px] text-[#555555]">
-                    {{ item.education }}
+                    {{ item.application.resume_snapshot.education || '-' }}
                   </div>
                   <div class="ml-[8px] mr-[8px] bg-[#CECECE] h-[10px] w-[1px]" />
                   <div class="text-[14px] text-[#555555]">
-                    {{ item.time }}
+                    {{ item.location || '-' }}
                   </div>
                 </div>
                 <div class="mt-[17px] flex items-center">
@@ -279,19 +286,19 @@ const timestamp = ref(Date.now())
                     面试时间：
                   </div>
                   <div class="text-[14px] text-[#222222]">
-                    {{ item.interview }}
+                    {{ item.interview_at ? new Date(item.interview_at).toLocaleString('zh-CN') : '-' }}
                   </div>
                 </div>
               </div>
             </div>
             <div class="flex flex-col justify-between">
-              <div v-if="activeInterviewTab === 'invited'" class="text-[14px] text-[#3292FF] px-[11px] py-[7px] rounded-[5px] bg-[rgba(50,146,255,0.10)]">
+              <div v-if="item.status === 0" class="text-[14px] text-[#3292FF] px-[11px] py-[7px] rounded-[5px] bg-[rgba(50,146,255,0.10)]">
                 已邀约等待对方接收
               </div>
-              <div v-else-if="activeInterviewTab === 'pending'" class="text-[14px] text-[#25B270] px-[11px] py-[7px] rounded-[5px] bg-[rgba(37,178,112,0.10)]">
+              <div v-else-if="item.status === 1" class="text-[14px] text-[#25B270] px-[11px] py-[7px] rounded-[5px] bg-[rgba(37,178,112,0.10)]">
                 对方已接收面试邀约
               </div>
-              <div v-else-if="activeInterviewTab === 'end'" class="text-[14px] text-[#FFA500] px-[11px] py-[7px] rounded-[5px] bg-[rgba(255,165,0,0.10)]">
+              <div v-else-if="item.status === 2" class="text-[14px] text-[#FFA500] px-[11px] py-[7px] rounded-[5px] bg-[rgba(255,165,0,0.10)]">
                 待用人部门确认结果
               </div>
               <div class="flex gap-[17px]">

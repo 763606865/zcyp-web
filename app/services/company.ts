@@ -563,3 +563,48 @@ export async function getRecruiterStats(authorization: string) {
   )
   return response.data
 }
+
+export interface InterviewResumeSnapshot {
+  name?: string
+  avatar?: string
+  gender?: string
+  age?: string | number
+  education?: string
+  work_experience?: string
+  expected_position?: string
+  expected_salary?: string
+  [key: string]: any
+}
+
+export interface InterviewItem {
+  id: number
+  interview_at: string
+  duration_mins: number
+  mode: number
+  interviewer_name: string
+  location: string
+  status: number
+  application: {
+    id: number
+    job_id: number
+    candidate_user_id: number
+    resume_snapshot: InterviewResumeSnapshot
+  }
+}
+
+export interface InterviewListParams {
+  per_page?: number
+  status?: number
+  job_id?: number
+  interview_at_from?: string
+  interview_at_to?: string
+}
+
+export async function getCompanyInterviews(authorization: string, params?: InterviewListParams) {
+  const response = await getJson<ApiResponse<InterviewItem[]>>(
+    '/rc/companies/interviews',
+    params as Record<string, string | number | undefined>,
+    createAuthHeaders(authorization),
+  )
+  return response.data
+}
