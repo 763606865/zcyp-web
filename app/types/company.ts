@@ -66,8 +66,8 @@ export interface CompanyProfile {
   funding_stage_label: string | null
   profile_status: number
   profile_status_label: string | null
-  // TODO: 认证状态字段，后期替换为真实字段
-  is_certified?: boolean
+  // TODO: 认证状态字段，接口未返回，暂时注释
+  // is_certified?: boolean
 }
 
 export interface CompanyProfileResponse {

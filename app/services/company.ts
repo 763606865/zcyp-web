@@ -101,7 +101,8 @@ export async function getCompanyProfile(authorization: string) {
     undefined,
     createAuthHeaders(authorization),
   )
-  return response.data.profile
+  // 兼容两种响应结构：data.profile 或 data 直接为 profile 对象
+  return response.data?.profile ?? response.data as any
 }
 
 export async function updateCompanyProfile(payload: CompanyProfileUpdatePayload, authorization: string) {
@@ -110,7 +111,8 @@ export async function updateCompanyProfile(payload: CompanyProfileUpdatePayload,
     payload as Record<string, string | number | undefined>,
     createAuthHeaders(authorization),
   )
-  return response.data.profile
+  // 兼容两种响应结构
+  return response.data?.profile ?? response.data as any
 }
 
 export interface CompanyAlbumItem {

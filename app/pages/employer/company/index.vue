@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import type { UploadCustomRequestOptions, UploadFileInfo } from 'naive-ui'
 import type { CompanyAlbumItem, CompanyAlbumPayload } from '~/services/company'
 import type { CompanyProfile } from '~/types/company'
-import { NImage, NModal, NSelect, NTabPane, NTabs, NUpload } from 'naive-ui'
+import { NImage, NModal, NSelect, NTabPane, NTabs } from 'naive-ui'
 import { createCompanyAlbum, deleteCompanyAlbum, getCompanyAlbums, updateCompanyAlbum, updateCompanyProfile } from '~/services/company'
 import { upload } from '~/services/upload'
 import { useMetaStore } from '~/stores/meta'
@@ -14,7 +13,7 @@ definePageMeta({
 })
 
 // ── Mock 开关：开发阶段使用，上线前改为 false ──
-const USE_MOCK = true
+const USE_MOCK = false
 
 const mockProfile: CompanyProfile = {
   id: 1,
@@ -59,9 +58,10 @@ const profile = ref<CompanyProfile | null>(null)
 const isSaving = ref(false)
 const isUploadingLogo = ref(false)
 const errorMessage = ref('')
-// 编辑弹窗 Logo：NUpload 文件列表 + 待上传文件（提交时才真正上传）
-const editLogoFileList = ref<UploadFileInfo[]>([])
+// 编辑弹窗 Logo：原始路径（用于判断是否修改）+ 待上传文件 + 预览 URL
+const editLogoOriginalPath = ref<string | null>(null)
 const editLogoPendingFile = ref<File | null>(null)
+const editLogoPreviewUrl = ref<string | null>(null)
 
 // ── 编辑弹窗 ──
 const showEditDialog = ref(false)
@@ -85,6 +85,9 @@ const editCityCode = ref('')
 const editCityOptions = computed(() => metaStore.getCitiesByProvinceCode(editProvinceCode.value))
 watch(editProvinceCode, () => {
   editCityCode.value = ''
+})
+watch(editCityCode, (code) => {
+  editForm.cityCode = code
 })
 
 const scaleTypeOptions = [
@@ -149,10 +152,12 @@ const albumFilterStatus = ref<number | null>(null)
 const albums = ref<CompanyAlbumItem[]>([])
 const isAlbumLoading = ref(false)
 const isAlbumSaving = ref(false)
-const isAlbumUploading = ref(false)
 const editingAlbum = ref<CompanyAlbumItem | null>(null)
 const previewAlbumImage = ref<string | null>(null)
-const albumImageFileList = ref<UploadFileInfo[]>([])
+// 相册图片：原始路径（判断是否修改）+ 待上传文件 + 预览 URL
+const albumOriginalImage = ref('')
+const albumPendingFile = ref<File | null>(null)
+const albumPreviewUrl = ref('')
 
 const albumForm = reactive({
   title: '',
@@ -252,11 +257,10 @@ function loadProfileToEditForm(p: CompanyProfile) {
     }
   }
 
-  // 同步 Logo 文件列表（已有 logo 显示预览，新上传的等提交）
+  // 同步 Logo 原始值
+  editLogoOriginalPath.value = p.logo || null
   editLogoPendingFile.value = null
-  editLogoFileList.value = p.display_logo
-    ? [{ id: 'logo', name: 'logo', url: p.display_logo, status: 'finished' }]
-    : []
+  editLogoPreviewUrl.value = p.display_logo || null
 }
 
 async function loadProfile() {
@@ -307,23 +311,35 @@ function openEditDialog() {
   showEditDialog.value = true
 }
 
-async function saveProfileWithStatus(status: number) {
+async function saveProfile() {
   if (!userStore.authHeader || isSaving.value)
     return
   isSaving.value = true
+  let logoUploadFailed = false
   try {
-    // 如果有新选择的 Logo 文件（尚未上传），先上传
-    let logoPath = editForm.logo
-    if (editLogoPendingFile.value) {
+    // 判断 Logo 是否修改：有新文件 或 原Logo被删除
+    const logoChanged = editLogoPendingFile.value !== null || (editLogoOriginalPath.value && !editLogoPendingFile.value && !editLogoPreviewUrl.value)
+    let logoPath = editLogoOriginalPath.value
+    if (logoChanged && editLogoPendingFile.value) {
+      // 有新文件，先上传
       isUploadingLogo.value = true
       try {
         const uploadResult = await upload(editLogoPendingFile.value, 'file', userStore.authHeader)
         logoPath = uploadResult.path
       }
+      catch {
+        logoUploadFailed = true
+        // 上传失败仍使用原路径（如果有）
+      }
       finally {
         isUploadingLogo.value = false
       }
     }
+    else if (!editLogoOriginalPath.value && !editLogoPreviewUrl.value) {
+      // Logo 被删除且无新文件
+      logoPath = null
+    }
+
     const result = await updateCompanyProfile({
       short_name: editForm.shortName || null,
       logo: logoPath || null,
@@ -335,44 +351,45 @@ async function saveProfileWithStatus(status: number) {
       introduction: editForm.introduction || null,
       benefit_tags: editForm.benefitTags.length > 0 ? editForm.benefitTags : undefined,
       funding_stage: editForm.fundingStage,
-      profile_status: status,
     } as any, userStore.authHeader)
     profile.value = result
     loadProfileToForm(result)
     loadProfileToEditForm(result)
     showEditDialog.value = false
-    pushGlobalNotice(status === 0 ? '已保存为草稿' : '已提交审核')
+    if (logoUploadFailed)
+      pushGlobalNotice('保存成功，但 Logo 上传失败', 'warning')
+    else
+      pushGlobalNotice('保存成功')
   }
   catch (e) {
-    pushGlobalNotice(e instanceof Error ? e.message : '保存失败')
+    pushGlobalNotice(e instanceof Error ? e.message : '保存失败', 'error')
   }
   finally {
     isSaving.value = false
   }
 }
 
-// ── 编辑弹窗 Logo：NUpload 自定义请求（只存本地，不真正上传） ──
-async function handleEditLogoCustomRequest({ file, onFinish }: UploadCustomRequestOptions) {
-  // 保存文件引用，等提交表单时再上传
-  editLogoPendingFile.value = file as File
-  // 调用 onFinish 让 NUpload 显示预览
-  onFinish()
-  return { abort: () => {} }
-}
-
-function handleEditLogoChange({ fileList }: { fileList: UploadFileInfo[] }) {
-  editLogoFileList.value = fileList.slice(-1)
-  // 如果文件列表为空，清除待上传文件
-  if (fileList.length === 0) {
-    editLogoPendingFile.value = null
-    editForm.logo = null
+// ── 编辑弹窗 Logo 上传（延迟上传：选择时只存文件，保存时才真正上传） ─
+function triggerEditLogoUpload() {
+  if (!import.meta.client)
+    return
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = 'image/jpeg,image/png'
+  input.onchange = () => {
+    const file = input.files?.[0]
+    if (!file)
+      return
+    editLogoPendingFile.value = file
+    // 用本地预览展示
+    editLogoPreviewUrl.value = URL.createObjectURL(file)
   }
+  input.click()
 }
 
 function handleEditLogoRemove() {
   editLogoPendingFile.value = null
-  editForm.logo = null
-  editLogoFileList.value = []
+  editLogoPreviewUrl.value = null
 }
 
 function toggleEditBenefitTag(code: string) {
@@ -426,69 +443,73 @@ function resetAlbumForm() {
   albumForm.type = 1
   albumForm.sort = 0
   albumForm.status = 1
-  albumImageFileList.value = []
+  albumOriginalImage.value = ''
+  albumPendingFile.value = null
+  albumPreviewUrl.value = ''
 }
 
-// ── 相册图片上传 ─
-async function handleAlbumImageUpload({ file, onFinish, onError }: UploadCustomRequestOptions) {
-  if (!userStore.authHeader) {
-    onError()
-    return { abort: () => {} }
-  }
-  isAlbumUploading.value = true
-  try {
-    const result = await upload(file as File, 'file', userStore.authHeader)
-    albumForm.image = result.path
-    albumForm.displayImage = result.url
-    if (!albumForm.title)
-      albumForm.title = (file as File).name.replace(fileExtensionPattern, '').slice(0, 100)
-    albumImageFileList.value = [{ id: 'album', name: 'album', url: result.url, status: 'finished' }]
-    pushGlobalNotice('图片上传成功')
-    onFinish()
-  }
-  catch (error) {
-    pushGlobalNotice(error instanceof Error ? error.message : '上传失败', 'error')
-    onError()
-  }
-  finally {
-    isAlbumUploading.value = false
-  }
-  return { abort: () => {} }
-}
-
-function onAlbumImageRemove() {
-  albumForm.image = ''
-  albumForm.displayImage = ''
-  albumImageFileList.value = []
-}
-
+// ── 相册图片上传（延迟上传：选择时只存文件，保存时才真正上传）
 function triggerAlbumUpload() {
   if (!import.meta.client)
     return
   const input = document.createElement('input')
   input.type = 'file'
   input.accept = 'image/*'
-  input.onchange = async () => {
+  input.onchange = () => {
     const file = input.files?.[0]
     if (!file)
       return
-    await handleAlbumImageUpload({ file, onFinish: () => {}, onError: () => {} } as UploadCustomRequestOptions)
+    albumPendingFile.value = file
+    albumPreviewUrl.value = URL.createObjectURL(file)
+    if (!albumForm.title)
+      albumForm.title = file.name.replace(fileExtensionPattern, '').slice(0, 100)
   }
   input.click()
+}
+
+function onAlbumImageRemove() {
+  albumForm.image = ''
+  albumForm.displayImage = ''
+  albumOriginalImage.value = ''
+  albumPendingFile.value = null
+  albumPreviewUrl.value = ''
 }
 
 async function handleAlbumSave() {
   if (!userStore.authHeader || isAlbumSaving.value)
     return
-  if (!albumForm.image) {
-    pushGlobalNotice('请先上传相册图片', 'warning')
+  // 新增必须有图，编辑可以没图（保留原图）
+  const hasImage = albumPreviewUrl.value || albumForm.image
+  if (!hasImage && !editingAlbum.value) {
+    pushGlobalNotice('请先选择相册图片', 'warning')
     return
   }
   isAlbumSaving.value = true
+  let imageUploadFailed = false
   try {
+    // 如果有新选择的文件，先上传
+    let imagePath = albumForm.image
+    if (albumPendingFile.value) {
+      try {
+        const uploadResult = await upload(albumPendingFile.value, 'file', userStore.authHeader)
+        imagePath = uploadResult.path
+        albumForm.displayImage = uploadResult.url
+      }
+      catch {
+        imageUploadFailed = true
+        if (!albumOriginalImage.value)
+          imagePath = ''
+      }
+    }
+
+    if (!imagePath && !editingAlbum.value) {
+      pushGlobalNotice('图片上传失败，无法新增', 'error')
+      return
+    }
+
     const payload: CompanyAlbumPayload & { image: string } = {
       title: albumForm.title.trim() || null,
-      image: albumForm.image,
+      image: imagePath,
       description: albumForm.description.trim() || null,
       type: albumForm.type,
       sort: Number(albumForm.sort) || 0,
@@ -497,12 +518,12 @@ async function handleAlbumSave() {
     if (editingAlbum.value) {
       const updated = await updateCompanyAlbum(editingAlbum.value.id, payload, userStore.authHeader)
       albums.value = albums.value.map(item => item.id === updated.id ? updated : item)
-      pushGlobalNotice('相册图片已更新')
+      pushGlobalNotice(imageUploadFailed ? '相册图片已更新，但图片上传失败' : '相册图片已更新', imageUploadFailed ? 'warning' : 'success')
     }
     else {
       const created = await createCompanyAlbum(payload, userStore.authHeader)
       albums.value = [created, ...albums.value].sort((a, b) => a.sort - b.sort || b.id - a.id)
-      pushGlobalNotice('相册图片已新增')
+      pushGlobalNotice(imageUploadFailed ? '相册图片已新增，但图片上传失败' : '相册图片已新增', imageUploadFailed ? 'warning' : 'success')
     }
     resetAlbumForm()
   }
@@ -554,20 +575,27 @@ function fillAlbumForm(album: CompanyAlbumItem) {
   albumForm.type = album.type
   albumForm.sort = album.sort
   albumForm.status = album.status
+  albumOriginalImage.value = album.image
+  albumPendingFile.value = null
+  albumPreviewUrl.value = album.display_image || ''
 }
 
 // ── 计算属性 ──
 const companyName = computed(() => {
+  // 优先从 userStore 获取，再从 profile 兜底，都没有则留空
   const info = userStore.currentIdentityInfo
-  return info && typeof info === 'object' ? (info.organization?.name || '—') : '—'
+  const fromStore = info && typeof info === 'object' ? (info.organization?.name || '') : ''
+  return fromStore || profile.value?.short_name || ''
 })
 const creditCode = computed(() => {
   const info = userStore.currentIdentityInfo
-  return info && typeof info === 'object' ? (info.organization?.credit_code || '—') : '—'
+  const fromStore = info && typeof info === 'object' ? (info.organization?.credit_code || '') : ''
+  return fromStore || ''
 })
 const companyAddress = computed(() => {
   const info = userStore.currentIdentityInfo
-  return info && typeof info === 'object' ? (info.organization?.address || '—') : '—'
+  const fromStore = info && typeof info === 'object' ? (info.organization?.address || '') : ''
+  return fromStore || ''
 })
 const allInfoLabels = computed(() => {
   if (!profile.value)
@@ -617,10 +645,10 @@ const allInfoLabels = computed(() => {
           <!-- 上方：企业名 + 认证状态 -->
           <div class="flex items-center" style="gap: 22px;">
             <span class="text-[18px] text-[#222] font-bold">{{ companyName }}</span>
-            <!-- TODO: 认证状态字段，后期替换为真实字段 is_certified -->
-            <span v-if="profile?.is_certified" class="text-[12px] text-[#52c41a] flex gap-1 items-center">
+            <!-- TODO: 认证状态字段，接口未返回，暂时注释 -->
+            <!-- <span v-if="profile?.is_certified" class="text-[12px] text-[#52c41a] flex gap-1 items-center">
               <span class="i-carbon-checkmark-filled" /> 已认证
-            </span>
+            </span> -->
           </div>
           <!-- 下方：标签（竖线分隔） -->
           <div class="mt-2 flex flex-wrap items-center">
@@ -695,7 +723,7 @@ const allInfoLabels = computed(() => {
                   <!-- 上传区域 -->
                   <div class="mb-3">
                     <div
-                      v-if="!albumForm.displayImage"
+                      v-if="!albumPreviewUrl"
                       class="border-2 border-[#d9d9d9] rounded-[8px] border-dashed bg-[#fafafa] flex flex-col w-full cursor-pointer transition items-center justify-center hover:border-[#ffa500]"
                       style="height: 160px;"
                       @click="triggerAlbumUpload"
@@ -709,15 +737,10 @@ const allInfoLabels = computed(() => {
                       </div>
                     </div>
                     <div v-else class="group rounded-[8px] bg-[#f5f5f5] w-full relative overflow-hidden" style="height: 160px;">
-                      <ClientOnly>
-                        <NImage :src="albumForm.displayImage" object-fit="cover" class="h-full w-full" />
-                        <template #fallback>
-                          <img :src="albumForm.displayImage" class="h-full w-full object-cover">
-                        </template>
-                      </ClientOnly>
+                      <img :src="albumPreviewUrl" class="h-full w-full object-cover">
                       <!-- 悬浮操作 -->
                       <div class="bg-black/40 opacity-0 flex gap-3 transition items-center inset-0 justify-center absolute group-hover:opacity-100">
-                        <button type="button" class="border border-white/40 rounded-full bg-white/20 flex h-[32px] w-[32px] cursor-pointer items-center justify-center" title="预览" @click="previewAlbumImage = albumForm.displayImage">
+                        <button type="button" class="border border-white/40 rounded-full bg-white/20 flex h-[32px] w-[32px] cursor-pointer items-center justify-center" title="预览" @click="previewAlbumImage = albumPreviewUrl">
                           <span class="i-carbon-view text-[18px] text-white" />
                         </button>
                         <button type="button" class="border border-white/40 rounded-full bg-white/20 flex h-[32px] w-[32px] cursor-pointer items-center justify-center" title="删除" @click="onAlbumImageRemove">
@@ -772,7 +795,7 @@ const allInfoLabels = computed(() => {
                       type="button"
                       class="text-[14px] text-white font-medium rounded-[6px] border-none h-[40px] w-full cursor-pointer"
                       style="background: linear-gradient(135deg, #ffbe3b 0%, #ffa500 60%, #ea9400 100%);"
-                      :disabled="isAlbumSaving || isAlbumUploading"
+                      :disabled="isAlbumSaving"
                       @click="handleAlbumSave"
                     >
                       {{ isAlbumSaving ? '保存中...' : (editingAlbum ? '保存修改' : '新增图片') }}
@@ -861,8 +884,8 @@ const allInfoLabels = computed(() => {
                     暂无企业相册图片
                   </div>
                   <div v-else class="px-[16px] py-[6px] border-[1px] border-[#ECECEC] rounded-bl-[8px] rounded-br-[8px] border-t-none">
-                    <div v-for="group in groupedAlbums" :key="group.label">
-                      <div class="text-[15px] text-[#333] font-medium mb-3">
+                    <div v-for="group in groupedAlbums" :key="group.label" class="mb-[18px]">
+                      <div class="text-[14px] text-[#222] font-medium mb-[4px]">
                         {{ group.label }}
                       </div>
                       <div class="gap-3 grid" style="grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));">
@@ -922,20 +945,22 @@ const allInfoLabels = computed(() => {
             企业logo
           </div>
           <div class="flex gap-3 items-start">
-            <ClientOnly>
-              <NUpload
-                v-model:file-list="editLogoFileList"
-                list-type="image-card"
-                :custom-request="handleEditLogoCustomRequest"
-                :max="1"
-                accept="image/jpeg,image/png"
-                @change="handleEditLogoChange"
-                @remove="handleEditLogoRemove"
-              />
-              <template #fallback>
-                <div class="rounded-[8px] bg-[#f5f5f5] h-[72px] w-[72px]" />
-              </template>
-            </ClientOnly>
+            <!-- Logo 预览 / 上传区域 -->
+            <div v-if="editLogoPreviewUrl" class="group rounded-[8px] bg-[#f5f5f5] relative overflow-hidden" style="width: 72px; height: 72px;">
+              <img :src="editLogoPreviewUrl" alt="Logo" class="h-full w-full object-cover">
+              <div class="bg-black/40 opacity-0 flex gap-2 transition items-center inset-0 justify-center absolute group-hover:opacity-100">
+                <button type="button" class="border border-white/40 rounded-full bg-white/20 flex h-[28px] w-[28px] cursor-pointer items-center justify-center" title="更换" @click="triggerEditLogoUpload">
+                  <span class="i-carbon-edit text-[14px] text-white" />
+                </button>
+                <button type="button" class="border border-white/40 rounded-full bg-white/20 flex h-[28px] w-[28px] cursor-pointer items-center justify-center" title="删除" @click="handleEditLogoRemove">
+                  <span class="i-carbon-trash-can text-[14px] text-white" />
+                </button>
+              </div>
+            </div>
+            <div v-else class="rounded-[8px] bg-[#f5f5f5] flex cursor-pointer transition items-center justify-center hover:bg-[#eee]" style="width: 72px; height: 72px;" @click="triggerEditLogoUpload">
+              <span v-if="isUploadingLogo" class="text-[12px] text-[#999]">上传中...</span>
+              <span v-else class="i-carbon-add text-[24px] text-[#ccc]" />
+            </div>
             <div class="text-[12px] text-[#999] leading-5 mt-2">
               建议上传200*200px<br>支持jpg/png格式
             </div>
@@ -1024,7 +1049,7 @@ const allInfoLabels = computed(() => {
         <button type="button" class="text-[14px] px-6 border border-[#d9d9d9] rounded-[6px] bg-white h-[36px] cursor-pointer" @click="showEditDialog = false">
           取消
         </button>
-        <button type="button" class="text-[14px] px-6 border border-[#d9d9d9] rounded-[6px] bg-white h-[36px] cursor-pointer" :disabled="isSaving" @click="saveProfileWithStatus(0)">
+        <!-- <button type="button" class="text-[14px] px-6 border border-[#d9d9d9] rounded-[6px] bg-white h-[36px] cursor-pointer" :disabled="isSaving" @click="saveProfileWithStatus(0)">
           存为草稿
         </button>
         <button
@@ -1035,6 +1060,15 @@ const allInfoLabels = computed(() => {
           @click="saveProfileWithStatus(1)"
         >
           {{ isSaving ? '提交中...' : '提交审核' }}
+        </button> -->
+        <button
+          type="button"
+          class="text-[14px] text-white font-medium px-6 rounded-[6px] border-none h-[36px] cursor-pointer"
+          style="background: linear-gradient(135deg, #ffbe3b 0%, #ffa500 60%, #ea9400 100%);"
+          :disabled="isSaving"
+          @click="saveProfile"
+        >
+          {{ isSaving ? '保存中...' : '保存' }}
         </button>
       </div>
     </NModal>
