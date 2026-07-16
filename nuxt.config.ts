@@ -45,6 +45,7 @@ export default defineNuxtConfig({
     public: {
       siteName: process.env.NUXT_PUBLIC_SITE_NAME || '中测易招',
       apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || '',
+      imBaseUrl: process.env.NUXT_IM_BASE_URL || process.env.NUXT_PUBLIC_IM_BASE_URL || '',
       useMock: process.env.NUXT_PUBLIC_USE_MOCK || 'true',
       amapKey: process.env.NUXT_PUBLIC_AMAP_KEY || '',
       cnzzKey: process.env.NUXT_PUBLIC_CNZZ_KEY || '',

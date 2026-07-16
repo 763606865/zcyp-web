@@ -25,6 +25,7 @@ const activeTab = ref<'companies' | 'jobs'>('companies')
 const favoriteJobs = ref<TalentJobItem[]>([])
 const favoriteCompanies = ref<FavoriteCompanyItem[]>([])
 const favoriteJobTags = ['2年及以上', '本科', '五险一金']
+const { startSingleConversation } = useImConversationStarter()
 
 const { pending: isLoading } = await useAsyncData(
   'profile-jobseeker-favorites',
@@ -117,6 +118,15 @@ function getCreatorActiveLabel(job: TalentJobItem) {
   return '最近活跃'
 }
 
+function getCreatorExternalUserId(job: TalentJobItem) {
+  const creator = job.creator
+  return creator?.external_user_id
+    || creator?.im_external_user_id
+    || creator?.external_im_user_id
+    || creator?.im_user?.external_user_id
+    || null
+}
+
 function getCreatorInfo(job: TalentJobItem) {
   return {
     name: getCreatorName(job),
@@ -124,7 +134,23 @@ function getCreatorInfo(job: TalentJobItem) {
     avatar: getCreatorAvatar(job),
     initial: getCreatorInitial(job),
     activeLabel: getCreatorActiveLabel(job),
+    externalUserId: getCreatorExternalUserId(job),
   }
+}
+
+function buildJobConversationMetadata(job: TalentJobItem) {
+  return {
+    source: 'profile_favorite_jobs',
+    job_id: job.id,
+    company_id: job.company_id || job.company?.id,
+    job_title: job.title,
+    company_name: job.company?.name,
+    creator_id: job.creator?.id,
+  }
+}
+
+async function handleQuickCommunicate(job: TalentJobItem, externalUserId?: string | null) {
+  await startSingleConversation(externalUserId || getCreatorExternalUserId(job), buildJobConversationMetadata(job))
 }
 
 function getFavoriteCompanyName(company: FavoriteCompanyItem) {
@@ -232,6 +258,7 @@ function getFavoriteCompanyTags(company: FavoriteCompanyItem) {
             :creator="getCreatorInfo(job)"
             status-label="已收藏"
             communicate-label="立即沟通"
+            @communicate="externalUserId => handleQuickCommunicate(job, externalUserId)"
           />
         </div>
         <div class="my-8 text-center text-[13px] text-slate-400">

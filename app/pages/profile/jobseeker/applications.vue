@@ -15,6 +15,7 @@ const activeTab = ref<'all' | 'viewed' | 'interview' | 'rejected'>('all')
 const applicationList = ref<ApplicationItem[]>([])
 const rightSideAdCode = 'profile.jobseeker.right-side-1'
 const applicationJobTags = ['2年及以上', '本科', '五险一金']
+const { startSingleConversation } = useImConversationStarter()
 
 const tabs = [
   { key: 'all', label: '投递成功' },
@@ -144,6 +145,15 @@ function getCreatorActiveLabel(app: ApplicationItem) {
   return '最近活跃'
 }
 
+function getCreatorExternalUserId(app: ApplicationItem) {
+  const creator = app.job?.creator
+  return creator?.external_user_id
+    || creator?.im_external_user_id
+    || creator?.external_im_user_id
+    || creator?.im_user?.external_user_id
+    || null
+}
+
 function getCreatorInfo(app: ApplicationItem) {
   return {
     name: getCreatorName(app),
@@ -151,16 +161,25 @@ function getCreatorInfo(app: ApplicationItem) {
     avatar: getCreatorAvatar(app),
     initial: getCreatorInitial(app),
     activeLabel: getCreatorActiveLabel(app),
+    externalUserId: getCreatorExternalUserId(app),
   }
 }
 
-function handleQuickCommunicate(app: ApplicationItem) {
-  if (!app.job?.creator?.id) {
-    pushGlobalNotice('暂无联系人信息，暂不能发起沟通', 'warning')
-    return
+function buildApplicationConversationMetadata(app: ApplicationItem) {
+  return {
+    source: 'profile_applications',
+    application_id: app.id,
+    job_id: app.job_id || app.job?.id,
+    resume_id: app.resume_id,
+    company_id: app.company_id || app.company?.id || app.job?.company?.id,
+    job_title: app.job?.title,
+    company_name: app.company?.name || app.job?.company?.name,
+    creator_id: app.job?.creator?.id,
   }
+}
 
-  pushGlobalNotice(`${getCreatorName(app)}的沟通入口即将开放`, 'info')
+async function handleQuickCommunicate(app: ApplicationItem, externalUserId?: string | null) {
+  await startSingleConversation(externalUserId || getCreatorExternalUserId(app), buildApplicationConversationMetadata(app))
 }
 
 function statusLabel(status: number) {
@@ -247,7 +266,7 @@ async function handleRejectInterview(appId: number) {
             :creator="getCreatorInfo(app)"
             :status-label="app.status_label || statusLabel(app.status)"
             communicate-label="继续沟通"
-            @communicate="handleQuickCommunicate(app)"
+            @communicate="externalUserId => handleQuickCommunicate(app, externalUserId)"
           >
             <template #main-extra>
               <div v-if="(app as any).pending_interview_invitation" class="text-[13px] text-blue-700 mt-4 p-4 rounded bg-blue-50">

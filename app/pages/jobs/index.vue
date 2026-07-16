@@ -18,6 +18,7 @@ const userStore = useUserStore()
 const siteStore = useSiteStore()
 const route = useRoute()
 const router = useRouter()
+const { startSingleConversation } = useImConversationStarter()
 
 const keyword = ref(typeof route.query.keyword === 'string' ? route.query.keyword : '')
 const selectedCityFilter = ref('不限')
@@ -466,8 +467,28 @@ async function handleFavorite(job: TalentJobItem) {
   }
 }
 
-function handleCommunicate(job: TalentJobItem) {
-  pushGlobalNotice(`${job.creator?.mask_name || '招聘联系人'}的沟通入口即将开放`, 'info')
+function getCreatorExternalUserId(job: TalentJobItem) {
+  const creator = job.creator
+  return creator?.external_user_id
+    || creator?.im_external_user_id
+    || creator?.external_im_user_id
+    || creator?.im_user?.external_user_id
+    || null
+}
+
+function buildJobConversationMetadata(job: TalentJobItem) {
+  return {
+    source: 'jobs_search',
+    job_id: job.id,
+    company_id: job.company_id || job.company?.id,
+    job_title: job.title,
+    company_name: job.company?.name,
+    creator_id: job.creator?.id,
+  }
+}
+
+async function handleCommunicate(job: TalentJobItem) {
+  await startSingleConversation(getCreatorExternalUserId(job), buildJobConversationMetadata(job))
 }
 </script>
 

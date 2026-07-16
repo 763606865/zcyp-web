@@ -10,7 +10,7 @@ function parseBoolean(value?: string) {
   return value === 'true'
 }
 
-function readPublicConfig(key: 'siteName' | 'apiBaseUrl' | 'useMock' | 'amapKey' | 'cnzzKey') {
+function readPublicConfig(key: 'siteName' | 'apiBaseUrl' | 'imBaseUrl' | 'useMock' | 'amapKey' | 'cnzzKey') {
   try {
     return useRuntimeConfig().public[key]
   }
@@ -36,6 +36,9 @@ export const appEnv = {
   },
   get apiBaseUrl() {
     return String(readPublicConfig('apiBaseUrl') || process.env.NUXT_PUBLIC_API_BASE_URL || getDefaultApiBaseUrl(getMode()))
+  },
+  get imBaseUrl() {
+    return String(readPublicConfig('imBaseUrl') || process.env.NUXT_IM_BASE_URL || process.env.NUXT_PUBLIC_IM_BASE_URL || '')
   },
   get useMock() {
     const value = readPublicConfig('useMock') ?? process.env.NUXT_PUBLIC_USE_MOCK

@@ -38,6 +38,7 @@ const { navItems, isActiveNav } = usePortalNavigation(menus, activeNav)
 const displayCity = computed(() => siteStore.currentCityName || props.activeCity || '南昌站')
 const logoUrl = computed(() => resolveAssetUrl(siteConfig.value?.logo))
 const siteName = computed(() => siteConfig.value?.name || '中测易聘')
+const messageRoute = computed(() => userStore.currentIdentity === 'employer' ? '/im/recruiter' : '/im/jobseeker')
 
 function handleGoCitySelect() {
   router.push('/city-select')
@@ -111,7 +112,7 @@ onBeforeUnmount(() => {
         </nav>
 
         <div v-if="userStore.isLoggedIn" ref="panelRef" class="portal-user-menu">
-          <NuxtLink to="/notifications">
+          <NuxtLink :to="messageRoute">
             消息
           </NuxtLink>
           <button type="button" class="portal-user-dropdown-trigger" @click="toggleIdentityDropdown">

@@ -5,6 +5,7 @@ interface JobseekerJobCardCreator {
   avatar?: string
   initial?: string
   activeLabel?: string
+  externalUserId?: string | null
 }
 
 const props = withDefaults(defineProps<{
@@ -31,7 +32,7 @@ const props = withDefaults(defineProps<{
 })
 
 defineEmits<{
-  communicate: []
+  communicate: [externalUserId?: string | null]
 }>()
 
 const normalizedCompanyName = computed(() => props.companyName || '')
@@ -79,7 +80,7 @@ const creatorActiveLabel = computed(() => props.creator.activeLabel || '近期�
           <button
             type="button"
             class="h-7 shrink-0 border-none bg-transparent px-0 text-[13px] text-[#ff9f00] inline-flex cursor-pointer items-center gap-1 hover:text-[#f08f00]"
-            @click="$emit('communicate')"
+            @click="$emit('communicate', creator.externalUserId)"
           >
             <span class="i-carbon-chat text-[14px]" />
             {{ communicateLabel }}

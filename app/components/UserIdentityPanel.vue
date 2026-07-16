@@ -34,6 +34,7 @@ const avatarClass = computed(() => {
 })
 
 const unreadCount = useUnreadCount()
+const messageRoute = computed(() => userStore.currentIdentity === 'employer' ? '/im/recruiter' : '/im/jobseeker')
 
 const isIdentityMenuOpen = ref(false)
 const { isRefreshingIdentity, switchingIdentityCode, errorMessage, switchIdentity } = useIdentitySwitching({
@@ -88,7 +89,7 @@ onBeforeUnmount(() => {
         <span v-if="unreadCount > 0" class="text-[10px] text-white leading-none px-1 rounded-full bg-red-500 flex h-[16px] min-w-[16px] items-center justify-center absolute -right-2 -top-1.5">{{ unreadCount > 99 ? '99+' : unreadCount }}</span>
       </NuxtLink>
       <span class="shrink-0 h-[12px] w-px" :class="separatorClass" /> -->
-      <NuxtLink to="/announcements" class="no-underline shrink-0 transition" :class="actionTextClass">
+      <NuxtLink :to="messageRoute" class="no-underline shrink-0 transition" :class="actionTextClass">
         消息
       </NuxtLink>
       <span class="shrink-0 h-[12px] w-px" :class="separatorClass" />

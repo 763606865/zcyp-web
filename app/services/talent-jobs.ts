@@ -66,6 +66,10 @@ export interface TalentJobItem {
     display_avatar: string | null
     last_login_at: string | null
     job_title: string | null
+    external_user_id?: string | null
+    im_external_user_id?: string | null
+    external_im_user_id?: string | null
+    im_user?: { external_user_id?: string | null } | null
   } | null
   position: { code: string, name: string } | null
   is_applied?: boolean

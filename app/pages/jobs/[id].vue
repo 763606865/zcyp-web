@@ -16,6 +16,7 @@ definePageMeta({
 const route = useRoute()
 const userStore = useUserStore()
 const metaStore = useMetaStore()
+const { startSingleConversation } = useImConversationStarter()
 
 const jobId = computed(() => Number((route.params as Record<string, string>).id))
 const job = ref<TalentJobItem | null>(null)
@@ -142,6 +143,26 @@ function getCreatorActiveLabel(j: TalentJobItem) {
   return '近期活跃'
 }
 
+function getCreatorExternalUserId(j: TalentJobItem) {
+  const creator = j.creator
+  return creator?.external_user_id
+    || creator?.im_external_user_id
+    || creator?.external_im_user_id
+    || creator?.im_user?.external_user_id
+    || null
+}
+
+function buildJobConversationMetadata(j: TalentJobItem) {
+  return {
+    source: 'job_detail',
+    job_id: j.id,
+    company_id: j.company_id || j.company?.id,
+    job_title: j.title,
+    company_name: j.company?.name,
+    creator_id: j.creator?.id,
+  }
+}
+
 function formatPublishedAt(value: string | null) {
   if (!value)
     return '职位更新'
@@ -234,12 +255,11 @@ async function handleFavorite() {
   }
 }
 
-function handleQuickCommunicate() {
-  if (!job.value?.creator?.id) {
-    pushGlobalNotice('暂无招聘官信息，暂不能发起沟通', 'warning')
+async function handleQuickCommunicate() {
+  if (!job.value)
     return
-  }
-  pushGlobalNotice(`${getCreatorName(job.value)}的沟通入口即将开放`, 'info')
+
+  await startSingleConversation(getCreatorExternalUserId(job.value), buildJobConversationMetadata(job.value))
 }
 </script>
 

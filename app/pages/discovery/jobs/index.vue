@@ -37,6 +37,7 @@ const userStore = useUserStore()
 const siteStore = useSiteStore()
 const route = useRoute()
 const router = useRouter()
+const { startSingleConversation } = useImConversationStarter()
 
 const activeTab = ref<DiscoveryTab>('atlas')
 const officialPage = ref(1)
@@ -782,8 +783,28 @@ async function handleFavorite(job: TalentJobItem) {
   }
 }
 
-function handleCommunicate(job: TalentJobItem) {
-  pushGlobalNotice(`${getRecruiter(job, 0)}的沟通入口即将开放`, 'info')
+function getCreatorExternalUserId(job: TalentJobItem) {
+  const creator = job.creator
+  return creator?.external_user_id
+    || creator?.im_external_user_id
+    || creator?.external_im_user_id
+    || creator?.im_user?.external_user_id
+    || null
+}
+
+function buildJobConversationMetadata(job: TalentJobItem) {
+  return {
+    source: 'discovery_jobs',
+    job_id: job.id,
+    company_id: job.company_id || job.company?.id,
+    job_title: job.title,
+    company_name: job.company?.name,
+    creator_id: job.creator?.id,
+  }
+}
+
+async function handleCommunicate(job: TalentJobItem) {
+  await startSingleConversation(getCreatorExternalUserId(job), buildJobConversationMetadata(job))
 }
 </script>
 
