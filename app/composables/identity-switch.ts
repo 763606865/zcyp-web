@@ -16,8 +16,8 @@ export const identitySwitchOptions: { code: AuthIdentityCode, title: string, sub
   { code: 'jobseeker', title: '求职者', subtitle: '投递职位与管理简历', icon: 'i-carbon-user-avatar-filled-alt' },
   { code: 'employer', title: '招聘方', subtitle: '发布职位与管理企业招聘', icon: 'i-carbon-building' },
   { code: 'campus_manager', title: '校招负责人', subtitle: '维护校招信息与学校合作', icon: 'i-carbon-education' },
-  { code: 'government_manager', title: '政府机构负责人', subtitle: '发布地方招聘与区域政策信息', icon: 'i-carbon-building-government' },
-  { code: 'headhunter', title: '猎头', subtitle: '委托招聘与候选人推荐', icon: 'i-carbon-user-multiple' },
+  // { code: 'government_manager', title: '政府机构负责人', subtitle: '发布地方招聘与区域政策信息', icon: 'i-carbon-building-government' },
+  // { code: 'headhunter', title: '猎头', subtitle: '委托招聘与候选人推荐', icon: 'i-carbon-user-multiple' },
 ]
 
 export function resolveIdentityProfileRoute(identity: AuthIdentityCode | null) {

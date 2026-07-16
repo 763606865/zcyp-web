@@ -144,7 +144,7 @@ function handleClickOutside() {
       </div>
     </header>
     <div class="flex flex-1" style="min-height: 0">
-      <aside class="bg-white shrink-0 w-[208px] overflow-y-auto">
+      <aside class="border-r border-[#f2e4c7] bg-white shrink-0 w-[208px] overflow-y-auto">
         <nav class="py-[16px]">
           <NuxtLink
             v-for="item in navItems" :key="item.path" :to="item.path"
