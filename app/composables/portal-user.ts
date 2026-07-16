@@ -9,8 +9,8 @@ const identityLabels: Record<AuthIdentityCode, string> = {
   jobseeker: '求职者',
   employer: '招聘方',
   campus_manager: '校招负责人',
-  government_manager: '政府机构负责人',
-  headhunter: '猎头',
+  // government_manager: '政府机构负责人',
+  // headhunter: '猎头',
 }
 
 export function usePortalUser() {
