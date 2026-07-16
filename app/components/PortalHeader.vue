@@ -175,17 +175,25 @@ onBeforeUnmount(() => {
           </template>
         </NuxtLink>
 
-        <div class="portal-searchbox">
-          <input
-            v-model="searchKeyword"
-            type="text"
-            :placeholder="props.searchPlaceholder || '请输入公司/职位'"
-            @keyup.enter="handleSearch"
+        <div class="flex gap-[21px] items-center">
+          <div class="portal-searchbox flex-1">
+            <input
+              v-model="searchKeyword"
+              type="text"
+              :placeholder="props.searchPlaceholder || '请输入公司/职位'"
+              @keyup.enter="handleSearch"
+            >
+            <button type="button" @click="handleSearch">
+              <span class="i-carbon-search" />
+              <span>搜索</span>
+            </button>
+          </div>
+          <a
+            class="source-link" href="https://www.jxhrm.com/" target="_blank"
+            rel="noopener noreferrer"
           >
-          <button type="button" @click="handleSearch">
-            <span class="i-carbon-search" />
-            <span>搜索</span>
-          </button>
+            <img src="/assets/images/home-head-link.png" alt="中测企业站">
+          </a>
         </div>
 
         <div class="portal-download">
@@ -201,3 +209,19 @@ onBeforeUnmount(() => {
     </div>
   </header>
 </template>
+
+ <style scoped>
+ .source-link {
+  width: 134px;
+  height: 32px;
+  text-decoration: none;
+}
+.portal-search-inner {
+  grid-template-columns: fit-content(250px) minmax(0, 1fr) 145px;
+}
+@media (max-width: 1023px) {
+  .portal-search-inner {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
