@@ -87,7 +87,7 @@ const logoUrl = computed(() => campusShellData.value.logoUrl)
           </NuxtLink>
         </nav>
       </aside>
-      <main class="p-[12px] flex-1 min-w-0 overflow-y-auto">
+      <main class="p-[12px] bg-[#f7f7f6] flex-1 min-w-0 overflow-y-auto">
         <NuxtPage />
       </main>
     </div>
