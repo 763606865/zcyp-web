@@ -17,8 +17,17 @@ function hasApprovedEmployerWorkspace(identity: AuthCurrentIdentity) {
   )
 }
 
+function hasBoundCampusManagerWorkspace(identity: AuthCurrentIdentity) {
+  return Boolean(
+    identity
+    && typeof identity === 'object'
+    && identity.identity_type === 3
+    && identity.organization,
+  )
+}
+
 function needsBasicInfoRedirect(identity: AuthIdentityCode | null, hasBasicInfo: boolean | null) {
-  return (identity === 'jobseeker' || identity === 'employer') && hasBasicInfo === false
+  return (identity === 'jobseeker' || identity === 'employer' || identity === 'campus_manager') && hasBasicInfo === false
 }
 
 interface ProfileWorkspaceRedirectOptions {
@@ -45,6 +54,9 @@ export function resolveProfileWorkspaceRedirect(mode: 'index' | 'workspace', opt
 
   if (hasApprovedEmployerWorkspace(userStore.currentIdentityInfo))
     return '/employer/dashboard'
+
+  if (hasBoundCampusManagerWorkspace(userStore.currentIdentityInfo))
+    return '/campus/dashboard'
 
   return options.getFallbackRedirectTo?.() || null
 }
