@@ -58,8 +58,27 @@ export interface TalentResumeDetailResponse {
   work_start_date: string | null
   current_salary: string | null
   salary_remark: string | null
+  user_id?: number | null
   phone?: string | null
   email?: string | null
+  external_user_id?: string | null
+  im_external_user_id?: string | null
+  external_im_user_id?: string | null
+  im_user?: { external_user_id?: string | null } | null
+  user?: {
+    id?: number | null
+    external_user_id?: string | null
+    im_external_user_id?: string | null
+    external_im_user_id?: string | null
+    im_user?: { external_user_id?: string | null } | null
+  } | null
+  candidate?: {
+    id?: number | null
+    external_user_id?: string | null
+    im_external_user_id?: string | null
+    external_im_user_id?: string | null
+    im_user?: { external_user_id?: string | null } | null
+  } | null
   is_primary: number
   status: number
   is_favorited?: boolean

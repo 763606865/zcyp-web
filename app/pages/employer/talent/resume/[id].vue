@@ -25,6 +25,8 @@ const isLoading = ref(true)
 const errorMessage = ref('')
 const isFavorited = ref(false)
 const isFavoriteOperating = ref(false)
+const currentResume = ref<TalentResumeDetailResponse | null>(null)
+const { isStartingConversation, startSingleConversation } = useImConversationStarter()
 
 const profile = ref({
   avatar: '',
@@ -178,6 +180,7 @@ async function loadResumeDetail() {
 }
 
 function applyResumeDetail(detail: TalentResumeDetailResponse) {
+  currentResume.value = detail
   const firstIntention = detail.intentions?.[0] || null
   const currentCity = detail.current_city_code || detail.current_residence_city || firstIntention?.expected_city_code || ''
 
@@ -376,6 +379,44 @@ function normalizeStringList(value: unknown) {
   return []
 }
 
+function readContactExternalUserId(source: unknown) {
+  if (!source || typeof source !== 'object')
+    return null
+
+  const imUser = readUnknown(source, 'im_user')
+  return readString(source, 'external_user_id')
+    || readString(source, 'im_external_user_id')
+    || readString(source, 'external_im_user_id')
+    || readString(imUser, 'external_user_id')
+    || null
+}
+
+function getResumeExternalUserId(detail: TalentResumeDetailResponse) {
+  return readContactExternalUserId(detail)
+    || readContactExternalUserId(detail.user)
+    || readContactExternalUserId(detail.candidate)
+}
+
+function buildResumeConversationMetadata(detail: TalentResumeDetailResponse) {
+  return {
+    source: 'employer_talent_resume_detail',
+    resume_id: detail.id,
+    resume_no: detail.resume_no,
+    candidate_user_id: detail.user_id || detail.user?.id || detail.candidate?.id,
+    candidate_name: detail.full_name || detail.title,
+    expected_position: intention.value.position,
+  }
+}
+
+async function handleCommunicate() {
+  if (!currentResume.value) {
+    pushGlobalNotice('简历信息未加载完成，请稍后重试', 'warning')
+    return
+  }
+
+  await startSingleConversation(getResumeExternalUserId(currentResume.value), buildResumeConversationMetadata(currentResume.value))
+}
+
 async function toggleFavorite() {
   if (isFavoriteOperating.value)
     return
@@ -460,8 +501,8 @@ async function toggleFavorite() {
               <span :class="isFavorited ? 'text-[#FFA500]' : ''">{{ isFavorited ? '★' : '☆' }}</span>
               <span>{{ isFavorited ? '已收藏' : '收藏' }}</span>
             </button>
-            <button class="text-[14px] text-white font-medium px-[20px] rounded-[4px] border-none bg-[#f90] h-[32px]">
-              立即沟通
+            <button class="text-[14px] text-white font-medium px-[20px] rounded-[4px] border-none bg-[#f90] h-[32px] disabled:opacity-60" :disabled="isStartingConversation" @click="handleCommunicate">
+              {{ isStartingConversation ? '发起中...' : '立即沟通' }}
             </button>
           </div>
         </div>
