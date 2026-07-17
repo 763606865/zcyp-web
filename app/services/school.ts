@@ -77,3 +77,19 @@ export async function updateSchoolProfile(payload: Record<string, any>, authoriz
   )
   return response.data.profile
 }
+
+export interface CampusStats {
+  active_activities: number
+  connected_companies: number
+  activity_jobs: number
+  pending_applications: number
+}
+
+export async function getCampusStats(authorization: string) {
+  const response = await getJson<ApiResponse<CampusStats>>(
+    '/rc/users/campus/stats',
+    undefined,
+    createAuthHeaders(authorization),
+  )
+  return response.data
+}

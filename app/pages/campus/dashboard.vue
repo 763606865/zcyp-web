@@ -1,4 +1,10 @@
 <script setup lang="ts">
+import type { NotificationItem } from '~/services/notification'
+import { ApiRequestError } from '~/services/http'
+import { getNotifications } from '~/services/notification'
+import { getCampusStats } from '~/services/school'
+import { pushGlobalNotice } from '~/utils/notice'
+
 definePageMeta({
   layout: 'default',
 })
@@ -14,22 +20,108 @@ const schoolName = computed(() => {
 
 const serviceDays = 123
 
-// 四个数据卡片 mock
-const statsCards = [
-  { icon: '/assets/images/campus/dashbord-card1.png', title: '进行中的招聘活动', value: 12, unit: '个职位' },
-  { icon: '/assets/images/campus/dashbord-card2.png', title: '对接企业数', value: 123, unit: '个职位' },
-  { icon: '/assets/images/campus/dashbord-card3.png', title: '累计参与学生', value: 4123, unit: '个职位' },
-  { icon: '/assets/images/campus/dashbord-card4.png', title: '待处理校企申请', value: 13, unit: '个' },
-]
+// 四个数据卡片
+const statsLoading = ref(false)
+const statsData = ref({
+  active_activities: 0,
+  connected_companies: 0,
+  activity_jobs: 0,
+  pending_applications: 0,
+})
 
-// 近期动态 mock（五种类型：活动/待办/新闻）
-const recentDynamics = [
-  { type: 'activity', typeLabel: '活动', title: '双选会报名截止提醒', detail: '2026届&2027届毕业生春季校园双选会招聘活动', date: '两个小时前' },
-  { type: 'todo', typeLabel: '待办', title: '新企业申请对接', detail: '南昌西达科技发展有限公司双选会报名申请', date: '昨天' },
-  { type: 'activity', typeLabel: '活动', title: '宣讲会确认', detail: '2026届&2027届毕业生春季校园双选会招聘活动', date: '06-13' },
-  { type: 'news', typeLabel: '新闻', title: '校企合作协议签署', detail: '2026届&2027届毕业生春季校园双选会招聘活动', date: '06-01' },
-  { type: 'activity', typeLabel: '活动', title: '双选会报名开始提醒', detail: '2026届&2027届毕业生春季校园双选会招聘活动', date: '05-12' },
-]
+const statsCards = computed(() => [
+  { icon: '/assets/images/campus/dashbord-card1.png', title: '进行中的招聘活动', value: statsData.value.active_activities, unit: '个职位' },
+  { icon: '/assets/images/campus/dashbord-card2.png', title: '对接企业数', value: statsData.value.connected_companies, unit: '个职位' },
+  { icon: '/assets/images/campus/dashbord-card3.png', title: '活动岗位数', value: statsData.value.activity_jobs, unit: '个职位' },
+  { icon: '/assets/images/campus/dashbord-card4.png', title: '待处理校企申请', value: statsData.value.pending_applications, unit: '个' },
+])
+
+async function fetchStats() {
+  if (!userStore.authHeader)
+    return
+  statsLoading.value = true
+  try {
+    statsData.value = await getCampusStats(userStore.authHeader)
+  }
+  catch (e) {
+    pushGlobalNotice(e instanceof ApiRequestError ? e.message : '获取校招统计数据失败', 'error')
+  }
+  finally {
+    statsLoading.value = false
+  }
+}
+
+onMounted(() => {
+  fetchStats()
+  fetchRecentDynamics()
+})
+
+// 近期动态
+const dynamicsLoading = ref(false)
+
+interface DynamicItem {
+  type: string
+  typeLabel: string
+  title: string
+  detail: string
+  date: string
+}
+
+const recentDynamics = ref<DynamicItem[]>([])
+
+// 通知类型 → 动态类型映射
+const notificationTypeMap: Record<number, { type: string, typeLabel: string }> = {
+  1: { type: 'todo', typeLabel: '待办' },
+  2: { type: 'news', typeLabel: '新闻' },
+  3: { type: 'activity', typeLabel: '活动' },
+}
+
+function formatRelativeTime(dateStr: string | null): string {
+  if (!dateStr)
+    return ''
+  const date = new Date(dateStr)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+  if (diffHours < 1)
+    return '刚刚'
+  if (diffHours < 24)
+    return `${diffHours}小时前`
+  if (diffDays === 1)
+    return '昨天'
+  if (diffDays < 7)
+    return `${diffDays}天前`
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${month}-${day}`
+}
+
+async function fetchRecentDynamics() {
+  if (!userStore.authHeader)
+    return
+  dynamicsLoading.value = true
+  try {
+    const res = await getNotifications(userStore.authHeader, { per_page: 7 })
+    recentDynamics.value = (res.data || []).map((item: NotificationItem) => {
+      const mapped = notificationTypeMap[item.type] || { type: 'activity', typeLabel: '其他' }
+      return {
+        type: mapped.type,
+        typeLabel: mapped.typeLabel,
+        title: item.title,
+        detail: item.body || '',
+        date: formatRelativeTime(item.happened_at),
+      }
+    })
+  }
+  catch (e) {
+    pushGlobalNotice(e instanceof ApiRequestError ? e.message : '获取近期动态失败', 'error')
+  }
+  finally {
+    dynamicsLoading.value = false
+  }
+}
 
 // 快捷入口 mock
 const quickEntries = [
@@ -56,15 +148,15 @@ const typeIconMap: Record<string, string> = {
         数据看板
       </div>
       <!-- 学校信息 -->
-      <div class="mt-[23px] flex items-start">
+      <div class="mt-[23px] flex items-center">
         <img class="h-[55px] w-[55px]" src="/assets/images/campus/dashbord-logo.png" alt="学校logo">
         <div class="ml-[6px]">
           <div class="text-[28px] text-[#222222] leading-tight font-bold">
             {{ schoolName || '三亚城市学院' }}
           </div>
-          <div class="text-[14px] text-[#999999] mt-[4px]">
+          <!-- <div class="text-[14px] text-[#999999] mt-[4px]">
             今天是中测易聘为您服务的第{{ serviceDays }}天
-          </div>
+          </div> -->
         </div>
       </div>
 
