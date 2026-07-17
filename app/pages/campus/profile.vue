@@ -1,17 +1,18 @@
 <script setup lang="ts">
-definePageMeta({
-  layout: 'default',
-  middleware: ['auth', 'identity-required'],
-})
-
+import type { UploadCustomRequestOptions, UploadFileInfo } from 'naive-ui'
 import type { SchoolProfile } from '~/services/school'
-import { NInput, NSelect, NSwitch } from 'naive-ui'
+import { NButton, NInput, NModal, NSelect, NSwitch, NUpload } from 'naive-ui'
 import { ApiRequestError } from '~/services/http'
 import { getSchoolProfile, updateSchoolProfile } from '~/services/school'
 import { upload } from '~/services/upload'
 import { useMetaStore } from '~/stores/meta'
 import { useSiteStore } from '~/stores/site'
 import { pushGlobalNotice } from '~/utils/notice'
+
+definePageMeta({
+  layout: 'default',
+  middleware: ['auth', 'identity-required'],
+})
 
 const userStore = useUserStore()
 const metaStore = useMetaStore()
@@ -65,7 +66,7 @@ const cityOptions = computed(() => {
   return (province?.children || []).map(c => ({ label: c.name, value: c.code }))
 })
 
-const districtOptions = computed(() => {
+const _districtOptions = computed(() => {
   if (!form.value.city_code)
     return []
   for (const province of areaNodes.value) {
@@ -76,12 +77,12 @@ const districtOptions = computed(() => {
   return []
 })
 
-function onProvinceChange() {
+function _onProvinceChange() {
   form.value.city_code = null
   form.value.district_code = null
 }
 
-function onCityChange() {
+function _onCityChange() {
   form.value.district_code = null
 }
 
@@ -136,7 +137,7 @@ watch(campusProfileData, (data) => {
   form.value.display_banner = data.display_banner
 }, { immediate: true })
 
-async function uploadSchoolImage(field: 'logo' | 'banner') {
+async function _uploadSchoolImage(field: 'logo' | 'banner') {
   const input = document.createElement('input')
   input.type = 'file'
   input.accept = 'image/*'
@@ -158,7 +159,7 @@ async function uploadSchoolImage(field: 'logo' | 'banner') {
   input.click()
 }
 
-async function handleSave() {
+async function _handleSave() {
   if (!userStore.authHeader || isSaving.value)
     return
   isSaving.value = true
@@ -191,279 +192,460 @@ async function handleSave() {
   finally { isSaving.value = false }
 }
 
+// 编辑弹窗相关
+const showEditModal = ref(false)
+const editForm = ref({
+  short_name: '',
+  school_code: '',
+  logo: null as string | null,
+  display_logo: null as string | null,
+  competent_dept: '',
+  education_levels: [] as number[],
+  main_education_level: null as number | null,
+  province_code: null as string | null,
+  city_code: null as string | null,
+  contact_email: '',
+  contact_name: '',
+  contact_phone: '',
+  intro: '',
+})
+const editIsSaving = ref(false)
+
+// Logo 上传：延迟上传模式（参考 create.vue）
+const pendingLogoFile = ref<File | null>(null)
+const logoRemoved = ref(false)
+const logoChanged = ref(false) // 标记 logo 是否被修改过
+const editLogoFileList = ref<UploadFileInfo[]>([])
+const originalLogoPath = ref<string | null>(null) // 记录打开弹窗时的原始 logo 路径
+
+function initEditLogoFileList() {
+  originalLogoPath.value = editForm.value.logo
+  logoChanged.value = false
+  pendingLogoFile.value = null
+  logoRemoved.value = false
+  if (editForm.value.display_logo) {
+    editLogoFileList.value = [{
+      id: 'logo',
+      name: 'logo',
+      url: editForm.value.display_logo,
+      status: 'finished',
+    }]
+  }
+  else {
+    editLogoFileList.value = []
+  }
+}
+
+function openEditModal() {
+  if (!profile.value)
+    return
+  editForm.value = {
+    short_name: profile.value.short_name || '',
+    school_code: profile.value.school_code || '',
+    logo: profile.value.logo,
+    display_logo: profile.value.display_logo,
+    competent_dept: profile.value.competent_dept || '',
+    education_levels: [...(profile.value.education_levels || [])],
+    main_education_level: profile.value.main_education_level,
+    province_code: profile.value.province_code,
+    city_code: profile.value.city_code,
+    contact_email: profile.value.contact_email || '',
+    contact_name: profile.value.contact_name || '',
+    contact_phone: profile.value.contact_phone || '',
+    intro: profile.value.intro || '',
+  }
+  initEditLogoFileList()
+  showEditModal.value = true
+}
+
+function handleEditLogoUpload({ file, onFinish }: UploadCustomRequestOptions) {
+  pendingLogoFile.value = file.file as File
+  logoRemoved.value = false
+  logoChanged.value = true
+  onFinish()
+  return { abort: () => {} }
+}
+
+function handleEditLogoChange({ fileList }: { fileList: UploadFileInfo[] }) {
+  editLogoFileList.value = fileList.slice(-1)
+}
+
+function handleEditLogoRemove() {
+  pendingLogoFile.value = null
+  logoRemoved.value = true
+  logoChanged.value = true
+  editForm.value.logo = null
+  editForm.value.display_logo = null
+}
+
+async function handleEditSaveDraft() {
+  if (!userStore.authHeader || editIsSaving.value)
+    return
+  editIsSaving.value = true
+  try {
+    // 只有 logo 被修改过才处理上传
+    let logoPath: string | undefined
+    if (logoChanged.value) {
+      if (pendingLogoFile.value) {
+        try {
+          const res = await upload(pendingLogoFile.value, 'file', userStore.authHeader)
+          logoPath = res.path
+          editForm.value.display_logo = res.url
+        }
+        catch (e) {
+          pushGlobalNotice(e instanceof ApiRequestError ? e.message : 'Logo上传失败', 'warning')
+        }
+      }
+      else if (logoRemoved.value) {
+        logoPath = null
+      }
+    }
+
+    const payload: Record<string, any> = {
+      short_name: editForm.value.short_name || undefined,
+      competent_dept: editForm.value.competent_dept || undefined,
+      education_levels: editForm.value.education_levels.length ? editForm.value.education_levels : undefined,
+      main_education_level: editForm.value.main_education_level || undefined,
+      province_code: editForm.value.province_code || undefined,
+      city_code: editForm.value.city_code || undefined,
+      contact_email: editForm.value.contact_email || undefined,
+      contact_name: editForm.value.contact_name || undefined,
+      contact_phone: editForm.value.contact_phone || undefined,
+      intro: editForm.value.intro || undefined,
+    }
+    // 只有 logo 变更时才传入 payload
+    if (logoChanged.value) {
+      payload.logo = logoPath
+    }
+    await updateSchoolProfile(payload, userStore.authHeader)
+    pushGlobalNotice('草稿已保存')
+    showEditModal.value = false
+    await refreshNuxtData('campus-school-profile')
+  }
+  catch (e) {
+    pushGlobalNotice(e instanceof ApiRequestError ? e.message : '保存失败', 'error')
+  }
+  finally { editIsSaving.value = false }
+}
+
+async function handleEditSubmit() {
+  if (!userStore.authHeader || editIsSaving.value)
+    return
+  editIsSaving.value = true
+  try {
+    // 只有 logo 被修改过才处理上传
+    let logoPath: string | undefined
+    if (logoChanged.value) {
+      if (pendingLogoFile.value) {
+        try {
+          const res = await upload(pendingLogoFile.value, 'file', userStore.authHeader)
+          logoPath = res.path
+          editForm.value.display_logo = res.url
+        }
+        catch (e) {
+          pushGlobalNotice(e instanceof ApiRequestError ? e.message : 'Logo上传失败', 'warning')
+        }
+      }
+      else if (logoRemoved.value) {
+        logoPath = null
+      }
+    }
+
+    const payload: Record<string, any> = {
+      short_name: editForm.value.short_name || undefined,
+      competent_dept: editForm.value.competent_dept || undefined,
+      education_levels: editForm.value.education_levels.length ? editForm.value.education_levels : undefined,
+      main_education_level: editForm.value.main_education_level || undefined,
+      province_code: editForm.value.province_code || undefined,
+      city_code: editForm.value.city_code || undefined,
+      contact_email: editForm.value.contact_email || undefined,
+      contact_name: editForm.value.contact_name || undefined,
+      contact_phone: editForm.value.contact_phone || undefined,
+      intro: editForm.value.intro || undefined,
+    }
+    // 只有 logo 变更时才传入 payload
+    if (logoChanged.value) {
+      payload.logo = logoPath
+    }
+    await updateSchoolProfile(payload, userStore.authHeader)
+    pushGlobalNotice('已提交审核')
+    showEditModal.value = false
+    await refreshNuxtData('campus-school-profile')
+  }
+  catch (e) {
+    pushGlobalNotice(e instanceof ApiRequestError ? e.message : '提交失败', 'error')
+  }
+  finally { editIsSaving.value = false }
+}
+
+const editProvinceOptions = computed(() =>
+  areaNodes.value.filter(a => Number(a.level) === 1).map(a => ({ label: a.name, value: a.code })),
+)
+
+const editCityOptions = computed(() => {
+  if (!editForm.value.province_code)
+    return []
+  const province = areaNodes.value.find(a => a.code === editForm.value.province_code)
+  return (province?.children || []).map(c => ({ label: c.name, value: c.code }))
+})
+
+function onEditProvinceChange() {
+  editForm.value.city_code = null
+}
+
+const displayProvinceName = computed(() => {
+  if (!profile.value?.province_code)
+    return ''
+  return provinceOptions.value.find(o => o.value === profile.value!.province_code)?.label || ''
+})
+
+const displayCityName = computed(() => {
+  if (!profile.value?.city_code)
+    return ''
+  return cityOptions.value.find(o => o.value === profile.value!.city_code)?.label || ''
+})
+
+const locationDisplay = computed(() => {
+  const parts = [displayProvinceName.value, displayCityName.value].filter(Boolean)
+  return parts.join(' ')
+})
 </script>
 
 <template>
-  <div>
-    <div class="mb-6 flex items-center justify-between">
-      <div>
-        <h1 class="text-[22px] text-[#24180c] font-semibold">
-          院校信息
-        </h1>
-        <p class="mt-1 text-[14px] text-[#6f6556]">
-          学校基础信息展示资料维护
-        </p>
-      </div>
-      <div v-if="profile" class="flex items-center gap-2">
-        <span class="rounded-full px-3 py-1 text-[12px] font-medium" :class="profile.status === 1 ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200' : 'bg-amber-50 text-amber-700 ring-1 ring-amber-200'">
-          {{ profile.status_label || '未知' }}
-        </span>
-      </div>
+  <div class="pl-[12px]">
+    <!-- 导航标题 -->
+    <div class="mb-[20px]">
+      <h1 class="text-[14px] text-[#222] font-bold">
+        院校信息
+      </h1>
     </div>
 
-    <div v-if="isLoading" class="rounded-[18px] bg-white px-6 py-16 text-center text-[14px] text-slate-500 shadow-[0_8px_20px_rgba(148,92,0,0.04)] ring-1 ring-[#f1e4c6]">
+    <div v-if="isLoading" class="text-[14px] text-slate-500 px-6 py-16 text-center rounded-[4px] bg-white ring-1 ring-gray-100 shadow-sm">
       加载中...
     </div>
 
-    <div v-else class="grid gap-6 lg:grid-cols-[3fr_1fr]">
-      <!-- 左侧编辑区 -->
-      <form class="space-y-5" @submit.prevent="handleSave">
-        <div class="rounded-[18px] bg-white p-6 shadow-[0_8px_20px_rgba(148,92,0,0.04)] ring-1 ring-[#f1e4c6]">
-          <h2 class="text-[16px] text-[#24180c] font-semibold">
-            基本资料
+    <div v-else>
+      <!-- 基础信息Card -->
+      <div class="rounded-[4px] bg-white ring-1 ring-gray-100 shadow-sm" style="padding: 16px 24px;">
+        <!-- Card头部 -->
+        <div class="flex items-center justify-between">
+          <h2 class="text-[16px] text-[#000] font-semibold">
+            基础信息
           </h2>
-          <div class="grid mt-5 gap-5 md:grid-cols-2">
-            <div class="grid gap-5 md:col-span-2 md:grid-cols-2">
-              <label class="text-[13px] text-[#8a6b34] space-y-1.5">
-                <span>学校简称</span>
-                <NInput v-model:value="form.short_name" placeholder="如：北大" :maxlength="100" />
-              </label>
-              <label class="text-[13px] text-[#8a6b34] space-y-1.5">
-                <span>主管部门</span>
-                <NInput v-model:value="form.competent_dept" placeholder="如：教育部" :maxlength="50" />
-              </label>
-            </div>
-            <div class="md:col-span-2">
-              <div class="text-[13px] text-[#8a6b34]">
-                校徽 Logo
-              </div>
-              <div class="mt-1.5 flex items-center gap-4">
-                <div
-                  class="h-[72px] w-[72px] flex shrink-0 cursor-pointer items-center justify-center overflow-hidden border-2 border-[#ecd8a9] rounded-[16px] border-dashed bg-[#fef7e8] text-[12px] text-[#b89243] transition hover:border-[#d79a19] hover:bg-[#fdeece]"
-                  @click="uploadSchoolImage('logo')"
-                >
-                  <template v-if="uploadingImg">
-                    <span class="i-carbon-loop animate-spin text-[20px]" />
-                  </template>
-                  <template v-else-if="form.display_logo">
-                    <img :src="form.display_logo" alt="logo" class="h-full w-full object-contain">
-                  </template>
-                  <template v-else>
-                    <div class="text-center">
-                      <span class="i-carbon-camera text-[20px]" />
-                      <div>上传</div>
-                    </div>
-                  </template>
-                </div>
-                <span class="text-[12px] text-[#b89243]">建议 200×200px，支持 JPG/PNG</span>
-              </div>
-            </div>
-            <label class="text-[13px] text-[#8a6b34] space-y-1.5">
-              <span>省份</span>
-              <NSelect v-model:value="form.province_code" :options="provinceOptions" placeholder="选择省份" clearable filterable @update:value="onProvinceChange" />
-            </label>
-            <label class="text-[13px] text-[#8a6b34] space-y-1.5">
-              <span>城市</span>
-              <NSelect v-model:value="form.city_code" :options="cityOptions" placeholder="选择城市" clearable filterable :disabled="!form.province_code" @update:value="onCityChange" />
-            </label>
-            <label class="text-[13px] text-[#8a6b34] space-y-1.5">
-              <span>区/县</span>
-              <NSelect v-model:value="form.district_code" :options="districtOptions" placeholder="选择区县" clearable filterable :disabled="!form.city_code" />
-            </label>
-            <label class="text-[13px] text-[#8a6b34] space-y-1.5">
-              <span>详细地址</span>
-              <AmapLocationPicker v-model="form.address" placeholder="点击选择位置" />
-            </label>
-          </div>
+          <button
+            class="text-[14px] text-white font-medium px-[23px] py-[6px] rounded-[4px] border-none bg-[#FFA500] cursor-pointer transition hover:brightness-105"
+            @click="openEditModal"
+          >
+            编辑
+          </button>
         </div>
 
-        <div class="rounded-[18px] bg-white p-6 shadow-[0_8px_20px_rgba(148,92,0,0.04)] ring-1 ring-[#f1e4c6]">
-          <h2 class="text-[16px] text-[#24180c] font-semibold">
-            办学信息
-          </h2>
-          <div class="grid mt-5 gap-5 md:grid-cols-2">
-            <label class="text-[13px] text-[#8a6b34] space-y-1.5">
-              <span>办学层次（可多选）</span>
-              <NSelect v-model:value="form.education_levels" :options="educationLevelOptions" placeholder="选择办学层次" multiple />
-            </label>
-            <label class="text-[13px] text-[#8a6b34] space-y-1.5">
-              <span>主办学层次</span>
-              <NSelect v-model:value="form.main_education_level" :options="educationLevelOptions" placeholder="选择主办学层次" clearable />
-            </label>
+        <!-- Logo、学校名、级别 -->
+        <div class="mt-[18px] flex items-start">
+          <div
+            v-if="profile?.display_logo"
+            class="rounded-[4px] shrink-0 h-[64px] w-[64px] overflow-hidden"
+          >
+            <img :src="profile.display_logo" alt="" class="h-full w-full object-contain">
           </div>
-        </div>
-
-        <div class="rounded-[18px] bg-white p-6 shadow-[0_8px_20px_rgba(148,92,0,0.04)] ring-1 ring-[#f1e4c6]">
-          <h2 class="text-[16px] text-[#24180c] font-semibold">
-            联系信息
-          </h2>
-          <div class="grid mt-5 gap-5 md:grid-cols-2">
-            <label class="text-[13px] text-[#8a6b34] space-y-1.5">
-              <span>对接总负责人</span>
-              <NInput v-model:value="form.contact_name" placeholder="姓名" :maxlength="50" />
-            </label>
-            <label class="text-[13px] text-[#8a6b34] space-y-1.5">
-              <span>联系电话</span>
-              <NInput v-model:value="form.contact_phone" placeholder="手机号" :maxlength="20" />
-            </label>
-            <label class="text-[13px] text-[#8a6b34] space-y-1.5">
-              <span>就业办邮箱</span>
-              <NInput v-model:value="form.contact_email" placeholder="email@school.edu.cn" :maxlength="100" />
-            </label>
+          <div v-else class="text-[24px] text-white font-bold rounded-[4px] bg-[#FFA500] flex shrink-0 h-[64px] w-[64px] items-center justify-center">
+            {{ (profile?.short_name || '校').charAt(0) }}
           </div>
-        </div>
-
-        <div class="rounded-[18px] bg-white p-6 shadow-[0_8px_20px_rgba(148,92,0,0.04)] ring-1 ring-[#f1e4c6]">
-          <h2 class="text-[16px] text-[#24180c] font-semibold">
-            功能设置
-          </h2>
-          <div class="mt-5 space-y-4">
-            <label class="flex items-center gap-3 text-[13px] text-[#8a6b34]">
-              <NSwitch v-model:value="form.allow_company_apply_activity" />
-              <span>允许企业自主发起进校宣讲申请</span>
-            </label>
-            <label class="flex items-center gap-3 text-[13px] text-[#8a6b34]">
-              <NSwitch v-model:value="form.allow_company_cooperate_apply" />
-              <span>开放校企对接申请入口</span>
-            </label>
-          </div>
-        </div>
-
-        <div class="rounded-[18px] bg-white p-6 shadow-[0_8px_20px_rgba(148,92,0,0.04)] ring-1 ring-[#f1e4c6]">
-          <h2 class="text-[16px] text-[#24180c] font-semibold">
-            首页横幅
-          </h2>
-          <div class="mt-3">
-            <div
-              class="relative h-[140px] flex cursor-pointer items-center justify-center overflow-hidden border-2 border-[#ecd8a9] rounded-[16px] border-dashed bg-[#fef7e8] text-[12px] text-[#b89243] transition hover:border-[#d79a19] hover:bg-[#fdeece]"
-              @click="uploadSchoolImage('banner')"
-            >
-              <template v-if="uploadingImg">
-                <span class="i-carbon-loop animate-spin text-[28px]" />
+          <div class="ml-[19px]">
+            <div class="flex items-center">
+              <span class="text-[24px] text-[#222] font-semibold">{{ profile?.short_name || '学校名称' }}</span>
+              <template v-if="profile && profile.status !== 1">
+                <img src="/assets/images/campus/school-review.png" alt="" class="ml-[16px] h-[16px] w-[16px]">
+                <span class="text-[14px] text-[#555] ml-[6px]">{{ profile.status_label || '审核中' }}</span>
               </template>
-              <template v-else-if="form.display_banner">
-                <img :src="form.display_banner" alt="banner" class="h-full w-full object-cover">
-                <div class="absolute inset-0 flex items-center justify-center bg-black/0 text-[14px] text-white font-medium opacity-0 transition hover:bg-black/30 hover:opacity-100">
-                  点击更换
-                </div>
-              </template>
-              <template v-else>
-                <div class="text-center">
-                  <span class="i-carbon-image text-[28px]" />
-                  <div class="mt-1">
-                    上传横幅背景图
-                  </div>
-                  <div class="mt-0.5 text-[11px] text-[#ccb68c]">
-                    建议 1200×400px，支持 JPG/PNG
-                  </div>
-                </div>
+            </div>
+            <div v-if="profile?.education_level_labels?.length" class="text-[14px] text-[#555] mt-[10px] flex items-center">
+              <template v-for="(label, index) in profile.education_level_labels" :key="index">
+                <span>{{ label }}</span>
+                <span v-if="index < profile.education_level_labels.length - 1" class="mx-[8px] bg-[#CECECE] h-[10px] w-[1px] inline-block" />
               </template>
             </div>
           </div>
         </div>
 
-        <div class="rounded-[18px] bg-white p-6 shadow-[0_8px_20px_rgba(148,92,0,0.04)] ring-1 ring-[#f1e4c6]">
-          <h2 class="text-[16px] text-[#24180c] font-semibold">
-            院校简介
-          </h2>
-          <div class="mt-3">
-            <TiptapEditor v-model="form.intro" placeholder="介绍学校概况、优势专业与合作亮点…" />
+        <!-- 信息简介（联系方式） -->
+        <div class="mt-[21px] gap-x-6 gap-y-4 grid grid-cols-3">
+          <div class="flex items-start">
+            <span class="text-[14px] text-[#999] mr-1 shrink-0">地址：</span>
+            <span class="text-[14px] text-[#222]">{{ profile?.address || locationDisplay || '暂无' }}</span>
           </div>
-        </div>
-
-        <button
-          type="submit"
-          class="h-[46px] cursor-pointer rounded-[14px] border-none bg-[linear-gradient(135deg,#ffbe3b_0%,#ffa500_60%,#ea9400_100%)] px-6 text-[15px] text-white font-semibold shadow-[0_12px_24px_rgba(255,165,0,0.18)] transition disabled:opacity-50 hover:brightness-105"
-          :disabled="isSaving"
-        >
-          {{ isSaving ? '保存中...' : '保存资料' }}
-        </button>
-      </form>
-
-      <!-- 右侧预览 -->
-      <div class="space-y-5">
-        <div class="rounded-[18px] bg-white p-6 shadow-[0_8px_20px_rgba(148,92,0,0.04)] ring-1 ring-[#f1e4c6]">
-          <div class="text-[15px] text-[#24180c] font-semibold">
-            院校预览
+          <div v-if="profile?.contact_email" class="flex items-start">
+            <span class="text-[14px] text-[#999] mr-1 shrink-0">官方教育邮箱：</span>
+            <span class="text-[14px] text-[#222]">{{ profile.contact_email }}</span>
           </div>
-
-          <div class="mt-5 rounded-[14px] bg-[linear-gradient(135deg,#fef7e8_0%,#fdeece_100%)] ring-1 ring-[#f2ddb3]">
-            <div v-if="form.display_banner" class="h-[80px] overflow-hidden rounded-t-[14px]">
-              <img :src="form.display_banner" alt="" class="h-full w-full object-cover">
-            </div>
-            <div class="px-4 py-5">
-              <div class="flex items-center gap-3">
-                <div v-if="form.display_logo" class="h-[44px] w-[44px] shrink-0 overflow-hidden rounded-[12px] ring-1 ring-[#f2ddb3]">
-                  <img :src="form.display_logo" alt="" class="h-full w-full object-contain">
-                </div>
-                <div v-else class="h-[44px] w-[44px] flex shrink-0 items-center justify-center rounded-[12px] bg-[linear-gradient(135deg,#ffbe3b_0%,#ffa500_60%,#ea9400_100%)] text-[18px] text-white font-bold">
-                  {{ (form.short_name || '校').charAt(0) }}
-                </div>
-                <div>
-                  <div class="text-[16px] text-[#24180c] font-semibold">
-                    {{ form.short_name || '学校简称' }}
-                  </div>
-                  <div class="mt-0.5 text-[12px] text-[#8a6b34]">
-                    {{ form.competent_dept || '主管部门' }}
-                  </div>
-                </div>
-              </div>
-
-              <div class="mt-4 text-[13px] text-[#73572d] space-y-2">
-                <div v-if="form.education_levels.length" class="flex items-center gap-2">
-                  <span class="i-carbon-education text-[14px]" />
-                  <span>{{ educationLevelOptions.filter(o => form.education_levels.includes(o.value)).map(o => o.label).join('、') }}</span>
-                </div>
-                <div v-if="form.province_code || form.city_code" class="flex items-center gap-2">
-                  <span class="i-carbon-location text-[14px]" />
-                  <span>{{ `${provinceOptions.find(o => o.value === form.province_code)?.label || ''}${cityOptions.find(o => o.value === form.city_code)?.label ? ` ${cityOptions.find(o => o.value === form.city_code)?.label}` : ''}` }}</span>
-                </div>
-                <div v-if="form.contact_name" class="flex items-center gap-2">
-                  <span class="i-carbon-user text-[14px]" />
-                  <span>{{ form.contact_name }}</span>
-                </div>
-                <div v-if="form.contact_phone" class="flex items-center gap-2">
-                  <span class="i-carbon-phone text-[14px]" />
-                  <span>{{ form.contact_phone }}</span>
-                </div>
-                <div v-if="form.intro" class="line-clamp-4 mt-3 text-[12px] text-[#8a6b34] leading-6" v-html="form.intro" />
-              </div>
-            </div>
+          <div v-if="profile?.competent_dept" class="flex items-start">
+            <span class="text-[14px] text-[#999] mr-1 shrink-0">主管部门：</span>
+            <span class="text-[14px] text-[#222]">{{ profile.competent_dept }}</span>
           </div>
-
-          <div class="rounded-[18px] bg-white p-6 shadow-[0_8px_20px_rgba(148,92,0,0.04)] ring-1 ring-[#f1e4c6]">
-            <div class="text-[15px] text-[#24180c] font-semibold">
-              状态信息
-            </div>
-            <div class="mt-5 text-[13px] text-[#6f6556] space-y-3">
-              <div class="flex justify-between">
-                <span>资料状态</span>
-                <span class="font-medium" :class="profile?.status === 1 ? 'text-emerald-600' : 'text-amber-600'">{{ profile?.status_label || '—' }}</span>
-              </div>
-              <div class="flex justify-between">
-                <span>院校代码</span>
-                <span class="text-[#24180c] font-medium">{{ profile?.school_code || '—' }}</span>
-              </div>
-              <div v-if="profile" class="flex justify-between">
-                <span>校区数量</span>
-                <span class="text-[#24180c] font-medium">{{ profile.campus_count }}</span>
-              </div>
-              <div v-if="profile" class="flex justify-between">
-                <span>学院数量</span>
-                <span class="text-[#24180c] font-medium">{{ profile.department_count }}</span>
-              </div>
-              <div v-if="profile" class="flex justify-between">
-                <span>合作企业</span>
-                <span class="text-[#24180c] font-medium">{{ profile.cooperate_company_count }}</span>
-              </div>
-              <div v-if="profile" class="flex justify-between">
-                <span>累计活动</span>
-                <span class="text-[#24180c] font-medium">{{ profile.activity_total }}</span>
-              </div>
-            </div>
+          <div v-if="profile?.contact_name" class="flex items-start">
+            <span class="text-[14px] text-[#999] mr-1 shrink-0">对接总负责人：</span>
+            <span class="text-[14px] text-[#222]">{{ profile.contact_name }}</span>
+          </div>
+          <div v-if="profile?.contact_phone" class="flex items-start">
+            <span class="text-[14px] text-[#999] mr-1 shrink-0">联系电话：</span>
+            <span class="text-[14px] text-[#222]">{{ profile.contact_phone }}</span>
+          </div>
+          <div v-if="profile?.school_code" class="flex items-start">
+            <span class="text-[14px] text-[#999] mr-1 shrink-0">学校代码：</span>
+            <span class="text-[14px] text-[#222]">{{ profile.school_code }}</span>
           </div>
         </div>
       </div>
+
+      <!-- 院校简介Card -->
+      <div class="mt-[17px] rounded-[4px] bg-white min-h-[424px] ring-1 ring-gray-100 shadow-sm" style="padding: 16px 24px;">
+        <h2 class="text-[16px] text-[#222] font-semibold">
+          院校简介
+        </h2>
+        <div class="mt-[10px] bg-[#ECECEC] h-[1px]" />
+        <div class="mt-[18px]">
+          <h3 class="text-[14px] text-[#222] font-semibold">
+            学校概况
+          </h3>
+          <div class="text-[14px] text-[#555] leading-7 mt-[10px]" v-html="profile?.intro || '<span class=&quot;text-[#999]&quot;>暂无简介内容</span>'" />
+        </div>
+      </div>
     </div>
+
+    <!-- 编辑弹窗 -->
+    <NModal v-model:show="showEditModal" preset="card" title="编辑院校信息" style="max-width: 900px;">
+      <div class="gap-x-6 gap-y-5 grid grid-cols-2">
+        <!-- 院校名称 -->
+        <label class="text-[14px] text-[#333] space-y-2">
+          <span>院校名称</span>
+          <NInput v-model:value="editForm.short_name" placeholder="请输入院校名称" :maxlength="100" />
+        </label>
+
+        <!-- 学校代码 -->
+        <label class="text-[14px] text-[#333] space-y-2">
+          <span>学校代码</span>
+          <NInput v-model:value="editForm.school_code" placeholder="请输入学校代码" :maxlength="20" />
+        </label>
+
+        <!-- 学校logo -->
+        <div class="space-y-2">
+          <label class="text-[14px] text-[#333]">
+            学校logo
+          </label>
+          <div class="space-y-2">
+            <ClientOnly>
+              <NUpload
+                v-model:file-list="editLogoFileList"
+                list-type="image-card"
+                :custom-request="handleEditLogoUpload"
+                :max="1"
+                accept="image/jpeg,image/png"
+                @change="handleEditLogoChange"
+                @remove="handleEditLogoRemove"
+              />
+            </ClientOnly>
+            <span class="text-[12px] text-[#999]">建议上传200*200px，支持jpg/png格式</span>
+          </div>
+        </div>
+
+        <!-- 主管部门 -->
+        <label class="text-[14px] text-[#333] space-y-2">
+          <span>主管部门</span>
+          <NInput v-model:value="editForm.competent_dept" placeholder="请输入主管部门" :maxlength="50" />
+        </label>
+
+        <!-- 办学层次 -->
+        <label class="text-[14px] text-[#333] space-y-2">
+          <span>办学层次(可多选)</span>
+          <NSelect v-model:value="editForm.education_levels" :options="educationLevelOptions" placeholder="请选择" multiple />
+        </label>
+
+        <!-- 主办学层次 -->
+        <label class="text-[14px] text-[#333] space-y-2">
+          <span>主办学层次</span>
+          <NSelect v-model:value="editForm.main_education_level" :options="educationLevelOptions" placeholder="请选择" clearable />
+        </label>
+
+        <!-- 官方教育邮箱 -->
+        <label class="text-[14px] text-[#333] space-y-2">
+          <span>官方教育邮箱</span>
+          <NInput v-model:value="editForm.contact_email" placeholder="请输入官方教育邮箱" :maxlength="100" />
+        </label>
+
+        <!-- 办公城市 -->
+        <label class="text-[14px] text-[#333] space-y-2">
+          <span>办公城市</span>
+          <div class="flex gap-2">
+            <NSelect v-model:value="editForm.province_code" :options="editProvinceOptions" placeholder="请选择" clearable filterable class="flex-1" @update:value="onEditProvinceChange" />
+            <NSelect v-model:value="editForm.city_code" :options="editCityOptions" placeholder="请选择" clearable filterable class="flex-1" :disabled="!editForm.province_code" />
+          </div>
+        </label>
+
+        <!-- 对接总负责人 -->
+        <label class="text-[14px] text-[#333] space-y-2">
+          <span>对接总负责人</span>
+          <NInput v-model:value="editForm.contact_name" placeholder="请输入对接总负责人" :maxlength="50" />
+        </label>
+
+        <!-- 联系方式 -->
+        <label class="text-[14px] text-[#333] space-y-2">
+          <span>联系方式</span>
+          <NInput v-model:value="editForm.contact_phone" placeholder="请输入联系方式" :maxlength="20" />
+        </label>
+
+        <!-- 院校简介 -->
+        <label class="text-[14px] text-[#333] col-span-2 space-y-2">
+          <span>院校简介</span>
+          <NInput v-model:value="editForm.intro" type="textarea" placeholder="请输入简介" :autosize="{ minRows: 4, maxRows: 8 }" />
+        </label>
+      </div>
+
+      <template #footer>
+        <div class="flex gap-3 justify-end">
+          <NButton class="modal-btn" @click="showEditModal = false">
+            取消
+          </NButton>
+          <NButton class="modal-btn" :loading="editIsSaving" @click="handleEditSaveDraft">
+            存为草稿
+          </NButton>
+          <NButton class="modal-btn modal-btn-primary" type="warning" :loading="editIsSaving" @click="handleEditSubmit">
+            提交审核
+          </NButton>
+        </div>
+      </template>
+    </NModal>
   </div>
 </template>
+
+<style scoped>
+:deep(.n-button) {
+  border-radius: 4px;
+}
+:deep(.modal-btn-primary.n-button--warning-type) {
+  background-color: #ffa500 !important;
+  color: #fff !important;
+}
+:deep(.modal-btn-primary.n-button--warning-type:hover) {
+  background-color: #eb9800 !important;
+}
+:deep(.n-input) {
+  border-radius: 4px;
+  background: transparent;
+}
+:deep(.n-input__state-border) {
+  border-color: #e8e8e8;
+}
+:deep(.n-base-selection) {
+  border-radius: 4px;
+  background: transparent;
+}
+:deep(.n-base-selection-label) {
+  background: transparent;
+}
+:deep(.n-base-selection-tags) {
+  background: transparent;
+}
+:deep(.n-base-selection__state-border) {
+  border-color: #e8e8e8;
+}
+</style>
