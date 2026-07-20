@@ -1,10 +1,6 @@
 <script setup lang="ts">
+import type { SelectOption as NaiveSelectOption } from 'naive-ui'
 import { NInputNumber, NSelect } from 'naive-ui'
-
-interface SelectOption {
-  label: string
-  value: string | number
-}
 
 defineProps<{
   displayedCityFilters: string[]
@@ -16,13 +12,13 @@ defineProps<{
   customSalaryMinValue: number
   customSalaryMaxValue: number
   customSalaryStep: number
-  experienceFilters: SelectOption[]
+  experienceFilters: NaiveSelectOption[]
   selectedExperienceFilter: number
-  employmentTypeFilters: SelectOption[]
+  employmentTypeFilters: NaiveSelectOption[]
   selectedEmploymentTypeFilter: number
-  educationLevelSelectOptions: SelectOption[]
+  educationLevelSelectOptions: NaiveSelectOption[]
   selectedEducationLevelFilter: number
-  companySizeSelectOptions: SelectOption[]
+  companySizeSelectOptions: NaiveSelectOption[]
   selectedCompanySizeFilter: number
 }>()
 

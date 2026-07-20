@@ -45,8 +45,11 @@ function formatSalary(job: TalentJobItem) {
 
   const min = formatSalaryValue(job.salary_min)
   const max = formatSalaryValue(job.salary_max)
+  const salary = min && max ? `${min}-${max}` : `${min || max}`
+  const annualSalaryMonths = Number(job.annual_salary_months)
+  const annualSalaryMonthsLabel = Number.isFinite(annualSalaryMonths) && annualSalaryMonths > 12 ? `·${Math.trunc(annualSalaryMonths)}薪` : ''
 
-  return min && max ? `${min}-${max}` : `${min || max}`
+  return `${salary}${annualSalaryMonthsLabel}`
 }
 
 function formatSalaryValue(value?: string | null) {

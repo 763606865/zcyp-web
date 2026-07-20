@@ -20,6 +20,7 @@ export interface JobRecord {
   salary_max: string | null
   salary_unit: number
   salary_unit_label: string | null
+  annual_salary_months: number | string | null
   experience_min: number | null
   experience_max: number | null
   education_level: number | null
@@ -61,8 +62,7 @@ export interface JobSavePayload {
   salary_min?: number | null
   salary_max?: number | null
   salary_unit?: number | null
-  salary_multiplier?: number | null
-  salary_negotiable?: boolean | null
+  annual_salary_months?: number | null
   city_code?: string | null
   workplace?: string | null
   headcount?: number | null

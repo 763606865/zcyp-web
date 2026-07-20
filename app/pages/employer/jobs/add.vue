@@ -18,6 +18,8 @@ const userStore = useUserStore()
 const metaStore = useMetaStore()
 
 const isSaving = ref(false)
+const MIN_ANNUAL_SALARY_MONTHS = 12
+const MAX_ANNUAL_SALARY_MONTHS = 100
 
 const jobForm = ref({
   employmentType: 1,
@@ -31,8 +33,7 @@ const jobForm = ref({
   salaryMin: null as number | null,
   salaryMax: null as number | null,
   salaryUnit: 1,
-  salaryMultiplier: 12,
-  salaryNegotiable: false,
+  annualSalaryMonths: MIN_ANNUAL_SALARY_MONTHS,
   cityCode: '',
   workplace: '',
   headcount: 1,
@@ -102,6 +103,13 @@ const benefitOptions = [
   { label: '弹性工作', value: '弹性工作' },
 ]
 
+function normalizeAnnualSalaryMonths(value: unknown) {
+  const numericValue = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(numericValue))
+    return MIN_ANNUAL_SALARY_MONTHS
+  return Math.min(MAX_ANNUAL_SALARY_MONTHS, Math.max(MIN_ANNUAL_SALARY_MONTHS, Math.trunc(numericValue)))
+}
+
 function buildPayload(status: number) {
   let salaryMin = jobForm.value.salaryMin
   let salaryMax = jobForm.value.salaryMax
@@ -125,9 +133,10 @@ function buildPayload(status: number) {
       const exp = experienceOptions.find(o => o.value === jobForm.value.experience)
       return { experience_min: exp?.min ?? null, experience_max: exp?.max ?? null }
     })(),
-    salary_min: jobForm.value.salaryNegotiable ? null : salaryMin,
-    salary_max: jobForm.value.salaryNegotiable ? null : salaryMax,
+    salary_min: salaryMin,
+    salary_max: salaryMax,
     salary_unit: jobForm.value.salaryUnit,
+    annual_salary_months: normalizeAnnualSalaryMonths(jobForm.value.annualSalaryMonths),
     city_code: jobForm.value.cityCode || null,
     workplace: jobForm.value.workplace.trim() || null,
     headcount: jobForm.value.headcount || 1,
@@ -219,29 +228,17 @@ function removeKeyword(index: number) {
 }
 
 const previewSalary = computed(() => {
-  if (jobForm.value.salaryNegotiable) {
-    if (jobForm.value.salaryMin !== null && jobForm.value.salaryMax !== null) {
-      const unitLabel = salaryUnitOptions.find(o => o.value === jobForm.value.salaryUnit)?.label || ''
-      if (jobForm.value.salaryUnit === 1) {
-        const minK = Math.round(jobForm.value.salaryMin / 1000)
-        const maxK = Math.round(jobForm.value.salaryMax / 1000)
-        return `${minK}-${maxK}K·${jobForm.value.salaryMultiplier}薪 面议`
-      }
-      return `${jobForm.value.salaryMin}-${jobForm.value.salaryMax}${unitLabel}·${jobForm.value.salaryMultiplier}薪 面议`
-    }
-    return '面议'
-  }
-
   if (jobForm.value.salaryMin === null || jobForm.value.salaryMax === null)
     return '—'
 
+  const annualSalaryMonths = normalizeAnnualSalaryMonths(jobForm.value.annualSalaryMonths)
   const unitLabel = salaryUnitOptions.find(o => o.value === jobForm.value.salaryUnit)?.label || ''
   if (jobForm.value.salaryUnit === 1) {
     const minK = Math.round(jobForm.value.salaryMin / 1000)
     const maxK = Math.round(jobForm.value.salaryMax / 1000)
-    return `${minK}-${maxK}K·${jobForm.value.salaryMultiplier}薪`
+    return `${minK}-${maxK}K·${annualSalaryMonths}薪`
   }
-  return `${jobForm.value.salaryMin}-${jobForm.value.salaryMax}${unitLabel}·${jobForm.value.salaryMultiplier}薪`
+  return `${jobForm.value.salaryMin}-${jobForm.value.salaryMax}${unitLabel}·${annualSalaryMonths}薪`
 })
 
 await callOnce(async () => {
@@ -405,20 +402,14 @@ await callOnce(async () => {
                   <span class="text-[14px] text-gray-400 shrink-0">×</span>
                   <ClientOnly>
                     <NInputNumber
-                      v-model:value="jobForm.salaryMultiplier"
-                      :min="12"
+                      v-model:value="jobForm.annualSalaryMonths"
+                      :min="MIN_ANNUAL_SALARY_MONTHS"
+                      :max="MAX_ANNUAL_SALARY_MONTHS"
+                      :precision="0"
                       class="w-[80px]"
                     />
                   </ClientOnly>
                   <span class="text-[14px] text-[#333] shrink-0">薪</span>
-                  <label class="text-[14px] text-[#333] ml-2 flex gap-1.5 cursor-pointer items-center">
-                    <input
-                      v-model="jobForm.salaryNegotiable"
-                      type="checkbox"
-                      class="accent-[#FFA500] h-[16px] w-[16px]"
-                    >
-                    <span>面议</span>
-                  </label>
                 </div>
               </div>
 

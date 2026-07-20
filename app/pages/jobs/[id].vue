@@ -99,7 +99,9 @@ async function loadRecommendedJobs(sourceJob: TalentJobItem) {
 function getSalaryLabel(j: TalentJobItem) {
   if (!j.salary_min && !j.salary_max)
     return '薪资面议'
-  return `${j.salary_min || '面议'}-${j.salary_max || '面议'}${salaryUnitMap[j.salary_unit] || j.salary_unit_label || '元/月'}`
+  const annualSalaryMonths = Number(j.annual_salary_months)
+  const annualSalaryMonthsLabel = Number.isFinite(annualSalaryMonths) && annualSalaryMonths > 12 ? `·${Math.trunc(annualSalaryMonths)}薪` : ''
+  return `${j.salary_min || '面议'}-${j.salary_max || '面议'}${salaryUnitMap[j.salary_unit] || j.salary_unit_label || '元/月'}${annualSalaryMonthsLabel}`
 }
 
 function formatExperience(j: TalentJobItem) {

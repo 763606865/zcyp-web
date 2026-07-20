@@ -49,6 +49,7 @@ export interface TalentJobItem {
   salary_max: string | null
   salary_unit: number
   salary_unit_label: string | null
+  annual_salary_months?: number | string | null
   experience_min: number | null
   experience_max: number | null
   education_level: number | null
