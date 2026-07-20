@@ -50,7 +50,9 @@ function formatSalary(job: JobRecord): string {
   const min = job.salary_min ? `${Number(job.salary_min) / 1000}K` : ''
   const max = job.salary_max ? `${Number(job.salary_max) / 1000}K` : ''
   const unit = job.salary_unit_label || '月'
-  return `${min}-${max}·${unit}`
+  const annualSalaryMonths = Number(job.annual_salary_months)
+  const annualSalaryMonthsLabel = Number.isFinite(annualSalaryMonths) && annualSalaryMonths > 12 ? `·${Math.trunc(annualSalaryMonths)}薪` : ''
+  return `${min}-${max}·${unit}${annualSalaryMonthsLabel}`
 }
 
 function formatExperience(job: JobRecord): string {
