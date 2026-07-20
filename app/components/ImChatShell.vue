@@ -75,6 +75,12 @@ const quickPhraseError = ref('')
 const quickPhrasePage = ref(1)
 const quickPhraseHasMore = ref(true)
 const QUICK_PHRASE_PAGE_SIZE = 20
+const trailingSlashRegex = /\/$/
+const wsProtocolRegex = /^wss?:\/\//
+const httpsProtocolRegex = /^https:\/\//
+const httpProtocolRegex = /^http:\/\//
+const whitespaceRegex = /\s/g
+const emojiOnlyRegex = /^\p{Emoji_Presentation}[\p{Emoji_Presentation}\uFE0F\u200D]*$/u
 
 // 管理弹窗相关
 const showQuickPhraseManageModal = ref(false)
@@ -212,16 +218,16 @@ function persistToken(nextToken: string) {
 }
 
 function normalizeWsBaseUrl(baseUrl: string) {
-  const trimmed = baseUrl.trim().replace(/\/$/, '')
+  const trimmed = baseUrl.trim().replace(trailingSlashRegex, '')
   if (!trimmed)
     return ''
 
-  if (/^wss?:\/\//.test(trimmed))
+  if (wsProtocolRegex.test(trimmed))
     return trimmed
-  if (/^https:\/\//.test(trimmed))
-    return trimmed.replace(/^https:\/\//, 'wss://')
-  if (/^http:\/\//.test(trimmed))
-    return trimmed.replace(/^http:\/\//, 'ws://')
+  if (httpsProtocolRegex.test(trimmed))
+    return trimmed.replace(httpsProtocolRegex, 'wss://')
+  if (httpProtocolRegex.test(trimmed))
+    return trimmed.replace(httpProtocolRegex, 'ws://')
   return `ws://${trimmed}`
 }
 
@@ -519,8 +525,12 @@ function appendSocketMessage(payload: Record<string, any>) {
   )
 
   if (optimisticIndex >= 0) {
+    const optimisticMessage = messages.value[optimisticIndex]
+    if (!optimisticMessage)
+      return
+
     messages.value[optimisticIndex] = {
-      ...messages.value[optimisticIndex],
+      ...optimisticMessage,
       remoteId: socketMessage.remoteId,
       at: socketMessage.at,
     }
@@ -799,11 +809,11 @@ function connectSocket(nextToken = token.value) {
 }
 
 function isEmojiOnlyMessage(content: string) {
-  const compact = content.replace(/\s/g, '')
+  const compact = content.replace(whitespaceRegex, '')
   if (!compact)
     return false
 
-  return /^\p{Emoji_Presentation}[\p{Emoji_Presentation}\uFE0F\u200D]*$/u.test(compact)
+  return emojiOnlyRegex.test(compact)
 }
 
 function sendMessage() {
@@ -873,7 +883,7 @@ async function sendImageMessage(file: File) {
   }
 }
 
-function sendBizCardMessage(card: BizCardContent) {
+function _sendBizCardMessage(card: BizCardContent) {
   if (!socket || socket.readyState !== WebSocket.OPEN || !activeConversationNo.value)
     return
 
@@ -899,7 +909,7 @@ function sendBizCardMessage(card: BizCardContent) {
 }
 
 function getEditorPlainText() {
-  return editorRef.value?.innerText || draftMessage.value
+  return editorRef.value?.textContent || draftMessage.value
 }
 
 function handleEditorInput() {
