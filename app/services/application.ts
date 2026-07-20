@@ -56,6 +56,7 @@ export interface ApplicationItem {
     salary_max: string | null
     salary_unit: number
     salary_unit_label: string | null
+    annual_salary_months?: number | string | null
     education_level: number | null
     education_level_label: string | null
     experience_min: number | null
