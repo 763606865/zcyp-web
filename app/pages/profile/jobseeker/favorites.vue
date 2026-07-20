@@ -57,7 +57,9 @@ const { pending: isLoading } = await useAsyncData(
 function getSalaryLabel(job: TalentJobItem) {
   if (!job.salary_min && !job.salary_max)
     return '薪资面议'
-  return `${formatSalaryAmount(job.salary_min)}-${formatSalaryAmount(job.salary_max)}${job.salary_unit_label || '月'}`
+  const annualSalaryMonths = Number(job.annual_salary_months)
+  const annualSalaryMonthsLabel = Number.isFinite(annualSalaryMonths) && annualSalaryMonths > 12 ? `·${Math.trunc(annualSalaryMonths)}薪` : ''
+  return `${formatSalaryAmount(job.salary_min)}-${formatSalaryAmount(job.salary_max)}${job.salary_unit_label || '月'}${annualSalaryMonthsLabel}`
 }
 
 function formatSalaryAmount(value: string | null | undefined) {
