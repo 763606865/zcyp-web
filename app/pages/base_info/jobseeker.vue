@@ -441,11 +441,25 @@ function onJobStatusChange(value: number | null) {
 }
 
 function onSalaryMinChange(value: string | number | null) {
-  form.salaryMin = value ? String(value) : ''
+  const newVal = value ? String(value) : ''
+  if (newVal && form.salaryMax && Number(newVal) >= Number(form.salaryMax)) {
+    form.salaryMin = form.salaryMax
+    form.salaryMax = newVal
+  }
+  else {
+    form.salaryMin = newVal
+  }
 }
 
 function onSalaryMaxChange(value: string | number | null) {
-  form.salaryMax = value ? String(value) : ''
+  const newVal = value ? String(value) : ''
+  if (form.salaryMin && newVal && Number(newVal) <= Number(form.salaryMin)) {
+    form.salaryMax = form.salaryMin
+    form.salaryMin = newVal
+  }
+  else {
+    form.salaryMax = newVal
+  }
 }
 
 function onSalaryUnitChange(value: string | number | null) {
