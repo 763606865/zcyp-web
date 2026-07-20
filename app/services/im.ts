@@ -1,4 +1,4 @@
-import { getJson, postJson } from './http'
+import { delJson, getJson, postJson, putJson } from './http'
 
 interface ApiResponse<T> {
   code: number
@@ -222,6 +222,50 @@ export async function getImQuickPhrases(authorization?: string, query?: Record<s
   const response = await getJson<ApiResponse<ImQuickPhraseListResponse>>(
     '/rc/im/quick-phrases',
     query,
+    authorization ? { Authorization: authorization } : undefined,
+  )
+
+  return response.data
+}
+
+export interface ImQuickPhraseCreatePayload {
+  title?: string | null
+  content: string
+  sort?: number
+  is_enabled?: boolean
+}
+
+export interface ImQuickPhraseUpdatePayload {
+  title?: string | null
+  content?: string
+  sort?: number
+  is_enabled?: boolean
+}
+
+export async function createImQuickPhrase(payload: ImQuickPhraseCreatePayload, authorization?: string) {
+  const response = await postJson<ApiResponse<{ quick_phrase: ImQuickPhrase }>>(
+    '/rc/im/quick-phrases',
+    payload,
+    authorization ? { Authorization: authorization } : undefined,
+  )
+
+  return response.data
+}
+
+export async function updateImQuickPhrase(id: number, payload: ImQuickPhraseUpdatePayload, authorization?: string) {
+  const response = await putJson<ApiResponse<{ quick_phrase: ImQuickPhrase }>>(
+    `/rc/im/quick-phrases/${id}`,
+    payload,
+    authorization ? { Authorization: authorization } : undefined,
+  )
+
+  return response.data
+}
+
+export async function deleteImQuickPhrase(id: number, authorization?: string) {
+  const response = await delJson<ApiResponse<Record<string, never>>>(
+    `/rc/im/quick-phrases/${id}`,
+    undefined,
     authorization ? { Authorization: authorization } : undefined,
   )
 

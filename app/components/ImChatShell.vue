@@ -2,13 +2,13 @@
 import type { ImConversation, ImHistoryMessage, ImParticipant, ImQuickPhrase } from '~/services/im'
 import type { AuthIdentityCode } from '~/types/auth'
 import { appEnv } from '~/config/env'
-import { getImConversationMessages, getImConversations, getImQuickPhrases, refreshImToken } from '~/services/im'
 import { resolveAssetUrl } from '~/services/http'
+import { createImQuickPhrase, deleteImQuickPhrase, getImConversationMessages, getImConversations, getImQuickPhrases, refreshImToken, updateImQuickPhrase } from '~/services/im'
 import { upload } from '~/services/upload'
 import { pushGlobalNotice } from '~/utils/notice'
 
 type ConnectionState = 'idle' | 'refreshing' | 'connecting' | 'connected' | 'closed' | 'error'
-type MessageItem = {
+interface MessageItem {
   id: number
   remoteId?: string | number | null
   clientMsgId?: string | null
@@ -21,7 +21,7 @@ type MessageItem = {
   at: string
 }
 
-type BizCardContent = {
+interface BizCardContent {
   card_type?: string
   title?: string
   summary?: string
@@ -30,7 +30,7 @@ type BizCardContent = {
   biz_id?: string
 }
 
-type ImageMessageContent = {
+interface ImageMessageContent {
   url?: string
   path?: string
   name?: string
@@ -66,11 +66,34 @@ const emojiButtonRef = ref<HTMLButtonElement | null>(null)
 const emojiPanelRef = ref<HTMLDivElement | null>(null)
 const quickPhraseButtonRef = ref<HTMLButtonElement | null>(null)
 const quickPhrasePanelRef = ref<HTMLDivElement | null>(null)
+const quickPhraseListRef = ref<HTMLDivElement | null>(null)
 const showEmojiPanel = ref(false)
 const showQuickPhrasePanel = ref(false)
 const quickPhrases = ref<ImQuickPhrase[]>([])
 const isLoadingQuickPhrases = ref(false)
 const quickPhraseError = ref('')
+const quickPhrasePage = ref(1)
+const quickPhraseHasMore = ref(true)
+const QUICK_PHRASE_PAGE_SIZE = 20
+
+// 管理弹窗相关
+const showQuickPhraseManageModal = ref(false)
+const manageModalPhrases = ref<ImQuickPhrase[]>([])
+const manageModalPage = ref(1)
+const manageModalTotal = ref(0)
+const isLoadingManagePhrases = ref(false)
+const MANAGE_PAGE_SIZE = 10
+
+// 快捷语表单相关
+const showQuickPhraseForm = ref(false)
+const editingQuickPhrase = ref<ImQuickPhrase | null>(null)
+const formContent = ref('')
+const formSort = ref(0)
+const formIsEnabled = ref(true)
+const isSubmittingQuickPhrase = ref(false)
+
+// 删除确认
+const pendingDeletePhrase = ref<ImQuickPhrase | null>(null)
 const isLoadingHistory = ref(false)
 const isUploadingImage = ref(false)
 const historyError = ref('')
@@ -446,12 +469,13 @@ function formatDateTime(value: string) {
 }
 
 function resolvePayloadMessage(payload: Record<string, any>) {
-  if (payload.action === 'subscribed')
+  if (payload.action === 'subscribed') {
     return {
       messageType: 'system',
       content: '',
       bizCard: null,
     }
+  }
 
   if (payload.action === 'message') {
     const messageType = payload.message?.message_type || 'text'
@@ -463,12 +487,13 @@ function resolvePayloadMessage(payload: Record<string, any>) {
     }
   }
 
-  if (payload.action === 'error')
+  if (payload.action === 'error') {
     return {
       messageType: 'system',
       content: payload.error || 'IM 消息错误',
       bizCard: null,
     }
+  }
 
   return {
     messageType: 'text',
@@ -943,22 +968,49 @@ function toggleEmojiPanel() {
   showQuickPhrasePanel.value = false
 }
 
-async function loadQuickPhrases() {
+const manageModalTotalPages = computed(() => Math.max(1, Math.ceil(manageModalTotal.value / MANAGE_PAGE_SIZE)))
+
+async function loadQuickPhrases(mode: 'initial' | 'more' = 'initial') {
   if (!userStore.authHeader || isLoadingQuickPhrases.value)
     return
+
+  if (mode === 'initial') {
+    quickPhrasePage.value = 1
+    quickPhraseHasMore.value = true
+  }
 
   isLoadingQuickPhrases.value = true
   quickPhraseError.value = ''
 
   try {
-    const payload = await getImQuickPhrases(userStore.authHeader, { is_enabled: 1, per_page: 100 })
-    quickPhrases.value = payload.data || []
+    const payload = await getImQuickPhrases(userStore.authHeader, { is_enabled: 1, per_page: QUICK_PHRASE_PAGE_SIZE, page: quickPhrasePage.value })
+    const items = payload.data || []
+
+    if (mode === 'initial') {
+      quickPhrases.value = items
+    }
+    else {
+      quickPhrases.value = [...quickPhrases.value, ...items]
+    }
+
+    quickPhraseHasMore.value = items.length >= QUICK_PHRASE_PAGE_SIZE
   }
   catch (error) {
     quickPhraseError.value = error instanceof Error ? error.message : '快捷短语加载失败'
   }
   finally {
     isLoadingQuickPhrases.value = false
+  }
+}
+
+function handleQuickPhraseListScroll() {
+  const el = quickPhraseListRef.value
+  if (!el || isLoadingQuickPhrases.value || !quickPhraseHasMore.value)
+    return
+
+  if (el.scrollTop + el.clientHeight >= el.scrollHeight - 20) {
+    quickPhrasePage.value++
+    loadQuickPhrases('more')
   }
 }
 
@@ -969,12 +1021,134 @@ function toggleQuickPhrasePanel() {
   showQuickPhrasePanel.value = !showQuickPhrasePanel.value
   showEmojiPanel.value = false
   if (showQuickPhrasePanel.value && quickPhrases.value.length === 0)
-    loadQuickPhrases()
+    loadQuickPhrases('initial')
 }
 
 function applyQuickPhrase(phrase: ImQuickPhrase) {
   insertTextToEditor(phrase.content)
   showQuickPhrasePanel.value = false
+}
+
+// 管理弹窗逻辑
+function openManageModal() {
+  showQuickPhraseManageModal.value = true
+  showQuickPhrasePanel.value = false
+  manageModalPage.value = 1
+  loadManagePhrases()
+}
+
+function closeManageModal() {
+  showQuickPhraseManageModal.value = false
+  showQuickPhraseForm.value = false
+  editingQuickPhrase.value = null
+  pendingDeletePhrase.value = null
+  // 刷新外面板数据
+  if (showQuickPhrasePanel.value)
+    loadQuickPhrases('initial')
+}
+
+async function loadManagePhrases() {
+  if (!userStore.authHeader || isLoadingManagePhrases.value)
+    return
+
+  isLoadingManagePhrases.value = true
+
+  try {
+    const payload = await getImQuickPhrases(userStore.authHeader, { per_page: MANAGE_PAGE_SIZE, page: manageModalPage.value })
+    manageModalPhrases.value = payload.data || []
+    manageModalTotal.value = payload.total || 0
+  }
+  catch (error) {
+    pushGlobalNotice(error instanceof Error ? error.message : '快捷语列表加载失败', 'error')
+  }
+  finally {
+    isLoadingManagePhrases.value = false
+  }
+}
+
+function goToManagePage(page: number) {
+  if (page < 1 || page > manageModalTotalPages.value || page === manageModalPage.value)
+    return
+  manageModalPage.value = page
+  loadManagePhrases()
+}
+
+function openCreateForm() {
+  editingQuickPhrase.value = null
+  formContent.value = ''
+  formSort.value = 0
+  formIsEnabled.value = true
+  showQuickPhraseForm.value = true
+}
+
+function openEditForm(phrase: ImQuickPhrase) {
+  editingQuickPhrase.value = phrase
+  formContent.value = phrase.content
+  formSort.value = phrase.sort
+  formIsEnabled.value = phrase.is_enabled
+  showQuickPhraseForm.value = true
+}
+
+function closeForm() {
+  showQuickPhraseForm.value = false
+  editingQuickPhrase.value = null
+}
+
+async function submitQuickPhraseForm() {
+  if (!userStore.authHeader || !formContent.value.trim())
+    return
+
+  isSubmittingQuickPhrase.value = true
+
+  try {
+    if (editingQuickPhrase.value) {
+      await updateImQuickPhrase(editingQuickPhrase.value.id, {
+        content: formContent.value.trim(),
+        sort: formSort.value,
+        is_enabled: formIsEnabled.value,
+      }, userStore.authHeader)
+      pushGlobalNotice('快捷语已更新', 'success')
+    }
+    else {
+      await createImQuickPhrase({
+        content: formContent.value.trim(),
+        sort: formSort.value,
+        is_enabled: formIsEnabled.value,
+      }, userStore.authHeader)
+      pushGlobalNotice('快捷语已创建', 'success')
+    }
+    closeForm()
+    loadManagePhrases()
+  }
+  catch (error) {
+    pushGlobalNotice(error instanceof Error ? error.message : '保存失败', 'error')
+  }
+  finally {
+    isSubmittingQuickPhrase.value = false
+  }
+}
+
+function confirmDeletePhrase(phrase: ImQuickPhrase) {
+  pendingDeletePhrase.value = phrase
+}
+
+function cancelDeletePhrase() {
+  pendingDeletePhrase.value = null
+}
+
+async function executeDeletePhrase() {
+  if (!pendingDeletePhrase.value || !userStore.authHeader)
+    return
+
+  try {
+    await deleteImQuickPhrase(pendingDeletePhrase.value.id, userStore.authHeader)
+    pushGlobalNotice('快捷语已删除', 'success')
+    pendingDeletePhrase.value = null
+    loadManagePhrases()
+  }
+  catch (error) {
+    pushGlobalNotice(error instanceof Error ? error.message : '删除失败', 'error')
+  }
 }
 
 function handleEmojiOutsidePointerDown(event: PointerEvent) {
@@ -1016,6 +1190,8 @@ watch(
     activeConversationNo.value = ''
     showEmojiPanel.value = false
     showQuickPhrasePanel.value = false
+    showQuickPhraseManageModal.value = false
+    showQuickPhraseForm.value = false
     quickPhrases.value = []
     await bootstrapChat('identity-change')
   },
@@ -1153,7 +1329,9 @@ onBeforeUnmount(() => {
               </div>
               <div v-else-if="item.messageType === 'image' && item.image" class="message-image">
                 <img v-if="resolveImageUrl(item.image)" :src="resolveImageUrl(item.image)" :alt="item.image.name || '图片消息'">
-                <p v-else>{{ item.image.name || item.content }}</p>
+                <p v-else>
+                  {{ item.image.name || item.content }}
+                </p>
                 <span>{{ item.at }}</span>
               </div>
               <div v-else-if="item.messageType === 'emoji'" class="message-emoji">
@@ -1186,11 +1364,16 @@ onBeforeUnmount(() => {
           <div v-if="showQuickPhrasePanel" ref="quickPhrasePanelRef" class="quick-phrase-panel">
             <div class="quick-phrase-head">
               <strong>常用快捷短语</strong>
-              <button type="button" :disabled="isLoadingQuickPhrases" @click="loadQuickPhrases">
-                刷新
-              </button>
+              <div class="quick-phrase-head-actions">
+                <button type="button" @click="openManageModal">
+                  管理
+                </button>
+                <button type="button" :disabled="isLoadingQuickPhrases" @click="loadQuickPhrases('initial')">
+                  刷新
+                </button>
+              </div>
             </div>
-            <div v-if="isLoadingQuickPhrases" class="quick-phrase-state">
+            <div v-if="isLoadingQuickPhrases && quickPhrases.length === 0" class="quick-phrase-state">
               正在加载...
             </div>
             <div v-else-if="quickPhraseError" class="quick-phrase-state is-error">
@@ -1199,7 +1382,7 @@ onBeforeUnmount(() => {
             <div v-else-if="quickPhrases.length === 0" class="quick-phrase-state">
               暂无快捷短语
             </div>
-            <div v-else class="quick-phrase-list">
+            <div v-else ref="quickPhraseListRef" class="quick-phrase-list" @scroll="handleQuickPhraseListScroll">
               <button
                 v-for="phrase in quickPhrases"
                 :key="phrase.id"
@@ -1207,9 +1390,12 @@ onBeforeUnmount(() => {
                 class="quick-phrase-item"
                 @click="applyQuickPhrase(phrase)"
               >
-                <strong>{{ phrase.title || '快捷短语' }}</strong>
+                <!-- <strong>{{ phrase.title || '快捷短语' }}</strong> -->
                 <span>{{ phrase.content }}</span>
               </button>
+              <div v-if="isLoadingQuickPhrases" class="quick-phrase-loading-more">
+                加载中...
+              </div>
             </div>
           </div>
           <div v-if="showEmojiPanel" ref="emojiPanelRef" class="emoji-panel">
@@ -1243,6 +1429,121 @@ onBeforeUnmount(() => {
         </footer>
       </section>
     </section>
+
+    <!-- 快捷语管理弹窗 -->
+    <Teleport to="body">
+      <div v-if="showQuickPhraseManageModal" class="qp-modal-overlay" @click.self="closeManageModal">
+        <div class="qp-modal">
+          <div class="qp-modal-header">
+            <h3>快捷语管理</h3>
+            <button type="button" class="qp-modal-close" @click="closeManageModal">
+              <span class="i-carbon-close" />
+            </button>
+          </div>
+
+          <div class="qp-modal-body">
+            <!-- 表单区域（新增/编辑） -->
+            <div v-if="showQuickPhraseForm" class="qp-form">
+              <div class="qp-form-title">
+                {{ editingQuickPhrase ? '编辑快捷语' : '新增快捷语' }}
+              </div>
+              <div class="qp-form-field">
+                <label>内容</label>
+                <textarea v-model="formContent" rows="3" maxlength="1000" placeholder="请输入快捷语内容" />
+              </div>
+              <div class="qp-form-row">
+                <div class="qp-form-field">
+                  <label>排序值</label>
+                  <input v-model.number="formSort" type="number" min="0" placeholder="0">
+                </div>
+                <div class="qp-form-field qp-form-switch">
+                  <label>
+                    <input v-model="formIsEnabled" type="checkbox">
+                    启用
+                  </label>
+                </div>
+              </div>
+              <div class="qp-form-actions">
+                <button type="button" class="qp-btn-cancel" @click="closeForm">
+                  取消
+                </button>
+                <button type="button" class="qp-btn-submit" :disabled="isSubmittingQuickPhrase || !formContent.trim()" @click="submitQuickPhraseForm">
+                  {{ isSubmittingQuickPhrase ? '保存中...' : '保存' }}
+                </button>
+              </div>
+            </div>
+
+            <!-- 列表区域 -->
+            <div v-else class="qp-list-section">
+              <div class="qp-list-toolbar">
+                <button type="button" class="qp-btn-add" @click="openCreateForm">
+                  + 新增快捷语
+                </button>
+                <span class="qp-list-total">共 {{ manageModalTotal }} 条</span>
+              </div>
+
+              <div v-if="isLoadingManagePhrases" class="qp-list-state">
+                正在加载...
+              </div>
+              <div v-else-if="manageModalPhrases.length === 0" class="qp-list-state">
+                暂无快捷语
+              </div>
+              <div v-else class="qp-list">
+                <div
+                  v-for="phrase in manageModalPhrases"
+                  :key="phrase.id"
+                  class="qp-list-item"
+                >
+                  <div class="qp-list-item-main">
+                    <span class="qp-list-item-content">{{ phrase.content }}</span>
+                    <span class="qp-list-item-meta">
+                      <!-- 排序: {{ phrase.sort }} -->
+                      <span v-if="!phrase.is_enabled" class="qp-list-item-disabled">已禁用</span>
+                    </span>
+                  </div>
+                  <div class="qp-list-item-actions">
+                    <button type="button" @click="openEditForm(phrase)">
+                      编辑
+                    </button>
+                    <button type="button" class="qp-btn-delete" @click="confirmDeletePhrase(phrase)">
+                      删除
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 分页 -->
+              <div v-if="manageModalTotal > MANAGE_PAGE_SIZE" class="qp-pagination">
+                <button type="button" :disabled="manageModalPage <= 1" @click="goToManagePage(manageModalPage - 1)">
+                  上一页
+                </button>
+                <span>{{ manageModalPage }} / {{ manageModalTotalPages }}</span>
+                <button type="button" :disabled="manageModalPage >= manageModalTotalPages" @click="goToManagePage(manageModalPage + 1)">
+                  下一页
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 删除确认 -->
+          <Teleport to="body">
+            <div v-if="pendingDeletePhrase" class="qp-delete-confirm-overlay" @click.self="cancelDeletePhrase">
+              <div class="qp-delete-confirm">
+                <p>确定要删除这条快捷语吗？</p>
+                <div class="qp-delete-confirm-actions">
+                  <button type="button" @click="cancelDeletePhrase">
+                    取消
+                  </button>
+                  <button type="button" class="qp-btn-delete-confirm" @click="executeDeletePhrase">
+                    确定删除
+                  </button>
+                </div>
+              </div>
+            </div>
+          </Teleport>
+        </div>
+      </div>
+    </Teleport>
   </main>
 </template>
 
@@ -1882,11 +2183,16 @@ onBeforeUnmount(() => {
   display: block;
   width: 100%;
   border: 0;
-  border-radius: 6px;
+  border-bottom: 1px solid #f1f5f9;
+  border-radius: 0;
   background: transparent;
   cursor: pointer;
-  padding: 9px 10px;
+  padding: 10px 12px;
   text-align: left;
+}
+
+.quick-phrase-item:last-child {
+  border-bottom: none;
 }
 
 .quick-phrase-item:hover {
@@ -2008,6 +2314,434 @@ onBeforeUnmount(() => {
 .connection-strip button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
+}
+
+.quick-phrase-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.quick-phrase-head-actions button {
+  border: 0;
+  background: transparent;
+  color: #ff9f00;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.quick-phrase-head-actions button:hover {
+  text-decoration: underline;
+}
+
+.quick-phrase-loading-more {
+  color: #94a3b8;
+  font-size: 12px;
+  padding: 8px 0;
+  text-align: center;
+}
+
+/* 快捷语管理弹窗 */
+.qp-modal-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+}
+
+.qp-modal {
+  width: 560px;
+  max-width: 92vw;
+  height: 520px;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+.qp-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #edf0f5;
+  padding: 16px 20px;
+}
+
+.qp-modal-header h3 {
+  margin: 0;
+  color: #222;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.qp-modal-close {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.qp-modal-close:hover {
+  background: #f1f5f9;
+  color: #222;
+}
+
+.qp-modal-close span {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+.qp-modal-body {
+  flex: 1;
+  overflow: auto;
+  padding: 16px 20px 20px;
+}
+
+/* 表单 */
+.qp-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.qp-form-title {
+  color: #222;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.qp-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.qp-form-field label {
+  color: #475569;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.qp-form-field textarea,
+.qp-form-field input[type='number'] {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  color: #1f2937;
+  font-size: 14px;
+  padding: 8px 10px;
+  outline: none;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.qp-form-field textarea:focus,
+.qp-form-field input[type='number']:focus {
+  border-color: #ff9f00;
+  box-shadow: 0 0 0 2px rgba(255, 159, 0, 0.12);
+}
+
+.qp-form-row {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.qp-form-row .qp-form-field {
+  flex: 1;
+}
+
+.qp-form-switch {
+  justify-content: flex-end;
+}
+
+.qp-form-switch label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  color: #475569;
+  font-size: 13px;
+}
+
+.qp-form-switch input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  accent-color: #ff9f00;
+}
+
+.qp-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.qp-btn-cancel {
+  height: 32px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #fff;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 16px;
+}
+
+.qp-btn-cancel:hover {
+  background: #f8fafc;
+}
+
+.qp-btn-submit {
+  height: 32px;
+  border: 0;
+  border-radius: 6px;
+  background: #ff9f00;
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0 16px;
+}
+
+.qp-btn-submit:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* 列表 */
+.qp-list-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.qp-list-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.qp-btn-add {
+  height: 32px;
+  border: 0;
+  border-radius: 6px;
+  background: #ff9f00;
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0 14px;
+}
+
+.qp-btn-add:hover {
+  background: #e68f00;
+}
+
+.qp-list-total {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.qp-list-state {
+  color: #94a3b8;
+  font-size: 13px;
+  padding: 32px 0;
+  text-align: center;
+}
+
+.qp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.qp-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #f1f5f9;
+  padding: 12px 12px;
+  gap: 12px;
+}
+
+.qp-list-item:last-child {
+  border-bottom: none;
+}
+
+.qp-list-item:hover {
+  background: #f8fafc;
+}
+
+.qp-list-item-main {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.qp-list-item-content {
+  color: #222;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.qp-list-item-meta {
+  color: #94a3b8;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.qp-list-item-disabled {
+  color: #e11d48;
+  font-size: 11px;
+}
+
+.qp-list-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.qp-list-item:hover .qp-list-item-actions {
+  opacity: 1;
+}
+
+.qp-list-item-actions button {
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+.qp-list-item-actions button:hover {
+  background: #f1f5f9;
+  color: #222;
+}
+
+.qp-list-item-actions .qp-btn-delete:hover {
+  background: #fff1f2;
+  color: #e11d48;
+}
+
+/* 分页 */
+.qp-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.qp-pagination button {
+  height: 28px;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  background: #fff;
+  color: #475569;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0 10px;
+}
+
+.qp-pagination button:hover:not(:disabled) {
+  border-color: #ff9f00;
+  color: #ff9f00;
+}
+
+.qp-pagination button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.qp-pagination span {
+  color: #64748b;
+  font-size: 12px;
+}
+
+/* 删除确认 */
+.qp-delete-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 1001;
+}
+
+.qp-delete-confirm {
+  width: 320px;
+  border-radius: 10px;
+  background: #fff;
+  padding: 24px;
+  text-align: center;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+}
+
+.qp-delete-confirm p {
+  margin: 0 0 18px;
+  color: #222;
+  font-size: 14px;
+}
+
+.qp-delete-confirm-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.qp-delete-confirm-actions button {
+  height: 32px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #fff;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 16px;
+}
+
+.qp-delete-confirm-actions button:hover {
+  background: #f8fafc;
+}
+
+.qp-btn-delete-confirm {
+  border-color: #e11d48 !important;
+  background: #e11d48 !important;
+  color: #fff !important;
+}
+
+.qp-btn-delete-confirm:hover {
+  background: #be123c !important;
 }
 
 @media (max-width: 860px) {
