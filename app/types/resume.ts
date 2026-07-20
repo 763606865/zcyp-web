@@ -18,6 +18,7 @@ export interface ResumeRecord {
   work_years: number | null
   current_salary: string | null
   salary_remark: string | null
+  personal_advantage: string | null
   recruit_source: string | null
   highest_education_level: number | null
   is_fresh_graduate: number
@@ -95,6 +96,7 @@ export interface ResumeSavePayload {
   work_years?: number | null
   current_salary?: string | null
   salary_remark?: string | null
+  personal_advantage?: string | null
   recruit_source?: string | null
   highest_education_level?: number | null
   is_fresh_graduate?: boolean | null

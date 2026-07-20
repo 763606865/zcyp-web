@@ -1096,7 +1096,7 @@ function mapResumeToBasicForm(resume: ResumeRecord) {
     cityCode: resume.current_city_code || '',
     residenceDetail: resume.current_residence_detail || '',
     workYears: resume.work_years === null || resume.work_years === undefined ? '' : String(resume.work_years),
-    advantage: typeof resume.extra?.advantage === 'string' ? resume.extra.advantage : '',
+    advantage: resume.personal_advantage || '',
     fileUrl: resume.file_url || '',
     fileName: resume.file_name || '',
     fileExt: resume.file_ext || '',
@@ -1125,6 +1125,7 @@ function buildBasicPayload(): ResumeSavePayload {
     file_url: basicForm.value.fileUrl.trim() || null,
     file_name: basicForm.value.fileName.trim() || null,
     file_ext: basicForm.value.fileExt.trim() || null,
+    personal_advantage: basicForm.value.advantage.trim() || null,
   }
 }
 
