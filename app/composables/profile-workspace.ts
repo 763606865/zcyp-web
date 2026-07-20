@@ -27,7 +27,7 @@ function hasBoundCampusManagerWorkspace(identity: AuthCurrentIdentity) {
 }
 
 function needsBasicInfoRedirect(identity: AuthIdentityCode | null, hasBasicInfo: boolean | null) {
-  return (identity === 'jobseeker' || identity === 'employer' || identity === 'campus_manager') && hasBasicInfo === false
+  return (identity === 'jobseeker' || identity === 'employer') && hasBasicInfo === false
 }
 
 interface ProfileWorkspaceRedirectOptions {
@@ -69,6 +69,8 @@ export function useProfileWorkspaceRedirect(mode: 'index' | 'workspace', _key: s
   const userStore = useUserStore()
   const isRedirecting = ref(false)
 
+  const redirectTarget = ref<string | null>(null)
+
   async function redirectIfNeeded() {
     if (isRedirecting.value)
       return
@@ -77,12 +79,17 @@ export function useProfileWorkspaceRedirect(mode: 'index' | 'workspace', _key: s
     if (!target || route.path === target)
       return
 
+    if (redirectTarget.value === target)
+      return
+
     isRedirecting.value = true
+    redirectTarget.value = target
     try {
       await navigateTo(target, { replace: true })
     }
     finally {
       isRedirecting.value = false
+      redirectTarget.value = null
     }
   }
 

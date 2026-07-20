@@ -64,11 +64,13 @@ const targetActionText = computed(() => {
 function resolveBasicInfoTarget() {
   const identity = userStore.currentIdentity
 
-  return identity
-    ? userStore.hasBasicInfo === true
-      ? '/profile'
-      : basicInfoRouteMap[identity] || '/profile'
-    : '/identity/select'
+  if (!identity)
+    return '/identity/select'
+
+  if (userStore.hasBasicInfo === true)
+    return '/profile'
+
+  return basicInfoRouteMap[identity] || null
 }
 
 async function redirectByIdentity() {
