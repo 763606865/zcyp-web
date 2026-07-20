@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { ParsedResume } from '~/services/ai-resume'
 import type { RcAreaNode } from '~/types/meta'
 import type {
   ResumeEducation,
@@ -10,6 +11,7 @@ import type {
   ResumeWork,
   ResumeWorkSavePayload,
 } from '~/types/resume'
+import { createDiscreteApi } from 'naive-ui'
 import AreaTwoLevelSelect from '~/components/AreaTwoLevelSelect.vue'
 import NDatePicker from '~/components/NaiveClientDatePicker.vue'
 import NInput from '~/components/NaiveClientInput.vue'
@@ -17,6 +19,7 @@ import NRadioGroup from '~/components/NaiveClientRadioGroup.vue'
 import NSelect from '~/components/NaiveClientSelect.vue'
 import TaxonomyCascaderSelect from '~/components/TaxonomyCascaderSelect.vue'
 import { identitySwitchOptions, useIdentitySwitching } from '~/composables/identity-switch'
+import { createResumeParseTask, getResumeParseTask } from '~/services/ai-resume'
 import { getAuthMe } from '~/services/auth'
 import { ApiRequestError } from '~/services/http'
 import {
@@ -92,6 +95,10 @@ const isSaving = ref(false)
 const isUploadingResume = ref(false)
 const isUploadingAvatar = ref(false)
 const isBootstrapping = ref(false)
+const isAiParsing = ref(false)
+const aiParseStatusText = ref('')
+let aiParseTimer: ReturnType<typeof setInterval> | null = null
+const { dialog: naiveDialog, message: naiveMessage } = createDiscreteApi(['dialog', 'message'])
 const errorMessage = ref('')
 const fieldErrors = ref<Partial<Record<FieldName, boolean>>>({})
 const resumeFileInputRef = ref<HTMLInputElement | null>(null)
@@ -868,6 +875,11 @@ async function handleResumeFileInput(event: Event) {
     form.fileName = file.name
     form.fileExt = file.name.split('.').pop() || ''
     pushGlobalNotice('附件简历上传成功')
+
+    // 仅在基础信息步骤上传简历时触发 AI 解析
+    if (currentStep.value === 'basic' && result.url) {
+      await startAiResumeParse(result.url)
+    }
   }
   catch (error) {
     errorMessage.value = error instanceof ApiRequestError ? error.message : '附件简历上传失败。'
@@ -876,6 +888,149 @@ async function handleResumeFileInput(event: Event) {
     isUploadingResume.value = false
   }
 }
+
+async function startAiResumeParse(fileUrl: string) {
+  if (!userStore.authHeader)
+    return
+
+  try {
+    isAiParsing.value = true
+    aiParseStatusText.value = '正在创建解析任务...'
+
+    const task = await createResumeParseTask(fileUrl, userStore.authHeader)
+    aiParseStatusText.value = 'AI 正在解析简历...'
+
+    // 轮询解析状态，每 3 秒一次
+    await pollResumeParseTask(task.id)
+  }
+  catch (error) {
+    isAiParsing.value = false
+    aiParseStatusText.value = ''
+    errorMessage.value = error instanceof ApiRequestError ? error.message : 'AI 简历解析任务创建失败。'
+  }
+}
+
+function pollResumeParseTask(taskId: number): Promise<void> {
+  return new Promise((resolve) => {
+    const startTime = Date.now()
+    const TIMEOUT_MS = 30_000 // 30 秒超时
+
+    aiParseTimer = setInterval(async () => {
+      // 超过 30 秒直接跳过
+      if (Date.now() - startTime >= TIMEOUT_MS) {
+        clearAiParseTimer()
+        isAiParsing.value = false
+        aiParseStatusText.value = ''
+        pushGlobalNotice('简历解析超时，请手动填写或稍后重试', 'warning')
+        naiveMessage.warning('简历解析超时，请手动填写或稍后重试')
+        resolve()
+        return
+      }
+
+      try {
+        const task = await getResumeParseTask(taskId, userStore.authHeader!)
+
+        if (task.status === 'Succeeded' && task.parsed_resume) {
+          clearAiParseTimer()
+          isAiParsing.value = false
+          aiParseStatusText.value = ''
+          showParseResultDialog(task.parsed_resume)
+          resolve()
+        }
+        else if (task.status === 'Failed') {
+          clearAiParseTimer()
+          isAiParsing.value = false
+          aiParseStatusText.value = ''
+          errorMessage.value = task.error_message || 'AI 简历解析失败，请重试。'
+          resolve()
+        }
+        else {
+          // Pending 或 Processing，更新状态文案
+          aiParseStatusText.value = task.status_label || 'AI 正在解析简历...'
+        }
+      }
+      catch (error) {
+        clearAiParseTimer()
+        isAiParsing.value = false
+        aiParseStatusText.value = ''
+        errorMessage.value = error instanceof ApiRequestError ? error.message : '查询解析状态失败。'
+        resolve()
+      }
+    }, 3000)
+  })
+}
+
+function clearAiParseTimer() {
+  if (aiParseTimer) {
+    clearInterval(aiParseTimer)
+    aiParseTimer = null
+  }
+}
+
+function showParseResultDialog(parsedResume: ParsedResume) {
+  naiveDialog.warning({
+    title: '简历解析完成',
+    content: 'AI 已成功解析您的简历，是否将解析结果覆盖到当前基础信息？',
+    positiveText: '是，覆盖当前内容',
+    negativeText: '否，保留当前内容',
+    onPositiveClick: () => {
+      applyParsedResumeToForm(parsedResume)
+      pushGlobalNotice('简历信息已覆盖')
+    },
+  })
+}
+
+function applyParsedResumeToForm(parsed: ParsedResume) {
+  if (parsed.name)
+    form.name = parsed.name
+  if (parsed.phone)
+    form.phone = parsed.phone
+  if (parsed.email)
+    form.email = parsed.email
+  if (parsed.gender) {
+    if (parsed.gender === '男')
+      form.gender = 1
+    else if (parsed.gender === '女')
+      form.gender = 2
+  }
+  if (parsed.birthday)
+    form.birthDate = parsed.birthday
+  // 当前身份：根据教育经历判断是否为学生
+  if (parsed.educations?.length) {
+    const latestEdu = parsed.educations[0]
+    if (latestEdu?.degree) {
+      const degreeMap: Record<string, number> = {
+        '高中': 1,
+        '中专': 1,
+        '高中/中专': 1,
+        '专科': 2,
+        '本科': 3,
+        '硕士': 4,
+        '博士': 5,
+      }
+      const level = degreeMap[latestEdu.degree]
+      if (level)
+        form.educationLevel = level
+    }
+  }
+  // 现居地：尝试解析
+  if ((parsed as any).city || (parsed as any).current_city) {
+    applyAreaCode((parsed as any).city || (parsed as any).current_city)
+  }
+  // 开始工作年份：从最近工作经历推算
+  if (parsed.works?.length) {
+    const latestWork = parsed.works[0]
+    if (latestWork?.start_date) {
+      const year = latestWork.start_date.slice(0, 4)
+      if (year && /^\d{4}$/.test(year))
+        form.workStartYear = year
+    }
+  }
+}
+
+onUnmounted(() => {
+  clearAiParseTimer()
+})
 
 async function handleAvatarFileInput(event: Event) {
   const input = event.target as HTMLInputElement
@@ -1005,6 +1160,18 @@ watch(
 
 <template>
   <div class="jobseeker-onboarding">
+    <!-- AI 解析 loading 遮罩 -->
+    <div v-if="isAiParsing" class="ai-parsing-overlay">
+      <div class="ai-parsing-content">
+        <div class="ai-parsing-spinner" />
+        <div class="ai-parsing-text">
+          {{ aiParseStatusText || 'AI 正在解析简历...' }}
+        </div>
+        <div class="ai-parsing-hint">
+          请稍候，解析期间请勿操作页面
+        </div>
+      </div>
+    </div>
     <NuxtLink to="/" class="jobseeker-logo" aria-label="中测易聘首页">
       <img src="/assets/images/login-lanhu-logo.png" alt="中测易聘">
     </NuxtLink>
@@ -1435,6 +1602,51 @@ watch(
 </template>
 
 <style scoped>
+.ai-parsing-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.85);
+  pointer-events: all;
+}
+
+.ai-parsing-content {
+  text-align: center;
+}
+
+.ai-parsing-spinner {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 20px;
+  border: 4px solid var(--yp-border);
+  border-top-color: var(--yp-orange);
+  border-radius: 50%;
+  animation: ai-spin 0.8s linear infinite;
+}
+
+@keyframes ai-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ai-parsing-text {
+  color: var(--yp-text);
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 28px;
+}
+
+.ai-parsing-hint {
+  margin-top: 8px;
+  color: rgba(153, 153, 153, 1);
+  font-size: 13px;
+  line-height: 20px;
+}
+
 .jobseeker-onboarding {
   --yp-orange: rgba(255, 165, 0, 1);
   --yp-text: rgba(34, 34, 34, 1);
