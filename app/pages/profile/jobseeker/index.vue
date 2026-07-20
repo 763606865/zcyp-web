@@ -2279,7 +2279,7 @@ async function handleUploadConfirm() {
                 </form>
                 <template v-else>
                   <div class="education-logo">
-                    学校<br>logo
+                    {{ item.school_name }}
                   </div>
                   <div class="list-item-main">
                     <div class="item-title-row">
