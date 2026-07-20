@@ -338,7 +338,7 @@ watch(
 }
 
 .gateway-track span {
-  width: 72%;
+  width: 100%;
   height: 4px;
   display: block;
   background-color: var(--yp-orange);
