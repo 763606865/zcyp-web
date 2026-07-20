@@ -2,6 +2,7 @@
 import type { CompanyProfile, CompanyRecord } from '~/types/company'
 import NInput from '~/components/NaiveClientInput.vue'
 import NSelect from '~/components/NaiveClientSelect.vue'
+import { identitySwitchOptions, useIdentitySwitching } from '~/composables/identity-switch'
 import { getAuthMe } from '~/services/auth'
 import { bindCompany, getCompanyProfile, lookupCompany, recognizeBusinessLicense, registerAndBindCompany, updateCompanyProfile } from '~/services/company'
 import { ApiRequestError, resolveAssetUrl } from '~/services/http'
@@ -561,8 +562,18 @@ function goToStep(code: StepCode) {
   currentStep.value = code
 }
 
+const { switchIdentity: switchIdentityTo } = useIdentitySwitching({
+  getRedirectTo: () => '/profile',
+})
+
+const identitySwitchOptionsList = identitySwitchOptions.filter(
+  item => item.code !== userStore.currentIdentity,
+)
+
 async function switchIdentity() {
-  await router.push('/identity/select')
+  const next = identitySwitchOptionsList[0]
+  if (next)
+    await switchIdentityTo(next.code)
 }
 
 function handlePersonalNext() {

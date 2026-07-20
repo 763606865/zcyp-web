@@ -16,6 +16,7 @@ import NInput from '~/components/NaiveClientInput.vue'
 import NRadioGroup from '~/components/NaiveClientRadioGroup.vue'
 import NSelect from '~/components/NaiveClientSelect.vue'
 import TaxonomyCascaderSelect from '~/components/TaxonomyCascaderSelect.vue'
+import { identitySwitchOptions, useIdentitySwitching } from '~/composables/identity-switch'
 import { getAuthMe } from '~/services/auth'
 import { ApiRequestError } from '~/services/http'
 import {
@@ -906,8 +907,18 @@ async function handleAvatarFileInput(event: Event) {
   }
 }
 
+const { switchIdentity: switchIdentityTo } = useIdentitySwitching({
+  getRedirectTo: () => '/profile',
+})
+
+const identitySwitchOptionsList = identitySwitchOptions.filter(
+  item => item.code !== userStore.currentIdentity,
+)
+
 async function switchIdentity() {
-  await router.push('/identity/select')
+  const next = identitySwitchOptionsList[0]
+  if (next)
+    await switchIdentityTo(next.code)
 }
 
 async function loadResume() {

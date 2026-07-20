@@ -49,8 +49,8 @@ export function resolveProfileWorkspaceRedirect(mode: 'index' | 'workspace', opt
     }
   }
 
-  if (mode === 'workspace' && userStore.currentIdentity === 'jobseeker')
-    return '/profile/jobseeker'
+  // if (mode === 'workspace' && userStore.currentIdentity === 'jobseeker')
+  //   return '/profile/jobseeker'
 
   if (hasApprovedEmployerWorkspace(userStore.currentIdentityInfo))
     return '/employer/dashboard'

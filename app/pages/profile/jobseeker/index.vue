@@ -101,6 +101,25 @@ interface ResumeProfileData {
 const userStore = useUserStore()
 const metaStore = useMetaStore()
 
+// 基础信息未填写时跳转到基础信息页
+function redirectIfBasicInfoMissing() {
+  if (!import.meta.client)
+    return
+  if (userStore.hasBasicInfo === false)
+    navigateTo('/base_info', { replace: true })
+}
+
+onMounted(() => {
+  redirectIfBasicInfoMissing()
+})
+
+watch(
+  () => userStore.hasBasicInfo,
+  () => {
+    redirectIfBasicInfoMissing()
+  },
+)
+
 const resume = ref<ResumeRecord | null>(null)
 const intentionList = ref<ResumeIntention[]>([])
 const workList = ref<ResumeWork[]>([])
