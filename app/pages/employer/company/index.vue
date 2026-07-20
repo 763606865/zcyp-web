@@ -35,6 +35,11 @@ const mockProfile: CompanyProfile = {
   benefit_tag_labels: ['五险一金', '住房公积金', '双休', '年终奖', '带薪年假', '弹性工作', '股票期权', '餐补'],
   funding_stage: 4,
   funding_stage_label: 'B轮',
+  work_time: '09:00-18:00',
+  rest_type: 1,
+  rest_type_label: '双休',
+  salary_pay_day: 10,
+  has_overtime_subsidy: true,
   profile_status: 1,
   profile_status_label: '已审核',
   is_certified: true,
@@ -78,6 +83,10 @@ const editForm = reactive({
   introduction: '',
   benefitTags: [] as string[],
   fundingStage: null as number | null,
+  workTime: '',
+  restType: null as number | null,
+  salaryPayDay: null as number | null,
+  hasOvertimeSubsidy: null as boolean | null,
 })
 
 const editProvinceCode = ref('')
@@ -116,6 +125,13 @@ const fundingStageOptions = [
   { label: 'D轮及以上', value: 6 },
   { label: '已上市', value: 7 },
   { label: '不需要融资', value: 8 },
+]
+const restTypeOptions = [
+  { label: '双休', value: 1 },
+  { label: '单休', value: 2 },
+  { label: '大小周', value: 3 },
+  { label: '排班', value: 4 },
+  { label: '其他', value: 5 },
 ]
 const benefitTagOptions = [
   { label: '五险一金', value: 'social_insurance' },
@@ -207,6 +223,10 @@ const form = reactive({
   introduction: '',
   benefitTags: [] as string[],
   fundingStage: null as number | null,
+  workTime: '',
+  restType: null as number | null,
+  salaryPayDay: null as number | null,
+  hasOvertimeSubsidy: null as boolean | null,
 })
 
 function loadProfileToForm(p: CompanyProfile) {
@@ -222,6 +242,10 @@ function loadProfileToForm(p: CompanyProfile) {
   form.introduction = p.introduction || ''
   form.benefitTags = p.benefit_tags || []
   form.fundingStage = p.funding_stage
+  form.workTime = p.work_time || ''
+  form.restType = p.rest_type ?? null
+  form.salaryPayDay = p.salary_pay_day ?? null
+  form.hasOvertimeSubsidy = p.has_overtime_subsidy ?? null
 
   if (p.city_code && metaStore.areas.length) {
     const area = metaStore.getAreaByCode(p.city_code)
@@ -246,6 +270,10 @@ function loadProfileToEditForm(p: CompanyProfile) {
   editForm.introduction = p.introduction || ''
   editForm.benefitTags = p.benefit_tags || []
   editForm.fundingStage = p.funding_stage
+  editForm.workTime = p.work_time || ''
+  editForm.restType = p.rest_type ?? null
+  editForm.salaryPayDay = p.salary_pay_day ?? null
+  editForm.hasOvertimeSubsidy = p.has_overtime_subsidy ?? null
 
   if (p.city_code && metaStore.areas.length) {
     const area = metaStore.getAreaByCode(p.city_code)
@@ -311,9 +339,18 @@ function openEditDialog() {
   showEditDialog.value = true
 }
 
+function updateSalaryPayDay(event: Event) {
+  const value = (event.target as HTMLInputElement).value
+  editForm.salaryPayDay = value === '' ? null : Number(value)
+}
+
 async function saveProfile() {
   if (!userStore.authHeader || isSaving.value)
     return
+  if (editForm.salaryPayDay !== null && (!Number.isInteger(editForm.salaryPayDay) || editForm.salaryPayDay < 1 || editForm.salaryPayDay > 30)) {
+    pushGlobalNotice('每月发薪日请输入 1-30 的整数', 'warning')
+    return
+  }
   isSaving.value = true
   let logoUploadFailed = false
   try {
@@ -349,9 +386,13 @@ async function saveProfile() {
       industry_codes: editForm.industryCodes.length > 0 ? editForm.industryCodes : undefined,
       website: editForm.website || null,
       introduction: editForm.introduction || null,
-      benefit_tags: editForm.benefitTags.length > 0 ? editForm.benefitTags : undefined,
+      benefit_tags: editForm.benefitTags,
       funding_stage: editForm.fundingStage,
-    } as any, userStore.authHeader)
+      work_time: editForm.workTime.trim() || null,
+      rest_type: editForm.restType,
+      salary_pay_day: editForm.salaryPayDay,
+      has_overtime_subsidy: editForm.hasOvertimeSubsidy,
+    }, userStore.authHeader)
     profile.value = result
     loadProfileToForm(result)
     loadProfileToEditForm(result)
@@ -694,13 +735,18 @@ const allInfoLabels = computed(() => {
               <div class="text-[14px] text-[#222] font-semibold mb-3 mt-6">
                 企业福利
               </div>
-              <!-- TODO: 工作时间、周末双休字段，后期替换为真实字段 -->
-              <div class="text-[14px] text-[#222] mb-3 flex gap-6 items-center">
+              <div class="text-[14px] text-[#222] mb-3 flex flex-wrap gap-x-6 gap-y-2 items-center">
                 <span class="flex gap-1 items-center">
-                  <span class="i-carbon-time text-[14px]" /> 上午9:00–下午17:30
+                  <span class="i-carbon-time text-[14px]" /> {{ form.workTime || '工作时间未设置' }}
                 </span>
                 <span class="flex gap-1 items-center">
-                  <span class="i-carbon-calendar text-[14px]" /> 周末双休
+                  <span class="i-carbon-calendar text-[14px]" /> {{ restTypeOptions.find(item => item.value === form.restType)?.label || '休息制度未设置' }}
+                </span>
+                <span class="flex gap-1 items-center">
+                  <span class="i-carbon-money text-[14px]" /> {{ form.salaryPayDay ? `每月${form.salaryPayDay}日发薪` : '发薪日未设置' }}
+                </span>
+                <span class="flex gap-1 items-center">
+                  <span class="i-carbon-time text-[14px]" /> {{ form.hasOvertimeSubsidy === null ? '加班补助未设置' : (form.hasOvertimeSubsidy ? '有加班补助' : '无加班补助') }}
                 </span>
               </div>
               <div class="flex flex-wrap gap-2">
@@ -1033,6 +1079,73 @@ const allInfoLabels = computed(() => {
                 <div class="rounded-[3px] bg-white flex-1 h-[34px] ring-1 ring-[#e0e0e6]" />
               </template>
             </ClientOnly>
+          </div>
+        </div>
+        <!-- 工作作息时间 -->
+        <div>
+          <div class="text-[14px] text-[#333] mb-1">
+            工作作息时间
+          </div>
+          <input v-model="editForm.workTime" maxlength="50" placeholder="如：早9晚6、09:00-18:00" class="text-[13px] px-3 outline-none border border-[#d9d9d9] rounded-[6px] h-[36px] w-full focus:border-[#ffa500]">
+        </div>
+        <!-- 休息制度 -->
+        <div>
+          <div class="text-[14px] text-[#333] mb-1">
+            休息制度
+          </div>
+          <select v-model="editForm.restType" class="text-[13px] px-3 outline-none border border-[#d9d9d9] rounded-[6px] bg-white h-[36px] w-full">
+            <option :value="null">
+              请选择
+            </option>
+            <option v-for="opt in restTypeOptions" :key="opt.value" :value="opt.value">
+              {{ opt.label }}
+            </option>
+          </select>
+        </div>
+        <!-- 每月发薪日 -->
+        <div>
+          <div class="text-[14px] text-[#333] mb-1">
+            每月发薪日
+          </div>
+          <input :value="editForm.salaryPayDay ?? ''" type="number" min="1" max="30" step="1" placeholder="请输入1-30" class="text-[13px] px-3 outline-none border border-[#d9d9d9] rounded-[6px] h-[36px] w-full focus:border-[#ffa500]" @input="updateSalaryPayDay">
+        </div>
+        <!-- 加班补助 -->
+        <div>
+          <div class="text-[14px] text-[#333] mb-1">
+            是否有加班补助
+          </div>
+          <select v-model="editForm.hasOvertimeSubsidy" class="text-[13px] px-3 outline-none border border-[#d9d9d9] rounded-[6px] bg-white h-[36px] w-full">
+            <option :value="null">
+              请选择
+            </option>
+            <option :value="true">
+              是
+            </option>
+            <option :value="false">
+              否
+            </option>
+          </select>
+        </div>
+        <!-- 福利标签（全宽） -->
+        <div class="col-span-2">
+          <div class="text-[14px] text-[#333] mb-2 flex items-center justify-between">
+            <span>福利标签</span>
+            <span class="text-[12px] text-[#999] font-normal">可多选，最多20项</span>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button
+              v-for="opt in benefitTagOptions"
+              :key="opt.value"
+              type="button"
+              class="text-[13px] px-3 border rounded-[6px] h-[32px] cursor-pointer transition-colors"
+              :class="editForm.benefitTags.includes(opt.value)
+                ? 'text-[#e89500] border-[#ffa500] bg-[#fff7e6]'
+                : 'text-[#555] border-[#d9d9d9] bg-white hover:border-[#ffa500]'"
+              :aria-pressed="editForm.benefitTags.includes(opt.value)"
+              @click="toggleEditBenefitTag(opt.value)"
+            >
+              {{ opt.label }}
+            </button>
           </div>
         </div>
         <!-- 公司简介（全宽） -->

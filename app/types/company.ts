@@ -64,6 +64,11 @@ export interface CompanyProfile {
   benefit_tag_labels: string[]
   funding_stage: number | null
   funding_stage_label: string | null
+  work_time: string | null
+  rest_type: number | null
+  rest_type_label?: string | null
+  salary_pay_day: number | null
+  has_overtime_subsidy: boolean | null
   profile_status: number
   profile_status_label: string | null
   // TODO: 认证状态字段，接口未返回，暂时注释
@@ -86,4 +91,8 @@ export interface CompanyProfileUpdatePayload {
   introduction?: string | null
   benefit_tags?: string[]
   funding_stage?: number | null
+  work_time?: string | null
+  rest_type?: number | null
+  salary_pay_day?: number | null
+  has_overtime_subsidy?: boolean | null
 }
