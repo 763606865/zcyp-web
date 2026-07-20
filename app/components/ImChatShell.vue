@@ -88,9 +88,11 @@ const MANAGE_PAGE_SIZE = 10
 const showQuickPhraseForm = ref(false)
 const editingQuickPhrase = ref<ImQuickPhrase | null>(null)
 const formContent = ref('')
-const formSort = ref(0)
-const formIsEnabled = ref(true)
 const isSubmittingQuickPhrase = ref(false)
+const formTextareaRef = ref<HTMLTextAreaElement | null>(null)
+const formEmojiButtonRef = ref<HTMLButtonElement | null>(null)
+const formEmojiPanelRef = ref<HTMLDivElement | null>(null)
+const showFormEmojiPanel = ref(false)
 
 // 删除确认
 const pendingDeletePhrase = ref<ImQuickPhrase | null>(null)
@@ -1076,16 +1078,12 @@ function goToManagePage(page: number) {
 function openCreateForm() {
   editingQuickPhrase.value = null
   formContent.value = ''
-  formSort.value = 0
-  formIsEnabled.value = true
   showQuickPhraseForm.value = true
 }
 
 function openEditForm(phrase: ImQuickPhrase) {
   editingQuickPhrase.value = phrase
   formContent.value = phrase.content
-  formSort.value = phrase.sort
-  formIsEnabled.value = phrase.is_enabled
   showQuickPhraseForm.value = true
 }
 
@@ -1104,16 +1102,12 @@ async function submitQuickPhraseForm() {
     if (editingQuickPhrase.value) {
       await updateImQuickPhrase(editingQuickPhrase.value.id, {
         content: formContent.value.trim(),
-        sort: formSort.value,
-        is_enabled: formIsEnabled.value,
       }, userStore.authHeader)
       pushGlobalNotice('快捷语已更新', 'success')
     }
     else {
       await createImQuickPhrase({
         content: formContent.value.trim(),
-        sort: formSort.value,
-        is_enabled: formIsEnabled.value,
       }, userStore.authHeader)
       pushGlobalNotice('快捷语已创建', 'success')
     }
@@ -1149,6 +1143,50 @@ async function executeDeletePhrase() {
   catch (error) {
     pushGlobalNotice(error instanceof Error ? error.message : '删除失败', 'error')
   }
+}
+
+// 表单内表情插入
+const formCommonEmojis = ['😀', '😁', '😂', '😊', '😍', '👍', '👏', '🤝', '🎉', '💪', '🙏', '❤️']
+
+function toggleFormEmojiPanel() {
+  showFormEmojiPanel.value = !showFormEmojiPanel.value
+}
+
+function handleFormEmojiClick(event: Event) {
+  const detail = (event as CustomEvent<{ unicode?: string, emoji?: { unicode?: string } }>).detail
+  const emoji = detail?.unicode || detail?.emoji?.unicode || ''
+  if (emoji)
+    insertFormEmoji(emoji)
+}
+
+function insertFormEmoji(emoji: string) {
+  const textarea = formTextareaRef.value
+  if (!textarea) {
+    formContent.value += emoji
+    return
+  }
+  const start = textarea.selectionStart
+  const end = textarea.selectionEnd
+  const before = formContent.value.slice(0, start)
+  const after = formContent.value.slice(end)
+  formContent.value = before + emoji + after
+  showFormEmojiPanel.value = false
+  nextTick(() => {
+    textarea.focus()
+    const cursor = start + emoji.length
+    textarea.setSelectionRange(cursor, cursor)
+  })
+}
+
+function handleFormEmojiOutsideClick(event: PointerEvent) {
+  if (!showFormEmojiPanel.value)
+    return
+  const target = event.target as Node | null
+  if (!target)
+    return
+  if (formEmojiPanelRef.value?.contains(target) || formEmojiButtonRef.value?.contains(target))
+    return
+  showFormEmojiPanel.value = false
 }
 
 function handleEmojiOutsidePointerDown(event: PointerEvent) {
@@ -1211,11 +1249,13 @@ onMounted(() => {
     pushGlobalNotice('表情选择器加载失败，请确认已安装 emoji-picker-element', 'warning')
   })
   window.addEventListener('pointerdown', handleEmojiOutsidePointerDown)
+  window.addEventListener('pointerdown', handleFormEmojiOutsideClick)
   bootstrapChat('mounted')
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('pointerdown', handleEmojiOutsidePointerDown)
+  window.removeEventListener('pointerdown', handleFormEmojiOutsideClick)
   closeSocket()
 })
 </script>
@@ -1433,7 +1473,7 @@ onBeforeUnmount(() => {
     <!-- 快捷语管理弹窗 -->
     <Teleport to="body">
       <div v-if="showQuickPhraseManageModal" class="qp-modal-overlay" @click.self="closeManageModal">
-        <div class="qp-modal">
+        <div class="qp-modal" :class="{ 'is-form-mode': showQuickPhraseForm }">
           <div class="qp-modal-header">
             <h3>快捷语管理</h3>
             <button type="button" class="qp-modal-close" @click="closeManageModal">
@@ -1448,19 +1488,24 @@ onBeforeUnmount(() => {
                 {{ editingQuickPhrase ? '编辑快捷语' : '新增快捷语' }}
               </div>
               <div class="qp-form-field">
-                <label>内容</label>
-                <textarea v-model="formContent" rows="3" maxlength="1000" placeholder="请输入快捷语内容" />
-              </div>
-              <div class="qp-form-row">
-                <div class="qp-form-field">
-                  <label>排序值</label>
-                  <input v-model.number="formSort" type="number" min="0" placeholder="0">
+                <div class="qp-form-label-row">
+                  <label>内容</label>
+                  <button ref="formEmojiButtonRef" type="button" class="qp-form-emoji-btn" title="插入表情" @click="toggleFormEmojiPanel">
+                    <span class="i-carbon-face-satisfied" />
+                  </button>
                 </div>
-                <div class="qp-form-field qp-form-switch">
-                  <label>
-                    <input v-model="formIsEnabled" type="checkbox">
-                    启用
-                  </label>
+                <textarea ref="formTextareaRef" v-model="formContent" rows="18" maxlength="1000" placeholder="请输入快捷语内容" />
+                <div v-if="showFormEmojiPanel" ref="formEmojiPanelRef" class="qp-form-emoji-panel">
+                  <ClientOnly>
+                    <emoji-picker class="qp-emoji-picker" locale="zh" @emoji-click="handleFormEmojiClick" />
+                    <template #fallback>
+                      <div class="qp-emoji-fallback">
+                        <button v-for="emoji in formCommonEmojis" :key="emoji" type="button" @click="insertFormEmoji(emoji)">
+                          {{ emoji }}
+                        </button>
+                      </div>
+                    </template>
+                  </ClientOnly>
                 </div>
               </div>
               <div class="qp-form-actions">
@@ -2365,6 +2410,14 @@ onBeforeUnmount(() => {
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
 }
 
+.qp-modal.is-form-mode {
+  height: 620px;
+}
+
+.qp-modal.is-form-mode .qp-modal-body {
+  overflow: auto;
+}
+
 .qp-modal-header {
   display: flex;
   align-items: center;
@@ -2418,6 +2471,10 @@ onBeforeUnmount(() => {
   gap: 14px;
 }
 
+.qp-form .qp-form-field {
+  position: relative;
+}
+
 .qp-form-title {
   color: #222;
   font-size: 15px;
@@ -2436,8 +2493,7 @@ onBeforeUnmount(() => {
   font-weight: 500;
 }
 
-.qp-form-field textarea,
-.qp-form-field input[type='number'] {
+.qp-form-field textarea {
   border: 1px solid #e2e8f0;
   border-radius: 6px;
   color: #1f2937;
@@ -2448,39 +2504,91 @@ onBeforeUnmount(() => {
   font-family: inherit;
 }
 
-.qp-form-field textarea:focus,
-.qp-form-field input[type='number']:focus {
+.qp-form-field textarea:focus {
   border-color: #ff9f00;
   box-shadow: 0 0 0 2px rgba(255, 159, 0, 0.12);
 }
 
-.qp-form-row {
-  display: flex;
-  gap: 16px;
-  align-items: flex-start;
-}
-
-.qp-form-row .qp-form-field {
-  flex: 1;
-}
-
-.qp-form-switch {
-  justify-content: flex-end;
-}
-
-.qp-form-switch label {
-  display: flex;
+.qp-form-label-row {
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  cursor: pointer;
+  gap: 4px;
+}
+
+.qp-form-label-row label {
   color: #475569;
   font-size: 13px;
+  font-weight: 500;
 }
 
-.qp-form-switch input[type='checkbox'] {
-  width: 16px;
-  height: 16px;
-  accent-color: #ff9f00;
+.qp-form-emoji-btn {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: transparent;
+  color: #475569;
+  cursor: pointer;
+  padding: 0;
+}
+
+.qp-form-emoji-btn:hover {
+  border-color: #ff9f00;
+  background: #fff7e8;
+  color: #ff9f00;
+}
+
+.qp-form-emoji-btn span {
+  display: block;
+  width: 18px;
+  height: 18px;
+}
+
+.qp-form-emoji-panel {
+  position: absolute;
+  left: 36px;
+  top: 32px;
+  width: 320px;
+  max-width: calc(100vw - 120px);
+  overflow: hidden;
+  border: 1px solid #edf0f5;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 20px rgba(30, 41, 59, 0.12);
+  z-index: 10;
+}
+
+.qp-emoji-picker {
+  width: 100%;
+  height: 280px;
+  --border-size: 0;
+  --border-radius: 8px;
+  --emoji-size: 1.35rem;
+  --num-columns: 8;
+}
+
+.qp-emoji-fallback {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+  padding: 8px;
+}
+
+.qp-emoji-fallback button {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.qp-emoji-fallback button:hover {
+  background: #fff7e8;
 }
 
 .qp-form-actions {
