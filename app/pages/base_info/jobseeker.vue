@@ -516,7 +516,7 @@ function loadResumeToForm(resume: ResumeRecord) {
   form.fileUrl = resume.file_url || ''
   form.fileName = resume.file_name || ''
   form.fileExt = resume.file_ext || ''
-  form.advantage = typeof resume.extra?.advantage === 'string' ? resume.extra.advantage : ''
+  form.advantage = resume.personal_advantage || ''
   avatarPreviewUrl.value = resume.display_avatar || ''
   applyAreaCode(resume.current_city_code || resume.current_residence_city || null)
 }
@@ -687,8 +687,8 @@ function buildBasicPayload(): ResumeSavePayload {
     file_name: form.fileName || null,
     file_ext: form.fileExt || null,
     is_primary: true,
+    personal_advantage: form.advantage.trim() || null,
     extra: {
-      advantage: form.advantage.trim() || null,
       salary_months: form.salaryMonths,
       expected_city_codes: form.expectedCityCodes,
       has_internship: form.hasInternship,

@@ -338,7 +338,7 @@ const birthDateTimestamp = computed({
 const displayName = computed(() => resume.value?.full_name || userStore.user?.nickname || userStore.user?.name || '求职者')
 const primaryIntention = computed(() => intentionList.value[0] || null)
 const resumeAdvantage = computed(() => {
-  const value = resume.value?.extra?.advantage
+  const value = resume.value?.personal_advantage
   return typeof value === 'string' ? value : ''
 })
 
@@ -615,7 +615,7 @@ function hydrateBasicForm(item: ResumeRecord) {
     workYears: item.work_years === null || item.work_years === undefined ? '' : String(item.work_years),
     cityCode: item.current_city_code || item.current_residence_city || '',
     residenceDetail: item.current_residence_detail || '',
-    advantage: typeof item.extra?.advantage === 'string' ? item.extra.advantage : '',
+    advantage: item.personal_advantage || '',
   }
 
   applyAreaCodeToRefs(basicForm.value.cityCode, residenceProvinceCode, residenceCityCode)
@@ -726,13 +726,7 @@ function cancelEdit() {
 }
 
 function buildBasicPayload(): ResumeSavePayload {
-  const extra = { ...(resume.value?.extra || {}) }
   const advantage = basicForm.value.advantage.trim()
-  if (advantage)
-    extra.advantage = advantage
-  else
-    delete extra.advantage
-
   return {
     title: basicForm.value.title.trim() || `${basicForm.value.name.trim() || '求职者'}的在线简历`,
     full_name: basicForm.value.name.trim(),
@@ -749,7 +743,7 @@ function buildBasicPayload(): ResumeSavePayload {
     file_url: resume.value?.file_url || null,
     file_name: resume.value?.file_name || null,
     file_ext: resume.value?.file_ext || null,
-    extra,
+    personal_advantage: advantage || null,
   }
 }
 
