@@ -313,7 +313,7 @@ function applyBusinessLicenseOcrResult(result: Awaited<ReturnType<typeof recogni
   const creditCode = (result.credit_code || result.unified_social_credit_code || result.social_credit_code || '').trim()
   const legalPerson = (result.legal_person || '').trim()
   const contactPhone = (result.contact_phone || '').trim()
-  const address = (result.address || '').trim()
+  const address = (result.business_address || result.address || '').trim()
 
   if (companyName) {
     bindForm.companyName = companyName

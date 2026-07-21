@@ -19,6 +19,7 @@ export interface BusinessLicenseOcrResponse {
   unified_social_credit_code?: string | null
   legal_person?: string | null
   address?: string | null
+  business_address?: string | null
   contact_phone?: string | null
 }
 
