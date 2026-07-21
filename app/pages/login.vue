@@ -127,6 +127,9 @@ async function submitAuth() {
     successMessage.value = '登录成功，正在跳转...'
     pushGlobalNotice('登录成功')
 
+    // 退出登录后 callOnce 不会重新触发，需主动带新 token 拉取首页数据（菜单等）
+    await ensureHomePageData({ authorization: userStore.authHeader || undefined, force: true })
+
     await router.push('/profile')
   }
   catch (error) {
