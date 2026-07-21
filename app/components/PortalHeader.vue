@@ -30,7 +30,7 @@ const { isRefreshingIdentity, switchingIdentityCode, errorMessage: identityError
 })
 const panelRef = ref<HTMLElement | null>(null)
 
-const menus = computed<CmsMenuItem[]>(() => pageDataStore.homeData?.menus || [])
+const menus = computed<CmsMenuItem[]>(() => pageDataStore.menus)
 const siteConfig = computed<CmsSiteConfig | null>(() => pageDataStore.siteConfig)
 const activeNav = computed(() => props.activeNav)
 const { navItems, isActiveNav } = usePortalNavigation(menus, activeNav)

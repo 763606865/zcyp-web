@@ -1,4 +1,4 @@
-import type { CmsSiteConfig, CompanyDirectoryItem, HomePageData, JobSummary, NoticeSummary, RcPositionNode } from '~/types/recruitment'
+import type { CmsFriendLink, CmsMenuItem, CmsSiteConfig, CompanyDirectoryItem, HomePageData, JobSummary, NoticeSummary, RcPositionNode } from '~/types/recruitment'
 import { acceptHMRUpdate, defineStore } from 'pinia'
 
 interface HomeDirectoryPayload {
@@ -16,6 +16,8 @@ interface ClearHomeDirectoryOptions {
 export const usePageDataStore = defineStore('pageData', () => {
   const siteConfig = ref<CmsSiteConfig | null>(null)
   const homeData = ref<HomePageData | null>(null)
+  const menus = ref<CmsMenuItem[]>([])
+  const friendLinks = ref<CmsFriendLink[]>([])
   const allJobs = ref<JobSummary[]>([])
   const notices = ref<NoticeSummary[]>([])
   const companies = ref<CompanyDirectoryItem[]>([])
@@ -25,9 +27,16 @@ export const usePageDataStore = defineStore('pageData', () => {
     siteConfig.value = nextSiteConfig
   }
 
+  function setMenus(nextMenus: CmsMenuItem[]) {
+    menus.value = nextMenus
+  }
+
+  function setFriendLinks(nextFriendLinks: CmsFriendLink[]) {
+    friendLinks.value = nextFriendLinks
+  }
+
   function setHomeData(nextHomeData: HomePageData | null) {
     homeData.value = nextHomeData
-    siteConfig.value = nextHomeData?.siteConfig || null
   }
 
   function setHomeDirectoryData(payload: HomeDirectoryPayload) {
@@ -40,6 +49,8 @@ export const usePageDataStore = defineStore('pageData', () => {
 
   function clearHomeDirectoryData(options: ClearHomeDirectoryOptions = {}) {
     homeData.value = null
+    menus.value = []
+    friendLinks.value = []
     allJobs.value = []
     notices.value = []
     companies.value = []
@@ -52,11 +63,15 @@ export const usePageDataStore = defineStore('pageData', () => {
   return {
     siteConfig,
     homeData,
+    menus,
+    friendLinks,
     allJobs,
     notices,
     companies,
     positionTree,
     setSiteConfig,
+    setMenus,
+    setFriendLinks,
     setHomeData,
     setHomeDirectoryData,
     clearHomeDirectoryData,

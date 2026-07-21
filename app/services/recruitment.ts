@@ -27,14 +27,19 @@ interface ApiResponse<T> {
 }
 
 interface CmsHomePayload {
-  menus: CmsMenuItem[]
   banner_position: CmsBannerPositionSource
   ad_slot: CmsAdSlot[]
-  site_config: CmsSiteConfig | null
-  friend_links: CmsFriendLink[]
   urgent_jobs: CmsHomeRecommendation[]
   hot_jobs: CmsHomeRecommendation[]
   famous_companies: CmsHomeRecommendation[]
+}
+
+interface CmsMenusPayload {
+  menus: CmsMenuItem[]
+}
+
+interface CmsFriendLinksPayload {
+  friend_links: CmsFriendLink[]
 }
 
 interface CmsAnnouncementsPayload {
@@ -99,11 +104,8 @@ export function getHomePageData(authorization?: string) {
 
       return {
         ...mockHomePageData,
-        menus: payload.menus || [],
         bannerPosition: payload.banner_position,
         adSlots: payload.ad_slot || [],
-        siteConfig: payload.site_config,
-        friendLinks: payload.friend_links || [],
         urgentJobs: payload.urgent_jobs || [],
         hotJobs: payload.hot_jobs || [],
         famousCompanies: payload.famous_companies || [],
@@ -232,5 +234,38 @@ export async function getHomePositions(authorization?: string) {
       return response.data.positions || []
     },
     mockPositionTree,
+  )
+}
+
+export function getCmsMenus(authorization?: string) {
+  return withMockFallback<CmsMenuItem[]>(
+    async () => {
+      const authHeader = resolveAuthorizationHeader(authorization)
+      const response = await getJson<ApiResponse<CmsMenusPayload>>('/cms/menus', undefined, authHeader ? { Authorization: authHeader } : undefined)
+      return response.data?.menus || []
+    },
+    [],
+  )
+}
+
+export function getCmsSiteConfigs(authorization?: string) {
+  return withMockFallback<CmsSiteConfig | null>(
+    async () => {
+      const authHeader = resolveAuthorizationHeader(authorization)
+      const response = await getJson<ApiResponse<CmsSiteConfig | null>>('/cms/site-configs', undefined, authHeader ? { Authorization: authHeader } : undefined)
+      return response.data ?? null
+    },
+    null,
+  )
+}
+
+export function getCmsFriendLinks(authorization?: string) {
+  return withMockFallback<CmsFriendLink[]>(
+    async () => {
+      const authHeader = resolveAuthorizationHeader(authorization)
+      const response = await getJson<ApiResponse<CmsFriendLinksPayload>>('/cms/friend-links', undefined, authHeader ? { Authorization: authHeader } : undefined)
+      return response.data?.friend_links || []
+    },
+    [],
   )
 }

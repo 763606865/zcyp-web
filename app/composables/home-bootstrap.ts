@@ -1,5 +1,5 @@
 import type { CmsSiteConfig, CompanyDirectoryItem, HomePageData, JobSummary, NoticeSummary, RcPositionNode } from '~/types/recruitment'
-import { getCompanyList, getHomePageData, getHomePositions, getJobList, getNoticeList } from '~/services/recruitment'
+import { getCmsFriendLinks, getCmsMenus, getCmsSiteConfigs, getCompanyList, getHomePageData, getHomePositions, getJobList, getNoticeList } from '~/services/recruitment'
 
 interface HomeBootstrapOptions {
   authorization?: string
@@ -27,8 +27,17 @@ export async function ensureHomePageData(options: HomeBootstrapOptions = {}) {
   const shouldRefresh = options.force || !pageDataStore.homeData
 
   if (shouldRefresh) {
-    const homeData = await getHomePageData(resolveBootstrapAuthorization(options.authorization))
+    const authHeader = resolveBootstrapAuthorization(options.authorization)
+    const [homeData, menus, siteConfig, friendLinks] = await Promise.all([
+      getHomePageData(authHeader),
+      getCmsMenus(authHeader),
+      getCmsSiteConfigs(authHeader),
+      getCmsFriendLinks(authHeader),
+    ])
     pageDataStore.setHomeData(homeData)
+    pageDataStore.setMenus(menus)
+    pageDataStore.setSiteConfig(siteConfig)
+    pageDataStore.setFriendLinks(friendLinks)
   }
 
   return pageDataStore.homeData
@@ -37,8 +46,11 @@ export async function ensureHomePageData(options: HomeBootstrapOptions = {}) {
 export async function ensureSiteConfig(options: HomeBootstrapOptions = {}) {
   const pageDataStore = usePageDataStore()
 
-  if (!pageDataStore.siteConfig || options.force)
-    await ensureHomePageData(options)
+  if (!pageDataStore.siteConfig || options.force) {
+    const authHeader = resolveBootstrapAuthorization(options.authorization)
+    const siteConfig = await getCmsSiteConfigs(authHeader)
+    pageDataStore.setSiteConfig(siteConfig)
+  }
 
   return pageDataStore.siteConfig as CmsSiteConfig | null
 }
@@ -54,12 +66,15 @@ export async function ensureHomeDirectoryData(options: HomeBootstrapOptions = {}
 
   if (shouldRefresh) {
     const authHeader = resolveBootstrapAuthorization(options.authorization)
-    const [homeData, allJobs, notices, companies, positionTree] = await Promise.all([
+    const [homeData, allJobs, notices, companies, positionTree, menus, siteConfig, friendLinks] = await Promise.all([
       getHomePageData(authHeader),
       getJobList(),
       getNoticeList(),
       getCompanyList(),
       getHomePositions(authHeader),
+      getCmsMenus(authHeader),
+      getCmsSiteConfigs(authHeader),
+      getCmsFriendLinks(authHeader),
     ])
 
     pageDataStore.setHomeDirectoryData({
@@ -69,6 +84,9 @@ export async function ensureHomeDirectoryData(options: HomeBootstrapOptions = {}
       companies,
       positionTree,
     })
+    pageDataStore.setMenus(menus)
+    pageDataStore.setSiteConfig(siteConfig)
+    pageDataStore.setFriendLinks(friendLinks)
   }
 
   return {

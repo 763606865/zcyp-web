@@ -6,14 +6,14 @@ const pageDataStore = usePageDataStore()
 const userStore = useUserStore()
 
 const siteConfig = computed<CmsSiteConfig | null>(() => pageDataStore.siteConfig)
-const friendLinks = computed<CmsFriendLink[]>(() => pageDataStore.homeData?.friendLinks || [])
+const friendLinks = computed<CmsFriendLink[]>(() => pageDataStore.friendLinks)
 
 const siteName = computed(() => siteConfig.value?.name || '中测易聘')
 const servicePhone = computed(() => siteConfig.value?.service_phone || '400-8251513')
 const serviceEmail = computed(() => siteConfig.value?.service_email || 'jcjt@easyzp.com')
 
 await callOnce(async () => {
-  if (!pageDataStore.siteConfig || !pageDataStore.homeData?.friendLinks?.length)
+  if (!pageDataStore.siteConfig || !pageDataStore.friendLinks?.length)
     await ensureHomePageData({ authorization: userStore.authHeader || undefined })
 })
 </script>
