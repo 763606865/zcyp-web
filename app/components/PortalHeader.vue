@@ -113,7 +113,7 @@ onBeforeUnmount(() => {
 
         <div v-if="userStore.isLoggedIn" ref="panelRef" class="portal-user-menu">
           <NuxtLink :to="messageRoute">
-            消息
+            消喜
           </NuxtLink>
           <button type="button" class="portal-user-dropdown-trigger" @click="toggleIdentityDropdown">
             <span>欢迎回来 {{ displayName }}</span>
