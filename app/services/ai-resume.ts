@@ -21,6 +21,9 @@ export interface ParsedResume {
     description?: string
   }>
   skills?: string[]
+  started_at?: string
+  birth_date?: string
+  full_name?: string
 }
 
 export interface ResumeParseTask {

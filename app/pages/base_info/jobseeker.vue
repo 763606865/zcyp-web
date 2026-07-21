@@ -995,8 +995,8 @@ function showParseResultDialog(parsedResume: ParsedResume) {
 }
 
 function applyParsedResumeToForm(parsed: ParsedResume) {
-  if (parsed.name)
-    form.name = parsed.name
+  if (parsed.full_name)
+    form.name = parsed.full_name
   if (parsed.phone)
     form.phone = parsed.phone
   if (parsed.email)
@@ -1007,39 +1007,42 @@ function applyParsedResumeToForm(parsed: ParsedResume) {
     else if (parsed.gender === '女')
       form.gender = 2
   }
-  if (parsed.birthday)
-    form.birthDate = parsed.birthday
+  if (parsed.birth_date)
+    form.birthDate = parsed.birth_date
+  if (parsed.started_at) {
+    form.workStartYear = String(new Date(parsed.started_at).getFullYear())
+  }
   // 当前身份：根据教育经历判断是否为学生
   if (parsed.educations?.length) {
-    const latestEdu = parsed.educations[0]
-    if (latestEdu?.degree) {
-      const degreeMap: Record<string, number> = {
-        '高中': 1,
-        '中专': 1,
-        '高中/中专': 1,
-        '专科': 2,
-        '本科': 3,
-        '硕士': 4,
-        '博士': 5,
-      }
-      const level = degreeMap[latestEdu.degree]
-      if (level)
-        form.educationLevel = level
-    }
+    // const latestEdu = parsed.educations[0]
+    // if (latestEdu?.degree) {
+    //   const degreeMap: Record<string, number> = {
+    //     '高中': 1,
+    //     '中专': 1,
+    //     '高中/中专': 1,
+    //     '专科': 2,
+    //     '本科': 3,
+    //     '硕士': 4,
+    //     '博士': 5,
+    //   }
+    //   const level = degreeMap[latestEdu.degree]
+    //   if (level)
+    //     form.educationLevel = level
+    // }
   }
   // 现居地：尝试解析
   if ((parsed as any).city || (parsed as any).current_city) {
     applyAreaCode((parsed as any).city || (parsed as any).current_city)
   }
   // 开始工作年份：从最近工作经历推算
-  if (parsed.works?.length) {
-    const latestWork = parsed.works[0]
-    if (latestWork?.start_date) {
-      const year = latestWork.start_date.slice(0, 4)
-      if (year && /^\d{4}$/.test(year))
-        form.workStartYear = year
-    }
-  }
+  // if (parsed.works?.length) {
+  //   const latestWork = parsed.works[0]
+  //   if (latestWork?.start_date) {
+  //     const year = latestWork.start_date.slice(0, 4)
+  //     if (year && /^\d{4}$/.test(year))
+  //       form.workStartYear = year
+  //   }
+  // }
 }
 
 onUnmounted(() => {
