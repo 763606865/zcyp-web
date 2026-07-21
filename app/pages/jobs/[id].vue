@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { TalentJobItem } from '~/services/talent-jobs'
+import QRCode from 'qrcode'
 import { createApplication, withdrawApplication } from '~/services/application'
 import { ApiRequestError, resolveAssetUrl } from '~/services/http'
+import { createReport } from '~/services/report'
 import { getResumeList } from '~/services/resume'
 import { favoriteTalentJob, getTalentJobDetail, searchTalentJobs, unfavoriteTalentJob } from '~/services/talent-jobs'
 import { useMetaStore } from '~/stores/meta'
@@ -23,6 +25,25 @@ const job = ref<TalentJobItem | null>(null)
 const errorMessage = ref('')
 const recommendedJobs = ref<TalentJobItem[]>([])
 const isFavoriteOperating = ref(false)
+const showShareDialog = ref(false)
+const isQrCodeGenerating = ref(false)
+const shareQrCodeDataUrl = ref('')
+const shareUrl = ref('')
+const showReportDialog = ref(false)
+const isReportSubmitting = ref(false)
+const hasReported = ref(false)
+const reportForm = reactive({
+  reasonType: null as number | null,
+  description: '',
+})
+
+const reportReasonOptions = [
+  { label: '虚假信息', value: 1 },
+  { label: '诈骗或收费', value: 2 },
+  { label: '违法违规内容', value: 3 },
+  { label: '骚扰或不当联系', value: 4 },
+  { label: '其他', value: 99 },
+]
 
 const salaryUnitMap: Record<number, string> = { 1: '元/月', 2: '元/日', 3: '元/时' }
 
@@ -188,6 +209,78 @@ async function navigateToResume() {
   await navigateTo('/profile/jobseeker')
 }
 
+async function openShareDialog() {
+  if (!import.meta.client)
+    return
+
+  shareUrl.value = window.location.href
+  showShareDialog.value = true
+  isQrCodeGenerating.value = true
+  shareQrCodeDataUrl.value = ''
+  try {
+    shareQrCodeDataUrl.value = await QRCode.toDataURL(shareUrl.value, {
+      width: 240,
+      margin: 2,
+      errorCorrectionLevel: 'H',
+      color: {
+        dark: '#111827',
+        light: '#ffffff',
+      },
+    })
+  }
+  catch {
+    showShareDialog.value = false
+    pushGlobalNotice('二维码生成失败，请稍后重试', 'error')
+  }
+  finally {
+    isQrCodeGenerating.value = false
+  }
+}
+
+async function openReportDialog() {
+  if (!userStore.isLoggedIn) {
+    await navigateToLogin()
+    return
+  }
+  if (hasReported.value) {
+    pushGlobalNotice('该职位已举报，请等待平台处理', 'info')
+    return
+  }
+  reportForm.reasonType = null
+  reportForm.description = ''
+  showReportDialog.value = true
+}
+
+async function submitReport() {
+  if (!reportForm.reasonType) {
+    pushGlobalNotice('请选择举报原因', 'warning')
+    return
+  }
+  if (!userStore.authHeader || isReportSubmitting.value)
+    return
+
+  isReportSubmitting.value = true
+  try {
+    const reasonLabel = reportReasonOptions.find(item => item.value === reportForm.reasonType)?.label
+    await createReport({
+      reportable_type: 'job',
+      reportable_id: jobId.value,
+      reason_type: reportForm.reasonType,
+      reason: reasonLabel || null,
+      description: reportForm.description.trim() || null,
+    }, userStore.authHeader)
+    hasReported.value = true
+    showReportDialog.value = false
+    pushGlobalNotice('举报已提交，平台将尽快处理')
+  }
+  catch (error) {
+    pushGlobalNotice(error instanceof ApiRequestError ? error.message : '举报提交失败', 'error')
+  }
+  finally {
+    isReportSubmitting.value = false
+  }
+}
+
 async function handleApply() {
   if (!job.value)
     return
@@ -303,11 +396,11 @@ async function handleQuickCommunicate() {
             </div>
             <div class="flex flex-col items-start gap-16 md:items-end">
               <div class="flex items-center gap-7 text-[13px] text-slate-400">
-                <button type="button" class="border-none bg-transparent text-[#ff9f00] cursor-pointer inline-flex items-center gap-1" @click="pushGlobalNotice('微信扫码分享即将开放', 'info')">
+                <button type="button" class="border-none bg-transparent text-[#ff9f00] cursor-pointer inline-flex items-center gap-1" @click="openShareDialog">
                   <span class="i-carbon-chat" /> 微信扫码分享
                 </button>
-                <button type="button" class="border-none bg-transparent cursor-pointer inline-flex items-center gap-1 hover:text-slate-600" @click="pushGlobalNotice('举报入口即将开放', 'info')">
-                  <span class="i-carbon-warning-alt" /> 举报
+                <button type="button" class="border-none bg-transparent cursor-pointer inline-flex items-center gap-1 hover:text-slate-600" @click="openReportDialog">
+                  <span class="i-carbon-warning-alt" /> {{ hasReported ? '已举报' : '举报' }}
                 </button>
               </div>
               <div class="flex gap-4">
@@ -379,7 +472,7 @@ async function handleQuickCommunicate() {
             <span class="inline-flex items-center gap-2">
               <span class="i-carbon-warning-alt" />
               以担保或任何理由索要财物，扣押证照，均涉嫌违法。一经发现，
-              <button type="button" class="border-none bg-transparent px-0 text-[#ff9f00] cursor-pointer" @click="pushGlobalNotice('举报入口即将开放', 'info')">立即举报</button>
+              <button type="button" class="border-none bg-transparent px-0 text-[#ff9f00] cursor-pointer" @click="openReportDialog">{{ hasReported ? '已举报' : '立即举报' }}</button>
             </span>
             <span class="text-[16px]">×</span>
           </div>
@@ -484,5 +577,85 @@ async function handleQuickCommunicate() {
         </aside>
       </div>
     </template>
+
+    <!-- 微信扫码分享弹窗 -->
+    <div v-if="showShareDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4" @click.self="showShareDialog = false">
+      <div class="w-full max-w-[380px] rounded-[10px] bg-white p-6 text-center shadow-xl" role="dialog" aria-modal="true" aria-labelledby="share-dialog-title">
+        <div class="flex items-center justify-between">
+          <h2 id="share-dialog-title" class="text-[18px] text-slate-900 font-semibold">
+            微信扫码分享
+          </h2>
+          <button type="button" class="border-none bg-transparent text-[22px] text-slate-400 cursor-pointer hover:text-slate-600" aria-label="关闭分享弹窗" @click="showShareDialog = false">
+            ×
+          </button>
+        </div>
+
+        <div class="mx-auto mt-5 flex h-[256px] w-[256px] items-center justify-center rounded-[8px] border border-slate-100 bg-white">
+          <span v-if="isQrCodeGenerating" class="text-[14px] text-slate-400">二维码生成中...</span>
+          <img v-else-if="shareQrCodeDataUrl" :src="shareQrCodeDataUrl" alt="职位分享二维码" class="h-[240px] w-[240px]">
+        </div>
+        <p class="mt-4 text-[14px] text-slate-500">
+          使用微信扫描二维码，查看并分享该职位
+        </p>
+      </div>
+    </div>
+
+    <!-- 举报弹窗 -->
+    <div v-if="showReportDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4" @click.self="showReportDialog = false">
+      <div class="w-full max-w-[520px] rounded-[10px] bg-white p-6 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="report-dialog-title">
+        <div class="flex items-center justify-between">
+          <h2 id="report-dialog-title" class="text-[18px] text-slate-900 font-semibold">
+            举报该职位
+          </h2>
+          <button type="button" class="border-none bg-transparent text-[22px] text-slate-400 cursor-pointer hover:text-slate-600" aria-label="关闭举报弹窗" @click="showReportDialog = false">
+            ×
+          </button>
+        </div>
+
+        <div class="mt-5">
+          <div class="text-[14px] text-slate-700 font-medium">
+            举报原因 <span class="text-red-500">*</span>
+          </div>
+          <div class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <button
+              v-for="reason in reportReasonOptions"
+              :key="reason.value"
+              type="button"
+              class="h-9 rounded-[6px] border text-[13px] cursor-pointer transition-colors"
+              :class="reportForm.reasonType === reason.value
+                ? 'border-[#ff9f00] bg-[#fff7e8] text-[#e99000]'
+                : 'border-slate-200 bg-white text-slate-600 hover:border-[#ffb84d]'"
+              :aria-pressed="reportForm.reasonType === reason.value"
+              @click="reportForm.reasonType = reason.value"
+            >
+              {{ reason.label }}
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-5">
+          <div class="flex items-center justify-between text-[14px] text-slate-700 font-medium">
+            <span>详细说明（选填）</span>
+            <span class="text-[12px] text-slate-400 font-normal">{{ reportForm.description.length }}/2000</span>
+          </div>
+          <textarea
+            v-model="reportForm.description"
+            maxlength="2000"
+            rows="5"
+            placeholder="请补充具体情况，帮助平台快速核实"
+            class="mt-2 w-full resize-none rounded-[6px] border border-slate-200 px-3 py-2 text-[14px] text-slate-700 outline-none focus:border-[#ff9f00]"
+          />
+        </div>
+
+        <div class="mt-6 flex justify-end gap-3">
+          <button type="button" class="h-9 rounded-[6px] border border-slate-200 bg-white px-5 text-[14px] text-slate-600 cursor-pointer" :disabled="isReportSubmitting" @click="showReportDialog = false">
+            取消
+          </button>
+          <button type="button" class="h-9 rounded-[6px] border-none bg-[#ff9f00] px-5 text-[14px] text-white cursor-pointer disabled:cursor-not-allowed disabled:opacity-60" :disabled="isReportSubmitting" @click="submitReport">
+            {{ isReportSubmitting ? '提交中...' : '提交举报' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
