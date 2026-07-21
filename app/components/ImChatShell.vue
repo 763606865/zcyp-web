@@ -81,6 +81,7 @@ const httpsProtocolRegex = /^https:\/\//
 const httpProtocolRegex = /^http:\/\//
 const whitespaceRegex = /\s/g
 const emojiOnlyRegex = /^\p{Emoji_Presentation}[\p{Emoji_Presentation}\uFE0F\u200D]*$/u
+const salarySuffixRegex = /薪$/
 
 // 管理弹窗相关
 const showQuickPhraseManageModal = ref(false)
@@ -319,6 +320,48 @@ function getConversationSubtitle(conversation: ImConversation | null) {
   const participant = getPrimaryParticipant(conversation)
   const identity = participant?.identity
   return [identity?.organization_name, identity?.job_title || identity?.identity_name].filter(Boolean).join(' · ') || conversation.conversation_no
+}
+
+function formatJobSalaryAmount(value: string | number | null | undefined) {
+  if (value === null || value === undefined || value === '')
+    return ''
+
+  const amount = Number.parseFloat(String(value))
+  if (!Number.isFinite(amount))
+    return String(value)
+
+  const valueInThousands = amount >= 1000 ? amount / 1000 : amount
+  return `${Number.isInteger(valueInThousands) ? valueInThousands : Number(valueInThousands.toFixed(1))}k`
+}
+
+function formatJobSalaryUnit(value: string | null | undefined) {
+  const unit = value?.trim() || ''
+  if (!unit)
+    return ''
+  if (unit.startsWith('元/'))
+    return unit.slice(1)
+  if (unit.startsWith('/'))
+    return unit
+  return `/${unit.replace(salarySuffixRegex, '')}`
+}
+
+function getConversationJobSalary(conversation: ImConversation | null) {
+  const context = conversation?.context
+  if (!context)
+    return ''
+
+  const salaryMin = formatJobSalaryAmount(context.salary_min)
+  const salaryMax = formatJobSalaryAmount(context.salary_max)
+  if (!salaryMin && !salaryMax)
+    return '薪资面议'
+
+  const salaryRange = salaryMin && salaryMax ? `${salaryMin}~${salaryMax}` : salaryMin || salaryMax
+  const salaryUnit = formatJobSalaryUnit(context.salary_unit_label)
+  const annualSalaryMonths = Number(context.annual_salary_months)
+  const annualSalaryLabel = Number.isFinite(annualSalaryMonths) && annualSalaryMonths > 12
+    ? `·${Math.trunc(annualSalaryMonths)}薪`
+    : ''
+  return `${salaryRange}${salaryUnit}${annualSalaryLabel}`
 }
 
 function getConversationAvatar(conversation: ImConversation) {
@@ -1338,6 +1381,10 @@ onBeforeUnmount(() => {
               <h2>{{ getConversationTitle(activeConversation) }}</h2>
               <p>{{ getConversationSubtitle(activeConversation) }}</p>
             </div>
+            <div v-if="activeConversation?.context?.title" class="chat-job-context">
+              <span>{{ activeConversation.context.title }}</span>
+              <strong>{{ getConversationJobSalary(activeConversation) }}</strong>
+            </div>
           </div>
           <span :class="`is-${connectionState}`">{{ statusText }}</span>
         </header>
@@ -1867,6 +1914,32 @@ onBeforeUnmount(() => {
   min-width: 0;
   align-items: center;
   gap: 12px;
+}
+
+.chat-job-context {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  margin-left: 8px;
+  border-left: 1px solid #edf0f5;
+  padding-left: 20px;
+  gap: 6px;
+}
+
+.chat-job-context span {
+  max-width: 260px;
+  overflow: hidden;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-job-context strong {
+  color: #ff9f00;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .chat-user-avatar {

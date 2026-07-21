@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { TalentResumeDetailResponse } from '~/services/talent'
+import type { JobRecord } from '~/types/jobs'
 import type { ResumeCertificate, ResumeEducation, ResumeIntention, ResumeLanguage, ResumeProject, ResumeTraining, ResumeWork } from '~/types/resume'
 import { ApiRequestError } from '~/services/http'
+import { getJobs } from '~/services/jobs'
 import { favoriteTalentResume, getTalentResumeDetail, unfavoriteTalentResume } from '~/services/talent'
 import { useMetaStore } from '~/stores/meta'
 import { pushGlobalNotice } from '~/utils/notice'
@@ -27,6 +29,11 @@ const isFavorited = ref(false)
 const isFavoriteOperating = ref(false)
 const currentResume = ref<TalentResumeDetailResponse | null>(null)
 const { isStartingConversation, startSingleConversation } = useImConversationStarter()
+const showJobSelectDialog = ref(false)
+const isLoadingPublishedJobs = ref(false)
+const publishedJobs = ref<JobRecord[]>([])
+const selectedJobId = ref<number | null>(null)
+const publishedJobsError = ref('')
 
 const profile = ref({
   avatar: '',
@@ -397,14 +404,33 @@ function getResumeExternalUserId(detail: TalentResumeDetailResponse) {
     || readContactExternalUserId(detail.candidate)
 }
 
-function buildResumeConversationMetadata(detail: TalentResumeDetailResponse) {
+function buildResumeConversationMetadata(detail: TalentResumeDetailResponse, jobId: number) {
   return {
     source: 'employer_talent_resume_detail',
+    job_id: jobId,
     resume_id: detail.id,
     resume_no: detail.resume_no,
     candidate_user_id: detail.user_id || detail.user?.id || detail.candidate?.id,
     candidate_name: detail.full_name || detail.title,
     expected_position: intention.value.position,
+  }
+}
+
+async function loadPublishedJobs() {
+  if (!userStore.authHeader || isLoadingPublishedJobs.value)
+    return
+
+  isLoadingPublishedJobs.value = true
+  publishedJobsError.value = ''
+  try {
+    const result = await getJobs(userStore.authHeader, { status: 1, per_page: 100 })
+    publishedJobs.value = result.data || []
+  }
+  catch (error) {
+    publishedJobsError.value = error instanceof Error ? error.message : '已发布职位加载失败'
+  }
+  finally {
+    isLoadingPublishedJobs.value = false
   }
 }
 
@@ -414,7 +440,25 @@ async function handleCommunicate() {
     return
   }
 
-  await startSingleConversation(getResumeExternalUserId(currentResume.value), buildResumeConversationMetadata(currentResume.value))
+  selectedJobId.value = null
+  showJobSelectDialog.value = true
+  await loadPublishedJobs()
+}
+
+async function confirmStartConversation() {
+  if (!currentResume.value)
+    return
+  if (!selectedJobId.value) {
+    pushGlobalNotice('请先选择沟通职位', 'warning')
+    return
+  }
+
+  const conversation = await startSingleConversation(
+    getResumeExternalUserId(currentResume.value),
+    buildResumeConversationMetadata(currentResume.value, selectedJobId.value),
+  )
+  if (conversation)
+    showJobSelectDialog.value = false
 }
 
 async function toggleFavorite() {
@@ -501,8 +545,8 @@ async function toggleFavorite() {
               <span :class="isFavorited ? 'text-[#FFA500]' : ''">{{ isFavorited ? '★' : '☆' }}</span>
               <span>{{ isFavorited ? '已收藏' : '收藏' }}</span>
             </button>
-            <button class="text-[14px] text-white font-medium px-[20px] rounded-[4px] border-none bg-[#f90] h-[32px] disabled:opacity-60" :disabled="isStartingConversation" @click="handleCommunicate">
-              {{ isStartingConversation ? '发起中...' : '立即沟通' }}
+            <button class="text-[14px] text-white font-medium px-[20px] rounded-[4px] border-none bg-[#f90] h-[32px] disabled:opacity-60" @click="handleCommunicate">
+              立即沟通
             </button>
           </div>
         </div>
@@ -692,6 +736,69 @@ async function toggleFavorite() {
               全部下载
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 选择沟通职位 -->
+    <div v-if="showJobSelectDialog" class="px-4 bg-black/45 flex items-center inset-0 justify-center fixed z-50" @click.self="showJobSelectDialog = false">
+      <div class="p-6 rounded-[10px] bg-white w-full max-w-[520px] shadow-xl" role="dialog" aria-modal="true" aria-labelledby="job-select-dialog-title">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 id="job-select-dialog-title" class="text-[18px] text-[#222] font-bold m-0">
+              选择沟通职位
+            </h2>
+            <p class="text-[13px] text-[#999] mt-2 mb-0">
+              请选择一个已发布职位，再与该求职者发起沟通
+            </p>
+          </div>
+          <button type="button" class="text-[22px] text-[#999] border-none bg-transparent cursor-pointer" aria-label="关闭职位选择弹窗" @click="showJobSelectDialog = false">
+            ×
+          </button>
+        </div>
+
+        <div class="mt-5 max-h-[320px] overflow-y-auto">
+          <div v-if="isLoadingPublishedJobs" class="text-[14px] text-[#999] py-10 text-center">
+            正在加载已发布职位...
+          </div>
+          <div v-else-if="publishedJobsError" class="text-[14px] text-red-500 py-8 text-center">
+            <p class="m-0">{{ publishedJobsError }}</p>
+            <button type="button" class="text-[13px] text-[#f90] mt-3 border-none bg-transparent cursor-pointer" @click="loadPublishedJobs">
+              重新加载
+            </button>
+          </div>
+          <div v-else-if="publishedJobs.length === 0" class="text-[14px] text-[#999] py-8 text-center">
+            <p class="m-0">暂无已发布职位，请先发布职位</p>
+            <NuxtLink to="/employer/jobs/add" class="text-[13px] text-[#f90] mt-3 inline-block no-underline" @click="showJobSelectDialog = false">
+              去发布职位
+            </NuxtLink>
+          </div>
+          <div v-else class="space-y-2">
+            <button
+              v-for="job in publishedJobs"
+              :key="job.id"
+              type="button"
+              class="p-3 text-left border rounded-[6px] bg-white flex w-full cursor-pointer items-center justify-between transition-colors"
+              :class="selectedJobId === job.id ? 'border-[#f90] bg-[#fff8eb]' : 'border-[#e5e7eb] hover:border-[#ffbd59]'"
+              :aria-pressed="selectedJobId === job.id"
+              @click="selectedJobId = job.id"
+            >
+              <span class="min-w-0">
+                <strong class="text-[14px] text-[#222] block truncate">{{ job.title }}</strong>
+                <small class="text-[12px] text-[#999] mt-1 block">{{ job.workplace || job.city_code || '工作地点待完善' }}</small>
+              </span>
+              <span class="text-[16px] text-[#f90] ml-3">{{ selectedJobId === job.id ? '●' : '○' }}</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-6 flex gap-3 justify-end">
+          <button type="button" class="text-[14px] px-5 border border-[#d9d9d9] rounded-[6px] bg-white h-[36px] cursor-pointer" :disabled="isStartingConversation" @click="showJobSelectDialog = false">
+            取消
+          </button>
+          <button type="button" class="text-[14px] text-white px-5 border-none rounded-[6px] bg-[#f90] h-[36px] cursor-pointer disabled:cursor-not-allowed disabled:opacity-60" :disabled="!selectedJobId || isStartingConversation || isLoadingPublishedJobs" @click="confirmStartConversation">
+            {{ isStartingConversation ? '发起中...' : '发起沟通' }}
+          </button>
         </div>
       </div>
     </div>
