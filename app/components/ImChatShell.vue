@@ -2022,8 +2022,6 @@ onBeforeUnmount(() => {
   word-break: break-word;
 }
 
-
-
 .message-card {
   width: 100%;
   max-width: min(360px, 100%);
