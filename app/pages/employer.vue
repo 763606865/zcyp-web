@@ -4,6 +4,8 @@ import { getAuthOrganizations, refreshToken } from '~/services/auth'
 import { resolveAssetUrl } from '~/services/http'
 import { pushGlobalNotice } from '~/utils/notice'
 
+const DISABLED_PATHS_WHEN_PENDING = ['/employer/jobs', '/employer/applications', '/employer/activities']
+
 definePageMeta({
   layout: 'default',
   middleware: ['auth', 'identity-required'],
@@ -79,12 +81,25 @@ async function switchOrganization(item: OrganizationItem) {
     pushGlobalNotice(`已切换到${resolveOrgLabel(item)}`)
     showSwitchPanel.value = false
     await refreshEmployerShellData()
+    if (route.path !== '/employer/dashboard')
+      await router.push('/employer/dashboard')
   }
   catch {}
   finally { isSwitchingOrg.value = false }
 }
 
 const displayCity = computed(() => siteStore.currentCityName || '南昌站')
+
+const orgStatus = computed(() => {
+  const info = userStore.currentIdentityInfo
+  if (info && typeof info === 'object')
+    return info.organization?.status ?? 0
+  return 0
+})
+
+function isNavDisabled(path: string) {
+  return orgStatus.value === 2 && DISABLED_PATHS_WHEN_PENDING.includes(path)
+}
 
 function handleGoCitySelect() {
   router.push('/city-select')
@@ -146,15 +161,26 @@ function handleClickOutside() {
     <div class="flex flex-1" style="min-height: 0">
       <aside class="border-r border-[#f2e4c7] bg-white shrink-0 w-[208px] overflow-y-auto">
         <nav class="py-[16px]">
-          <NuxtLink
-            v-for="item in navItems" :key="item.path" :to="item.path"
-            class="text-[14px] text-[#222222] mb-[10px] px-[28px] py-[12px] no-underline flex gap-[8px] transition items-center"
-            :class="isActive(item.path) ? 'bg-[linear-gradient(135deg,#fff7e7_0%,#ffefcd_100%)] text-[#8b6418] font-medium shadow-[0_4px_12px_rgba(148,92,0,0.06)]' : 'text-[#6f6556] hover:bg-[#fffaf0]'"
-          >
-            <img v-if="isActive(item.path)" :src="`/assets/images/employer/${item.icon}-act.png`" :alt="item.label" class="h-[16px] w-[16px]">
-            <img v-else :src="`/assets/images/employer/${item.icon}.png`" :alt="item.label" class="h-[16px] w-[16px]">
-            <span class="leading-none">{{ item.label }}</span>
-          </NuxtLink>
+          <template v-for="item in navItems" :key="item.path">
+            <span
+              v-if="isNavDisabled(item.path)"
+              class="text-[14px] text-[#6f6556] mb-[10px] px-[28px] py-[12px] opacity-50 flex gap-[8px] cursor-not-allowed items-center"
+              @click="pushGlobalNotice('企业审批中，请等待审批通过后再次尝试', 'warning')"
+            >
+              <img :src="`/assets/images/employer/${item.icon}.png`" :alt="item.label" class="h-[16px] w-[16px]">
+              <span class="leading-none">{{ item.label }}</span>
+            </span>
+            <NuxtLink
+              v-else
+              :to="item.path"
+              class="text-[14px] text-[#222222] mb-[10px] px-[28px] py-[12px] no-underline flex gap-[8px] transition items-center"
+              :class="isActive(item.path) ? 'bg-[linear-gradient(135deg,#fff7e7_0%,#ffefcd_100%)] text-[#8b6418] font-medium shadow-[0_4px_12px_rgba(148,92,0,0.06)]' : 'text-[#6f6556] hover:bg-[#fffaf0]'"
+            >
+              <img v-if="isActive(item.path)" :src="`/assets/images/employer/${item.icon}-act.png`" :alt="item.label" class="h-[16px] w-[16px]">
+              <img v-else :src="`/assets/images/employer/${item.icon}.png`" :alt="item.label" class="h-[16px] w-[16px]">
+              <span class="leading-none">{{ item.label }}</span>
+            </NuxtLink>
+          </template>
         </nav>
       </aside>
       <main class="p-[12px] flex-1 min-w-0 overflow-y-auto">

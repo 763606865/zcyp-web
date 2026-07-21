@@ -93,6 +93,18 @@ watch([activeInterviewTab, timestamp], () => {
   fetchInterviews()
 })
 
+const currentCompanyId = computed(() => {
+  const info = userStore.currentIdentityInfo
+  if (info && typeof info === 'object')
+    return (info as any).company_id ?? (info as any).organization_id
+  return null
+})
+
+watch(currentCompanyId, () => {
+  fetchDashboardStats()
+  fetchInterviews()
+})
+
 onMounted(() => {
   fetchDashboardStats()
   fetchInterviews()

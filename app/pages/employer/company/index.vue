@@ -638,6 +638,12 @@ const companyAddress = computed(() => {
   const fromStore = info && typeof info === 'object' ? (info.organization?.address || '') : ''
   return fromStore || ''
 })
+const orgStatus = computed(() => {
+  const info = userStore.currentIdentityInfo
+  if (info && typeof info === 'object')
+    return info.organization?.status ?? 0
+  return 0
+})
 const allInfoLabels = computed(() => {
   if (!profile.value)
     return []
@@ -690,6 +696,11 @@ const allInfoLabels = computed(() => {
             <!-- <span v-if="profile?.is_certified" class="text-[12px] text-[#52c41a] flex gap-1 items-center">
               <span class="i-carbon-checkmark-filled" /> 已认证
             </span> -->
+            <!-- 审批中状态 -->
+            <div v-if="orgStatus === 2" class="px-[8px] py-[3px] rounded-[4px] bg-[#1890ff] flex gap-[2px] items-center">
+              <span class="i-carbon-time text-[12px] text-[#fff] leading-none" />
+              <span class="text-[12px] text-[#fff] leading-none">审批中</span>
+            </div>
           </div>
           <!-- 下方：标签（竖线分隔） -->
           <div class="mt-2 flex flex-wrap items-center">
