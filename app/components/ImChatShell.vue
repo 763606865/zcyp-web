@@ -1364,33 +1364,33 @@ onBeforeUnmount(() => {
           </div>
           <div v-else class="message-list">
             <div v-for="item in activeMessages" :key="item.id" class="message-row" :class="`is-${item.type}`">
-              <div v-if="item.messageType === 'biz_card' && item.bizCard" class="message-card">
-                <div class="message-card-head">
-                  <strong>{{ item.bizCard.title || '业务消息' }}</strong>
-                  <span v-if="item.bizCard.status">{{ item.bizCard.status }}</span>
+              <div class="message-body">
+                <div v-if="item.messageType === 'biz_card' && item.bizCard" class="message-card">
+                  <div class="message-card-head">
+                    <strong>{{ item.bizCard.title || '业务消息' }}</strong>
+                    <span v-if="item.bizCard.status">{{ item.bizCard.status }}</span>
+                  </div>
+                  <p>{{ item.bizCard.summary || item.content }}</p>
+                  <div class="message-card-foot">
+                    <span>{{ item.bizCard.card_type || 'biz_card' }}</span>
+                    <NuxtLink v-if="item.bizCard.action_url" :to="item.bizCard.action_url">
+                      查看详情
+                    </NuxtLink>
+                  </div>
                 </div>
-                <p>{{ item.bizCard.summary || item.content }}</p>
-                <div class="message-card-foot">
-                  <span>{{ item.bizCard.card_type || 'biz_card' }}</span>
-                  <NuxtLink v-if="item.bizCard.action_url" :to="item.bizCard.action_url">
-                    查看详情
-                  </NuxtLink>
+                <div v-else-if="item.messageType === 'image' && item.image" class="message-image">
+                  <img v-if="resolveImageUrl(item.image)" :src="resolveImageUrl(item.image)" :alt="item.image.name || '图片消息'">
+                  <p v-else>
+                    {{ item.image.name || item.content }}
+                  </p>
                 </div>
-              </div>
-              <div v-else-if="item.messageType === 'image' && item.image" class="message-image">
-                <img v-if="resolveImageUrl(item.image)" :src="resolveImageUrl(item.image)" :alt="item.image.name || '图片消息'">
-                <p v-else>
-                  {{ item.image.name || item.content }}
-                </p>
-                <span>{{ item.at }}</span>
-              </div>
-              <div v-else-if="item.messageType === 'emoji'" class="message-emoji">
-                <p>{{ item.content }}</p>
-                <span>{{ item.at }}</span>
-              </div>
-              <div v-else class="message-bubble">
-                <p>{{ item.content }}</p>
-                <span>{{ item.at }}</span>
+                <div v-else-if="item.messageType === 'emoji'" class="message-emoji">
+                  <p>{{ item.content }}</p>
+                </div>
+                <div v-else class="message-bubble">
+                  <p>{{ item.content }}</p>
+                </div>
+                <time class="message-time">{{ item.at }}</time>
               </div>
             </div>
           </div>
@@ -1967,8 +1967,34 @@ onBeforeUnmount(() => {
   justify-content: center;
 }
 
-.message-bubble {
+.message-body {
+  display: flex;
+  flex-direction: column;
   max-width: min(520px, 82%);
+}
+
+.message-row.is-outgoing .message-body {
+  align-items: flex-end;
+}
+
+.message-row.is-incoming .message-body {
+  align-items: flex-start;
+}
+
+.message-row.is-system .message-body {
+  align-items: center;
+  max-width: 70%;
+}
+
+.message-time {
+  display: block;
+  margin-top: 4px;
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.message-bubble {
+  max-width: 100%;
   border-radius: 8px;
   background: #fff;
   color: #222;
@@ -1982,7 +2008,6 @@ onBeforeUnmount(() => {
 }
 
 .message-row.is-system .message-bubble {
-  max-width: 70%;
   background: rgba(148, 163, 184, 0.16);
   color: #64748b;
   text-align: center;
@@ -1997,17 +2022,11 @@ onBeforeUnmount(() => {
   word-break: break-word;
 }
 
-.message-bubble span {
-  display: block;
-  margin-top: 4px;
-  color: currentcolor;
-  font-size: 11px;
-  opacity: 0.68;
-  text-align: right;
-}
+
 
 .message-card {
-  width: min(360px, 82%);
+  width: 100%;
+  max-width: min(360px, 100%);
   overflow: hidden;
   border-radius: 8px;
   background: #fff;
@@ -2064,7 +2083,7 @@ onBeforeUnmount(() => {
 }
 
 .message-image {
-  max-width: min(260px, 70%);
+  max-width: min(260px, 100%);
   overflow: hidden;
   border-radius: 8px;
   background: #fff;
@@ -2083,15 +2102,6 @@ onBeforeUnmount(() => {
   color: #64748b;
   font-size: 14px;
   padding: 12px;
-}
-
-.message-image span,
-.message-emoji span {
-  display: block;
-  color: #94a3b8;
-  font-size: 11px;
-  padding: 6px 10px 8px;
-  text-align: right;
 }
 
 .message-emoji {
