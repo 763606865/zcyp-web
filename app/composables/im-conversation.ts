@@ -33,11 +33,14 @@ export function useImConversationStarter() {
 
     try {
       const normalizedMetadata = normalizeConversationMetadata(metadata)
+      const { job_id: jobId, ...metadataWithoutJobId } = normalizedMetadata || {}
+      const conversationMetadata = normalizeConversationMetadata(metadataWithoutJobId)
       const conversation = await createImConversation(
         {
           type: 'single',
           members: [{ external_user_id: externalUserId }],
-          ...(normalizedMetadata ? { metadata: normalizedMetadata } : {}),
+          ...(typeof jobId === 'number' ? { job_id: jobId } : {}),
+          ...(conversationMetadata ? { metadata: conversationMetadata } : {}),
         },
         userStore.authHeader,
       )

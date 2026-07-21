@@ -29,6 +29,7 @@ export interface ImConversationCreatePayload {
   type: ImConversationType
   subject?: string | null
   members?: ImConversationMemberPayload[]
+  job_id?: number | null
   metadata?: Record<string, unknown> | null
 }
 
@@ -73,6 +74,15 @@ export interface ImParticipantIdentity {
   job_title: string | null
 }
 
+export interface ImConversationContext {
+  title?: string | null
+  salary_min?: string | number | null
+  salary_max?: string | number | null
+  salary_unit_label?: string | null
+  annual_salary_months?: string | number | null
+  [key: string]: unknown
+}
+
 export interface ImParticipant {
   id: number
   user_id: number
@@ -97,6 +107,7 @@ export interface ImConversation {
   owner_type: string
   owner_id: number
   scene: string | null
+  context?: ImConversationContext | null
   metadata: Record<string, unknown> | null
   last_message_at: string | null
   expires_at: string | null
