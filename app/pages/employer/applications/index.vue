@@ -19,6 +19,7 @@ const statusFilter = ref(-1)
 const searchQuery = ref('')
 const currentPage = ref(1)
 const unfavoritingResumeId = ref<number | null>(null)
+const isLoadingList = ref(false)
 
 const applicationStatusOptions = [
   { label: '全部', value: -1 },
@@ -79,6 +80,7 @@ async function loadApplications() {
   if (!userStore.authHeader)
     return
   try {
+    isLoadingList.value = true
     await metaStore.ensureAllLoaded(userStore.authHeader)
     if (resumeStatus.value === 2) {
       const res = await getFavoriteTalentResumes({
@@ -99,6 +101,9 @@ async function loadApplications() {
   }
   catch (e) {
     console.error('获取投递列表失败:', e)
+  }
+  finally {
+    isLoadingList.value = false
   }
 }
 
@@ -226,6 +231,15 @@ const { refresh: refreshEmployerApplications } = await useAsyncData(
   },
 )
 
+function handleTabChange(tab: number) {
+  if (resumeStatus.value === tab)
+    return
+  resumeStatus.value = tab
+  applicationList.value = []
+  currentPage.value = 1
+  handleSearch()
+}
+
 async function handleSearch() {
   currentPage.value = 1
   await refreshEmployerApplications()
@@ -261,13 +275,13 @@ async function handleUnfavoriteResume(app: ApplicationListItem) {
       <div class="flex">
         <div
           class="text-[14px] text-[#31373D] leading-none px-[16px] py-[9px] border-[1px] border-r-0 border-[#e6e8eb] rounded-bl-[4px] rounded-tl-[4px] cursor-pointer" :class="resumeStatus === 1 ? 'bg-[#FFA500] text-[#ffffff] border-[#FFA500]' : ''"
-          @click="resumeStatus = 1; handleSearch()"
+          @click="handleTabChange(1)"
         >
           收到的简历
         </div>
         <div
           class="text-[14px] text-[#31373D] leading-none px-[16px] py-[9px] border-[1px] border-l-0 border-[#e6e8eb] rounded-br-[4px] rounded-tr-[4px] cursor-pointer" :class="resumeStatus === 2 ? 'bg-[#FFA500] text-[#ffffff] border-[#FFA500]' : ''"
-          @click="resumeStatus = 2; handleSearch()"
+          @click="handleTabChange(2)"
         >
           收藏的简历
         </div>
@@ -295,7 +309,10 @@ async function handleUnfavoriteResume(app: ApplicationListItem) {
       <OrgApprovalOverlay :visible="false" description="完成企业信息绑定并等待审核通过后，即可查看投递记录。" />
 
       <div class="h-full overflow-y-auto">
-        <div v-if="applicationList.length === 0" class="text-[14px] text-[#b6a27a] px-6 py-16 text-center">
+        <div v-if="isLoadingList" class="text-[14px] text-[#b6a27a] px-6 py-16 text-center">
+          加载中...
+        </div>
+        <div v-else-if="applicationList.length === 0" class="text-[14px] text-[#b6a27a] px-6 py-16 text-center">
           暂无投递记录。
         </div>
         <div v-else class="flex flex-col gap-[16px]">
