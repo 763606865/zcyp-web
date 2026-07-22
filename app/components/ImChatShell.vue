@@ -98,7 +98,8 @@ const httpProtocolRegex = /^http:\/\//
 const whitespaceRegex = /\s/g
 const emojiOnlyRegex = /^\p{Emoji_Presentation}[\p{Emoji_Presentation}\uFE0F\u200D]*$/u
 const salarySuffixRegex = /薪$/
-const SYSTEM_AVATAR_URL = '/pwa-192x192.png'
+const SYSTEM_DEFAULT_AVATAR_PREFIX = '/assets/images/default-avatar/system_default_avatar_'
+const systemUserIdRegex = /^system_user_([1-6])$/
 
 // 管理弹窗相关
 const showQuickPhraseManageModal = ref(false)
@@ -739,11 +740,15 @@ async function applyResumeAndSendCard() {
 }
 
 function getConversationAvatar(conversation: ImConversation) {
-  if (conversation.scene === 'system')
-    return SYSTEM_AVATAR_URL
-
   const participant = getPrimaryParticipant(conversation)
-  return participant?.user?.display_avatar || participant?.user?.avatar || ''
+  const participantAvatar = participant?.user?.display_avatar || participant?.user?.avatar || ''
+  if (participantAvatar || conversation.scene !== 'system')
+    return participantAvatar
+
+  const systemUserId = [participant?.im_user_id, participant?.external_user_id]
+    .find(value => value && systemUserIdRegex.test(value))
+  const avatarIndex = systemUserId?.match(systemUserIdRegex)?.[1] || '1'
+  return `${SYSTEM_DEFAULT_AVATAR_PREFIX}${avatarIndex}.png`
 }
 
 function getConversationMeta(conversation: ImConversation) {
