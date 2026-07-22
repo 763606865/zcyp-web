@@ -77,7 +77,7 @@ export default defineNuxtConfig({
       },
     },
     prerender: {
-      crawlLinks: false,
+      crawlLinks: true,
       routes: [
         '/',
         '/about',
@@ -124,6 +124,7 @@ export default defineNuxtConfig({
         '/profile/campus_manager',
         '/profile/government_manager',
         '/profile/headhunter',
+        '/profile/jobseeker',
         '/profile/jobseeker/applications',
         '/profile/jobseeker/favorites',
         '/profile/jobseeker/index',
