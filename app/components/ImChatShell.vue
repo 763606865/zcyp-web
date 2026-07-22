@@ -21,6 +21,7 @@ interface MessageItem {
   messageType: 'system' | 'text' | 'biz_card' | string
   content: string
   bizCard?: BizCardContent | null
+  systemNotice?: SystemNoticeContent | null
   image?: ImageMessageContent | null
   at: string
 }
@@ -42,6 +43,15 @@ interface ImageMessageContent {
   name?: string
   size?: number
   mime_type?: string
+}
+
+interface SystemNoticeContent {
+  type: 'system_notice'
+  title: string
+  summary: string
+  action_url?: string | null
+  biz_id?: string | number | null
+  notice_type: string
 }
 
 const props = defineProps<{
@@ -88,6 +98,7 @@ const httpProtocolRegex = /^http:\/\//
 const whitespaceRegex = /\s/g
 const emojiOnlyRegex = /^\p{Emoji_Presentation}[\p{Emoji_Presentation}\uFE0F\u200D]*$/u
 const salarySuffixRegex = /薪$/
+const SYSTEM_AVATAR_URL = '/pwa-192x192.png'
 
 // 管理弹窗相关
 const showQuickPhraseManageModal = ref(false)
@@ -126,11 +137,17 @@ const historyStateMap = ref<Record<number, {
 let socket: WebSocket | null = null
 let messageId = 0
 const HISTORY_PAGE_SIZE = 20
+const SUBSCRIBE_ACK_TIMEOUT = 3000
+const MAX_SUBSCRIBE_ATTEMPTS = 3
+const subscribedConversationNos = ref<string[]>([])
+const subscriptionAttempts = new Map<string, number>()
+const subscriptionRetryTimers = new Map<string, number>()
 
 const storageKey = computed(() => `zcyp-im-token:${props.audience}:${userStore.currentIdentity || 'unknown'}`)
 const isConnected = computed(() => connectionState.value === 'connected')
 const canConnect = computed(() => Boolean(userStore.authHeader && appEnv.imBaseUrl))
 const activeConversation = computed(() => conversations.value.find(item => item.conversation_no === activeConversationNo.value) || null)
+const isActiveSystemConversation = computed(() => activeConversation.value?.scene === 'system')
 const activeMessages = computed(() => messages.value.filter(item => item.conversationNo === activeConversationNo.value))
 const commonEmojis = ['😀', '😁', '😂', '😊', '😍', '👍', '👏', '🤝', '🎉', '💪', '🙏', '❤️']
 const currentUserName = computed(() => userStore.user?.nickname || userStore.user?.name || userStore.user?.phone || '当前用户')
@@ -178,6 +195,11 @@ const statusText = computed(() => {
     error: '连接异常',
   }
   return map[connectionState.value]
+})
+const activeSubscriptionText = computed(() => {
+  if (!isConnected.value)
+    return statusText.value
+  return subscribedConversationNos.value.includes(activeConversationNo.value) ? '已订阅' : '订阅中'
 })
 
 function nowText() {
@@ -270,6 +292,11 @@ function buildSocketUrl(nextToken: string) {
 }
 
 function closeSocket() {
+  subscriptionRetryTimers.forEach(timer => window.clearTimeout(timer))
+  subscriptionRetryTimers.clear()
+  subscriptionAttempts.clear()
+  subscribedConversationNos.value = []
+
   if (!socket)
     return
 
@@ -286,6 +313,55 @@ function sendSocketPayload(payload: Record<string, unknown>) {
     return false
 
   socket.send(JSON.stringify(payload))
+  return true
+}
+
+function confirmConversationSubscription(conversationNo: string) {
+  if (!conversationNo)
+    return
+
+  if (!subscribedConversationNos.value.includes(conversationNo))
+    subscribedConversationNos.value.push(conversationNo)
+  subscriptionAttempts.delete(conversationNo)
+  const retryTimer = subscriptionRetryTimers.get(conversationNo)
+  if (retryTimer)
+    window.clearTimeout(retryTimer)
+  subscriptionRetryTimers.delete(conversationNo)
+}
+
+function requestConversationSubscription(conversationNo: string) {
+  const nextConversationNo = conversationNo.trim()
+  if (!nextConversationNo || subscribedConversationNos.value.includes(nextConversationNo))
+    return false
+
+  const attempt = (subscriptionAttempts.get(nextConversationNo) || 0) + 1
+  const sent = sendSocketPayload({
+    action: 'subscribe',
+    conversation_no: nextConversationNo,
+  })
+  if (!sent)
+    return false
+
+  subscriptionAttempts.set(nextConversationNo, attempt)
+  const existingTimer = subscriptionRetryTimers.get(nextConversationNo)
+  if (existingTimer)
+    window.clearTimeout(existingTimer)
+
+  const retryTimer = window.setTimeout(() => {
+    subscriptionRetryTimers.delete(nextConversationNo)
+    if (subscribedConversationNos.value.includes(nextConversationNo))
+      return
+
+    if (attempt < MAX_SUBSCRIBE_ATTEMPTS) {
+      requestConversationSubscription(nextConversationNo)
+      return
+    }
+
+    const conversation = conversations.value.find(item => item.conversation_no === nextConversationNo)
+    if (conversation?.scene === 'system')
+      errorMessage.value = `系统会话订阅未收到确认：${nextConversationNo}`
+  }, SUBSCRIBE_ACK_TIMEOUT)
+  subscriptionRetryTimers.set(nextConversationNo, retryTimer)
   return true
 }
 
@@ -328,6 +404,17 @@ function getPrimaryParticipant(conversation: ImConversation | null): ImParticipa
 function getConversationTitle(conversation: ImConversation | null) {
   if (!conversation)
     return '请选择会话'
+
+  if (conversation.scene === 'system') {
+    const providerResponse = conversation.metadata?.provider_response
+    const systemSubject = providerResponse && typeof providerResponse === 'object' && 'subject' in providerResponse
+      ? providerResponse.subject
+      : null
+    if (typeof systemSubject === 'string' && systemSubject.trim())
+      return systemSubject.trim()
+
+    return '系统消息'
+  }
 
   const participant = getPrimaryParticipant(conversation)
   const user = participant?.user
@@ -650,6 +737,9 @@ async function applyResumeAndSendCard() {
 }
 
 function getConversationAvatar(conversation: ImConversation) {
+  if (conversation.scene === 'system')
+    return SYSTEM_AVATAR_URL
+
   const participant = getPrimaryParticipant(conversation)
   return participant?.user?.display_avatar || participant?.user?.avatar || ''
 }
@@ -703,13 +793,45 @@ function resolveMessageContentText(messageType: string, content: ImHistoryMessag
   if (messageType === 'image')
     return content.name || content.url || content.path || '图片消息'
 
-  if (messageType === 'biz_card')
+  if (messageType === 'biz_card' || messageType === 'system_notice')
     return content.title || content.summary || '业务消息'
 
   if (content.text)
     return content.text
 
   return JSON.stringify(content)
+}
+
+function normalizeMessageType(rawMessageType: string, content: ImHistoryMessage['content']) {
+  if (rawMessageType === 'business_card')
+    return 'biz_card'
+  if (rawMessageType === 'system_notice')
+    return 'system_notice'
+  if (content && typeof content === 'object' && content.type === 'system_notice')
+    return 'system_notice'
+  return rawMessageType
+}
+
+function resolveSystemNoticeContent(messageType: string, content: ImHistoryMessage['content']): SystemNoticeContent | null {
+  if (messageType !== 'system_notice' || !content || typeof content === 'string')
+    return null
+
+  return {
+    type: 'system_notice',
+    title: typeof content.title === 'string' && content.title.trim() ? content.title : '你有一条新通知',
+    summary: typeof content.summary === 'string' ? content.summary : '',
+    action_url: typeof content.action_url === 'string' ? content.action_url : null,
+    biz_id: typeof content.biz_id === 'string' || typeof content.biz_id === 'number' ? content.biz_id : null,
+    notice_type: typeof content.notice_type === 'string' ? content.notice_type : '',
+  }
+}
+
+function getSystemNoticeTypeLabel(noticeType: string) {
+  const labels: Record<string, string> = {
+    coupon: '优惠券通知',
+    interview: '面试邀请',
+  }
+  return labels[noticeType] || '系统通知'
 }
 
 function resolveImageContent(messageType: string, content: ImHistoryMessage['content']): ImageMessageContent | null {
@@ -748,16 +870,17 @@ function resolveBizCardContent(messageType: string, content: ImHistoryMessage['c
 function normalizeHistoryMessage(message: ImHistoryMessage, conversation: ImConversation): MessageItem {
   const ownSenderIds = getCurrentSenderIds(conversation)
   const rawMessageType = message.message_type || 'text'
-  const messageType = rawMessageType === 'business_card' ? 'biz_card' : rawMessageType
+  const messageType = normalizeMessageType(rawMessageType, message.content)
   return {
     id: ++messageId,
     remoteId: message.message_no || message.id || null,
     clientMsgId: message.client_msg_id || null,
     conversationNo: conversation.conversation_no,
-    type: message.sender_user_id && ownSenderIds.includes(message.sender_user_id) ? 'outgoing' : 'incoming',
+    type: messageType === 'system_notice' ? 'system' : message.sender_user_id && ownSenderIds.includes(message.sender_user_id) ? 'outgoing' : 'incoming',
     messageType,
     content: resolveMessageContentText(messageType, message.content),
     bizCard: resolveBizCardContent(messageType, message.content),
+    systemNotice: resolveSystemNoticeContent(messageType, message.content),
     image: resolveImageContent(messageType, message.content),
     at: message.created_at ? formatMessageTime(message.created_at) : nowText(),
   }
@@ -769,7 +892,7 @@ function normalizeSocketMessage(payload: Record<string, any>, conversation: ImCo
     return null
 
   const rawMessageType = socketMessage.message_type || 'text'
-  const messageType = rawMessageType === 'business_card' ? 'biz_card' : rawMessageType
+  const messageType = normalizeMessageType(rawMessageType, socketMessage.content || null)
   const ownSenderIds = getCurrentSenderIds(conversation)
   const senderUserId = socketMessage.sender_user_id || ''
 
@@ -778,10 +901,11 @@ function normalizeSocketMessage(payload: Record<string, any>, conversation: ImCo
     remoteId: socketMessage.message_no || socketMessage.id || null,
     clientMsgId: socketMessage.client_msg_id || null,
     conversationNo: payload.conversation_no || socketMessage.conversation_no || activeConversationNo.value,
-    type: senderUserId && ownSenderIds.includes(senderUserId) ? 'outgoing' : 'incoming',
+    type: messageType === 'system_notice' ? 'system' : senderUserId && ownSenderIds.includes(senderUserId) ? 'outgoing' : 'incoming',
     messageType,
     content: resolveMessageContentText(messageType, socketMessage.content || null),
     bizCard: resolveBizCardContent(messageType, socketMessage.content || null),
+    systemNotice: resolveSystemNoticeContent(messageType, socketMessage.content || null),
     image: resolveImageContent(messageType, socketMessage.content || null),
     at: socketMessage.created_at ? formatMessageTime(socketMessage.created_at) : nowText(),
   }
@@ -819,8 +943,8 @@ function resolvePayloadMessage(payload: Record<string, any>) {
 
   if (payload.action === 'message') {
     const rawMessageType = payload.message?.message_type || 'text'
-    const messageType = rawMessageType === 'business_card' ? 'biz_card' : rawMessageType
     const content = payload.message?.content || null
+    const messageType = normalizeMessageType(rawMessageType, content)
     return {
       messageType,
       content: resolveMessageContentText(messageType, content),
@@ -1016,15 +1140,15 @@ function subscribeConversation(conversationNo = activeConversationNo.value) {
     return false
 
   activeConversationNo.value = nextConversationNo
-  const sent = sendSocketPayload({
-    action: 'subscribe',
-    conversation_no: nextConversationNo,
-  })
+  return requestConversationSubscription(nextConversationNo)
+}
 
-  if (sent)
-    return true
-
-  return sent
+function subscribeSystemConversations() {
+  conversations.value
+    .filter(conversation => conversation.scene === 'system')
+    .forEach((conversation) => {
+      requestConversationSubscription(conversation.conversation_no)
+    })
 }
 
 async function loadConversations() {
@@ -1037,6 +1161,8 @@ async function loadConversations() {
   try {
     const payload = await getImConversations(userStore.authHeader, { per_page: 50 })
     conversations.value = payload.data || []
+    if (isConnected.value)
+      subscribeSystemConversations()
 
     const preferredConversationNo = activeConversationNo.value || getRouteConversationNo() || getPendingImConversationNo()
     if (preferredConversationNo) {
@@ -1102,6 +1228,7 @@ function connectSocket(nextToken = token.value) {
 
   socket.onopen = () => {
     connectionState.value = 'connected'
+    subscribeSystemConversations()
     if (activeConversationNo.value)
       subscribeConversation()
   }
@@ -1118,8 +1245,11 @@ function connectSocket(nextToken = token.value) {
         appendSocketMessage(payload)
         return
       }
-      if (payload?.action === 'subscribed')
+      if (payload?.action === 'subscribed') {
+        const conversationNo = payload?.conversation_no || ''
+        confirmConversationSubscription(conversationNo)
         return
+      }
 
       const conversationNo = payload?.conversation_no || payload?.message?.conversation_no || activeConversationNo.value
       const normalizedMessage = resolvePayloadMessage(payload)
@@ -1682,7 +1812,7 @@ onBeforeUnmount(() => {
               <span :class="isConversationJobFavorited(activeConversation) ? 'i-carbon-star-filled' : 'i-carbon-star'" />
               {{ isConversationJobFavorited(activeConversation) ? '已收藏' : '收藏' }}
             </button>
-            <span :class="`is-${connectionState}`">{{ statusText }}</span>
+            <span :class="`is-${connectionState}`">{{ isActiveSystemConversation ? activeSubscriptionText : statusText }}</span>
           </div>
         </header>
 
@@ -1704,12 +1834,34 @@ onBeforeUnmount(() => {
             {{ historyError }}
           </div>
           <div v-else-if="activeMessages.length === 0" class="empty-state">
-            暂无消息，发送第一句话吧。
+            {{ isActiveSystemConversation ? '暂无系统消息' : '暂无消息，发送第一句话吧。' }}
           </div>
           <div v-else class="message-list">
             <div v-for="item in activeMessages" :key="item.id" class="message-row" :class="`is-${item.type}`">
               <div class="message-body">
-                <div v-if="item.messageType === 'biz_card' && item.bizCard" class="message-card">
+                <div
+                  v-if="item.messageType === 'system_notice' && item.systemNotice"
+                  class="system-notice-card"
+                  :class="`is-${item.systemNotice.notice_type || 'default'}`"
+                >
+                  <div class="system-notice-icon" aria-hidden="true">
+                    <span v-if="item.systemNotice.notice_type === 'coupon'" class="i-carbon-ticket" />
+                    <span v-else-if="item.systemNotice.notice_type === 'interview'" class="i-carbon-calendar" />
+                    <span v-else class="i-carbon-notification" />
+                  </div>
+                  <div class="system-notice-main">
+                    <span class="system-notice-type">{{ getSystemNoticeTypeLabel(item.systemNotice.notice_type) }}</span>
+                    <strong>{{ item.systemNotice.title }}</strong>
+                    <p v-if="item.systemNotice.summary">
+                      {{ item.systemNotice.summary }}
+                    </p>
+                    <NuxtLink v-if="item.systemNotice.action_url" :to="item.systemNotice.action_url" class="system-notice-action">
+                      查看详情
+                      <span class="i-carbon-chevron-right" />
+                    </NuxtLink>
+                  </div>
+                </div>
+                <div v-else-if="item.messageType === 'biz_card' && item.bizCard" class="message-card">
                   <div class="message-card-head">
                     <strong>{{ item.bizCard.title || '业务消息' }}</strong>
                     <span v-if="item.bizCard.status">{{ item.bizCard.status }}</span>
@@ -1748,7 +1900,7 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <footer class="chat-composer">
+        <footer v-if="!isActiveSystemConversation" class="chat-composer">
           <div class="composer-business-actions">
             <span>快捷操作</span>
             <button
@@ -2454,6 +2606,99 @@ onBeforeUnmount(() => {
   line-height: 1.7;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.system-notice-card {
+  display: flex;
+  width: min(420px, 100%);
+  box-sizing: border-box;
+  gap: 14px;
+  border: 1px solid #e9edf3;
+  border-radius: 12px;
+  background: #fff;
+  padding: 18px;
+  text-align: left;
+  box-shadow: 0 8px 28px rgba(30, 41, 59, 0.08);
+}
+
+.system-notice-icon {
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: #fff7e8;
+  color: #ff9f00;
+  font-size: 23px;
+}
+
+.system-notice-card.is-interview .system-notice-icon {
+  background: #eef6ff;
+  color: #2878ff;
+}
+
+.system-notice-card.is-default .system-notice-icon {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.system-notice-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.system-notice-type {
+  display: block;
+  margin-bottom: 5px;
+  color: #ff9f00;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.system-notice-card.is-interview .system-notice-type {
+  color: #2878ff;
+}
+
+.system-notice-card.is-default .system-notice-type {
+  color: #64748b;
+}
+
+.system-notice-main strong {
+  display: block;
+  color: #1e293b;
+  font-size: 16px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.system-notice-main p {
+  margin: 7px 0 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.system-notice-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 13px;
+  color: #ff9f00;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.system-notice-card.is-interview .system-notice-action {
+  color: #2878ff;
+}
+
+.system-notice-action:hover {
+  opacity: 0.78;
 }
 
 .message-card {
