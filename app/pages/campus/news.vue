@@ -4,7 +4,7 @@ definePageMeta({
   middleware: ['auth', 'identity-required'],
 })
 
-import type { ArticleForm, ArticleItem } from './news/services'
+import type { ArticleForm, ArticleItem } from '~/features/campus/news/services'
 
 import { NSelect } from 'naive-ui'
 import { ApiRequestError } from '~/services/http'
@@ -17,7 +17,7 @@ import {
   offlineArticle,
   publishArticle,
   updateArticle,
-} from './news/services'
+} from '~/features/campus/news/services'
 
 const userStore = useUserStore()
 const metaStore = useMetaStore()

@@ -4,7 +4,7 @@ definePageMeta({
   middleware: ['auth', 'identity-required'],
 })
 
-import type { Booth, BoothArea } from './booth/types'
+import type { Booth, BoothArea } from '~/features/campus/booth/types'
 import { NInputNumber, NSelect } from 'naive-ui'
 import { ApiRequestError } from '~/services/http'
 import { upload } from '~/services/upload'
@@ -21,7 +21,7 @@ import {
   getBoothList,
   updateArea,
   updateBooth,
-} from './booth/services'
+} from '~/features/campus/booth/services'
 
 const userStore = useUserStore()
 const metaStore = useMetaStore()

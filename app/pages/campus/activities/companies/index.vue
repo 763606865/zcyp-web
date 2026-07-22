@@ -4,7 +4,7 @@ definePageMeta({
   middleware: ['auth', 'identity-required'],
 })
 
-import type { CompanyApplication } from '../types'
+import type { CompanyApplication } from '~/features/campus/activities/types'
 import QRCode from 'qrcode'
 import { ApiRequestError } from '~/services/http'
 import { pushGlobalNotice } from '~/utils/notice'
@@ -16,7 +16,7 @@ import {
   inviteCompany,
   lookupCompanyByName,
   rejectCompanyApplication,
-} from '../services'
+} from '~/features/campus/activities/services'
 
 const userStore = useUserStore()
 const route = useRoute()

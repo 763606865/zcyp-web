@@ -3,11 +3,11 @@ definePageMeta({
   layout: 'default',
 })
 
-import type { ActivityJob } from '../types'
+import type { ActivityJob } from '~/features/campus/activities/types'
 import { ApiRequestError } from '~/services/http'
 import { useMetaStore } from '~/stores/meta'
 import { pushGlobalNotice } from '~/utils/notice'
-import { approveActivityJob, getActivityJobs, rejectActivityJob } from '../services'
+import { approveActivityJob, getActivityJobs, rejectActivityJob } from '~/features/campus/activities/services'
 
 const userStore = useUserStore()
 const route = useRoute()

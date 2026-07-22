@@ -4,9 +4,9 @@ definePageMeta({
   middleware: ['auth', 'identity-required'],
 })
 
-import type { SchoolActivity } from './activities/types'
+import type { SchoolActivity } from '~/features/campus/activities/types'
 import type { SchoolParticipatedActivityItem } from '~/services/company'
-import type { Booth } from './booth/types'
+import type { Booth } from '~/features/campus/booth/types'
 import { NDatePicker, NSelect, NSwitch } from 'naive-ui'
 import { getSchoolParticipatedActivities } from '~/services/company'
 import { ApiRequestError } from '~/services/http'
@@ -19,8 +19,8 @@ import {
   getActivityList,
   publishActivity,
   updateActivity,
-} from './activities/services'
-import { getBoothList } from './booth/services'
+} from '~/features/campus/activities/services'
+import { getBoothList } from '~/features/campus/booth/services'
 
 const metaStore = useMetaStore()
 const siteStore = useSiteStore()
