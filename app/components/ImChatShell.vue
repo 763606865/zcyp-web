@@ -1,13 +1,17 @@
 <script setup lang="ts">
-import type { ImConversation, ImHistoryMessage, ImParticipant, ImQuickPhrase } from '~/services/im'
+import type { ImBusinessCardResponse, ImConversation, ImHistoryMessage, ImParticipant, ImQuickPhrase } from '~/services/im'
 import type { AuthIdentityCode } from '~/types/auth'
 import { appEnv } from '~/config/env'
+import { createApplication } from '~/services/application'
 import { resolveAssetUrl } from '~/services/http'
-import { createImQuickPhrase, deleteImQuickPhrase, getImConversationMessages, getImConversations, getImQuickPhrases, refreshImToken, updateImQuickPhrase } from '~/services/im'
+import { createImQuickPhrase, deleteImQuickPhrase, getImConversationMessages, getImConversations, getImQuickPhrases, refreshImToken, sendImBusinessCard, updateImQuickPhrase } from '~/services/im'
+import { favoriteTalentJob, unfavoriteTalentJob } from '~/services/talent-jobs'
 import { upload } from '~/services/upload'
 import { pushGlobalNotice } from '~/utils/notice'
 
 type ConnectionState = 'idle' | 'refreshing' | 'connecting' | 'connected' | 'closed' | 'error'
+type PhoneExchangeCardAction = 'accept' | 'reject'
+
 interface MessageItem {
   id: number
   remoteId?: string | number | null
@@ -28,6 +32,8 @@ interface BizCardContent {
   status?: string
   action_url?: string
   biz_id?: string
+  biz?: Record<string, number | null | undefined> | null
+  snapshot?: Record<string, unknown> | null
 }
 
 interface ImageMessageContent {
@@ -105,6 +111,9 @@ const showFormEmojiPanel = ref(false)
 const pendingDeletePhrase = ref<ImQuickPhrase | null>(null)
 const isLoadingHistory = ref(false)
 const isUploadingImage = ref(false)
+const isBusinessActionOperating = ref(false)
+const isFavoriteOperating = ref(false)
+const handledBusinessCardKeys = ref<string[]>([])
 const historyError = ref('')
 const messages = ref<MessageItem[]>([])
 const messageScrollRef = ref<HTMLDivElement | null>(null)
@@ -135,6 +144,29 @@ const currentIdentityText = computed(() => {
   return identityLabelMap[props.audience]
 })
 const imPresenceText = computed(() => isConnected.value ? '在线' : '离线')
+const recruiterQuickActions = [
+  { label: '换电话', icon: 'i-carbon-phone' },
+  { label: '邀请面试', icon: 'i-carbon-calendar' },
+  { label: '发Offer', icon: 'i-carbon-document-signed' },
+  { label: '拒绝', icon: 'i-carbon-close-outline' },
+]
+const jobseekerQuickActions = [
+  { label: '换电话', icon: 'i-carbon-phone' },
+  { label: '投递简历', icon: 'i-carbon-send-alt' },
+  { label: '举报', icon: 'i-carbon-warning-alt' },
+  { label: '不感兴趣', icon: 'i-carbon-thumbs-down' },
+]
+const businessCardTypeLabelMap: Record<string, string> = {
+  recruiter_exchange_phone: '交换电话',
+  recruiter_invite_interview: '邀请面试',
+  recruiter_send_offer: '发送 Offer',
+  recruiter_reject: '拒绝沟通',
+  jobseeker_exchange_phone: '交换电话',
+  jobseeker_apply_resume: '投递简历',
+  jobseeker_report: '举报',
+  jobseeker_not_interested: '不感兴趣',
+}
+const composerQuickActions = computed(() => props.audience === 'employer' ? recruiterQuickActions : jobseekerQuickActions)
 
 const statusText = computed(() => {
   const map: Record<ConnectionState, string> = {
@@ -322,6 +354,11 @@ function getConversationSubtitle(conversation: ImConversation | null) {
   return [identity?.organization_name, identity?.job_title || identity?.identity_name].filter(Boolean).join(' · ') || conversation.conversation_no
 }
 
+function getConversationParticipantTitle(conversation: ImConversation | null) {
+  const identity = getPrimaryParticipant(conversation)?.identity
+  return identity?.job_title || identity?.identity_name || ''
+}
+
 function formatJobSalaryAmount(value: string | number | null | undefined) {
   if (value === null || value === undefined || value === '')
     return ''
@@ -362,6 +399,254 @@ function getConversationJobSalary(conversation: ImConversation | null) {
     ? `·${Math.trunc(annualSalaryMonths)}薪`
     : ''
   return `${salaryRange}${salaryUnit}${annualSalaryLabel}`
+}
+
+function getConversationJobId(conversation: ImConversation | null) {
+  const rawId = conversation?.context?.job_id
+    || conversation?.context?.id
+    || conversation?.job_id
+    || conversation?.metadata?.job_id
+  const id = Number(rawId)
+  return Number.isInteger(id) && id > 0 ? id : null
+}
+
+function getConversationApplicationId(conversation: ImConversation | null) {
+  const rawId = conversation?.context?.application_id || conversation?.metadata?.application_id
+  const id = Number(rawId)
+  return Number.isInteger(id) && id > 0 ? id : null
+}
+
+function getConversationCompanyName(conversation: ImConversation | null) {
+  const value = conversation?.metadata?.company_name
+  return typeof value === 'string' ? value : ''
+}
+
+function getConversationCompanyId(conversation: ImConversation | null) {
+  const id = Number(conversation?.metadata?.company_id)
+  return Number.isInteger(id) && id > 0 ? id : null
+}
+
+function isConversationJobFavorited(conversation: ImConversation | null) {
+  return conversation?.context?.is_favorited ?? false
+}
+
+async function toggleConversationJobFavorite() {
+  const conversation = activeConversation.value
+  const jobId = getConversationJobId(conversation)
+  if (!conversation || !jobId || !userStore.authHeader || isFavoriteOperating.value)
+    return
+
+  isFavoriteOperating.value = true
+  try {
+    const result = isConversationJobFavorited(conversation)
+      ? await unfavoriteTalentJob(jobId, userStore.authHeader)
+      : await favoriteTalentJob(jobId, userStore.authHeader)
+    conversation.is_favorited = result.is_favorited
+    if (conversation.context)
+      conversation.context.is_favorited = result.is_favorited
+    pushGlobalNotice(result.is_favorited ? '已收藏职位' : '已取消收藏')
+  }
+  catch (error) {
+    pushGlobalNotice(error instanceof Error ? error.message : '收藏操作失败', 'error')
+  }
+  finally {
+    isFavoriteOperating.value = false
+  }
+}
+
+function setComposerShortcut(content: string) {
+  if (!activeConversationNo.value)
+    return
+  insertTextToEditor(content)
+  nextTick(() => editorRef.value?.focus())
+}
+
+async function handleComposerQuickAction(label: string) {
+  if (!activeConversation.value)
+    return
+
+  if (props.audience === 'jobseeker' && label === '换电话') {
+    await sendJobseekerExchangePhoneCard()
+    return
+  }
+  if (props.audience === 'jobseeker' && label === '投递简历') {
+    await applyResumeAndSendCard()
+    return
+  }
+  if (label === '换电话') {
+    setComposerShortcut('方便交换一下联系电话吗？')
+    return
+  }
+
+  const jobId = getConversationJobId(activeConversation.value)
+  if (props.audience === 'employer') {
+    const applicationId = getConversationApplicationId(activeConversation.value)
+    if (!applicationId) {
+      pushGlobalNotice('该会话暂无投递记录，暂不能办理此操作', 'warning')
+      return
+    }
+    pushGlobalNotice(`请在投递详情中完成“${label}”操作`, 'info')
+    await navigateTo(`/employer/applications/${applicationId}`)
+    return
+  }
+
+  if (!jobId) {
+    pushGlobalNotice('该会话暂无关联职位', 'warning')
+    return
+  }
+  if (label === '投递简历') {
+    await navigateTo(`/jobs/${jobId}`)
+    return
+  }
+  if (label === '举报') {
+    pushGlobalNotice('请在职位详情页提交举报', 'info')
+    await navigateTo(`/jobs/${jobId}`)
+    return
+  }
+  setComposerShortcut('感谢您的联系，我暂时不考虑这个职位。')
+}
+
+function appendBusinessCardResponse(result: ImBusinessCardResponse) {
+  const conversation = activeConversation.value
+  if (!conversation)
+    return
+
+  const card: BizCardContent = {
+    card_type: result.card.card_type,
+    title: result.card.title || result.card.card_type_label || '业务消息',
+    summary: result.card.summary || '',
+    biz: result.card.biz,
+    snapshot: result.card.snapshot,
+  }
+  const item: MessageItem = {
+    id: ++messageId,
+    remoteId: result.message.id,
+    clientMsgId: null,
+    conversationNo: conversation.conversation_no,
+    type: 'outgoing',
+    messageType: 'biz_card',
+    content: card.title || card.summary || '业务消息',
+    bizCard: card,
+    image: null,
+    at: result.message.created_at ? formatMessageTime(result.message.created_at) : nowText(),
+  }
+  if (!isDuplicateMessage(item, conversation.conversation_no))
+    messages.value.push(item)
+  scrollMessagesToBottom()
+}
+
+function getBusinessCardTypeLabel(card: BizCardContent) {
+  return businessCardTypeLabelMap[card.card_type || ''] || card.card_type || '业务消息'
+}
+
+function getBusinessCardActionKey(item: MessageItem) {
+  return String(item.remoteId || item.bizCard?.biz_id || item.clientMsgId || item.id)
+}
+
+function hasHandledBusinessCard(item: MessageItem) {
+  return handledBusinessCardKeys.value.includes(getBusinessCardActionKey(item))
+}
+
+function markBusinessCardHandled(item: MessageItem) {
+  const key = getBusinessCardActionKey(item)
+  if (!handledBusinessCardKeys.value.includes(key))
+    handledBusinessCardKeys.value = [...handledBusinessCardKeys.value, key]
+}
+
+function canRespondToPhoneExchangeCard(item: MessageItem) {
+  return props.audience === 'employer'
+    && item.type === 'incoming'
+    && item.bizCard?.card_type === 'jobseeker_exchange_phone'
+    && !hasHandledBusinessCard(item)
+}
+
+async function handlePhoneExchangeCardAction(item: MessageItem, action: PhoneExchangeCardAction) {
+  const conversation = activeConversation.value
+  const card = item.bizCard
+  if (!conversation?.id || !card || !userStore.authHeader || isBusinessActionOperating.value)
+    return
+
+  const accepted = action === 'accept'
+  isBusinessActionOperating.value = true
+  try {
+    const result = await sendImBusinessCard(conversation.id, {
+      card_type: accepted ? 'recruiter_exchange_phone' : 'recruiter_reject',
+      summary: accepted ? `${currentUserName.value}同意交换联系电话` : `${currentUserName.value}暂不方便交换联系电话`,
+      metadata: {
+        response_action: action,
+        response_to_card_type: card.card_type,
+        response_to_message_id: item.remoteId || item.clientMsgId || null,
+      },
+    }, userStore.authHeader)
+    card.status = accepted ? '已同意' : '已拒绝'
+    markBusinessCardHandled(item)
+    appendBusinessCardResponse(result)
+    pushGlobalNotice(accepted ? '已同意交换电话' : '已拒绝交换电话')
+  }
+  catch (error) {
+    pushGlobalNotice(error instanceof Error ? error.message : '操作失败', 'error')
+  }
+  finally {
+    isBusinessActionOperating.value = false
+  }
+}
+
+async function sendJobseekerExchangePhoneCard() {
+  const conversation = activeConversation.value
+  if (!conversation?.id || !userStore.authHeader || isBusinessActionOperating.value)
+    return
+
+  isBusinessActionOperating.value = true
+  try {
+    const result = await sendImBusinessCard(conversation.id, {
+      card_type: 'jobseeker_exchange_phone',
+    }, userStore.authHeader)
+    appendBusinessCardResponse(result)
+    pushGlobalNotice('换电话卡片已发送')
+  }
+  catch (error) {
+    pushGlobalNotice(error instanceof Error ? error.message : '卡片发送失败', 'error')
+  }
+  finally {
+    isBusinessActionOperating.value = false
+  }
+}
+
+async function applyResumeAndSendCard() {
+  const conversation = activeConversation.value
+  const jobId = getConversationJobId(conversation)
+  if (!conversation?.id || !jobId || !userStore.authHeader || isBusinessActionOperating.value) {
+    if (!jobId)
+      pushGlobalNotice('该会话暂无关联职位，无法投递简历', 'warning')
+    return
+  }
+
+  isBusinessActionOperating.value = true
+  try {
+    const application = await createApplication({ job_id: jobId }, userStore.authHeader)
+    const jobTitle = conversation.context?.title || '该职位'
+    const result = await sendImBusinessCard(conversation.id, {
+      card_type: 'jobseeker_apply_resume',
+      summary: `${currentUserName.value}投递了「${jobTitle}」职位`,
+      biz: {
+        application_id: application.id,
+        job_id: jobId,
+        resume_id: application.resume_id,
+      },
+      snapshot: {
+        job_title: jobTitle,
+        resume_title: `${currentUserName.value}的简历`,
+      },
+    }, userStore.authHeader)
+    appendBusinessCardResponse(result)
+    pushGlobalNotice('简历已投递')
+  }
+  catch (error) {
+    pushGlobalNotice(error instanceof Error ? error.message : '简历投递失败', 'error')
+  }
+  finally {
+    isBusinessActionOperating.value = false
+  }
 }
 
 function getConversationAvatar(conversation: ImConversation) {
@@ -445,7 +730,7 @@ function resolveImageUrl(image: ImageMessageContent | null | undefined) {
 }
 
 function resolveBizCardContent(messageType: string, content: ImHistoryMessage['content']): BizCardContent | null {
-  if (messageType !== 'biz_card' || !content || typeof content === 'string')
+  if ((messageType !== 'biz_card' && messageType !== 'business_card') || !content || typeof content === 'string')
     return null
 
   return {
@@ -455,12 +740,15 @@ function resolveBizCardContent(messageType: string, content: ImHistoryMessage['c
     status: content.status,
     action_url: content.action_url,
     biz_id: content.biz_id,
+    biz: typeof content.biz === 'object' && content.biz ? content.biz as Record<string, number | null | undefined> : null,
+    snapshot: typeof content.snapshot === 'object' && content.snapshot ? content.snapshot as Record<string, unknown> : null,
   }
 }
 
 function normalizeHistoryMessage(message: ImHistoryMessage, conversation: ImConversation): MessageItem {
   const ownSenderIds = getCurrentSenderIds(conversation)
-  const messageType = message.message_type || 'text'
+  const rawMessageType = message.message_type || 'text'
+  const messageType = rawMessageType === 'business_card' ? 'biz_card' : rawMessageType
   return {
     id: ++messageId,
     remoteId: message.message_no || message.id || null,
@@ -480,7 +768,8 @@ function normalizeSocketMessage(payload: Record<string, any>, conversation: ImCo
   if (!socketMessage)
     return null
 
-  const messageType = socketMessage.message_type || 'text'
+  const rawMessageType = socketMessage.message_type || 'text'
+  const messageType = rawMessageType === 'business_card' ? 'biz_card' : rawMessageType
   const ownSenderIds = getCurrentSenderIds(conversation)
   const senderUserId = socketMessage.sender_user_id || ''
 
@@ -529,7 +818,8 @@ function resolvePayloadMessage(payload: Record<string, any>) {
   }
 
   if (payload.action === 'message') {
-    const messageType = payload.message?.message_type || 'text'
+    const rawMessageType = payload.message?.message_type || 'text'
+    const messageType = rawMessageType === 'business_card' ? 'biz_card' : rawMessageType
     const content = payload.message?.content || null
     return {
       messageType,
@@ -924,31 +1214,6 @@ async function sendImageMessage(file: File) {
   finally {
     isUploadingImage.value = false
   }
-}
-
-function _sendBizCardMessage(card: BizCardContent) {
-  if (!socket || socket.readyState !== WebSocket.OPEN || !activeConversationNo.value)
-    return
-
-  const clientMsgId = `client_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
-  const content = {
-    card_type: card.card_type,
-    title: card.title,
-    summary: card.summary,
-    status: card.status,
-    action_url: card.action_url,
-    biz_id: card.biz_id,
-  }
-
-  socket.send(JSON.stringify({
-    action: 'send_message',
-    conversation_no: activeConversationNo.value,
-    message_type: 'biz_card',
-    client_msg_id: clientMsgId,
-    content,
-  }))
-  addMessage('outgoing', card.title || card.summary || '业务消息', activeConversationNo.value, 'biz_card', content, clientMsgId)
-  scrollMessagesToBottom()
 }
 
 function getEditorPlainText() {
@@ -1379,14 +1644,46 @@ onBeforeUnmount(() => {
             </span>
             <div>
               <h2>{{ getConversationTitle(activeConversation) }}</h2>
-              <p>{{ getConversationSubtitle(activeConversation) }}</p>
+              <p v-if="audience === 'jobseeker' && getConversationCompanyName(activeConversation)">
+                <NuxtLink
+                  v-if="getConversationCompanyId(activeConversation)"
+                  :to="`/company/${getConversationCompanyId(activeConversation)}`"
+                  class="chat-company-link"
+                >
+                  {{ getConversationCompanyName(activeConversation) }}
+                </NuxtLink>
+                <span v-else>{{ getConversationCompanyName(activeConversation) }}</span>
+                <template v-if="getConversationParticipantTitle(activeConversation)">
+                  <span class="chat-company-separator">|</span>
+                  <span>{{ getConversationParticipantTitle(activeConversation) }}</span>
+                </template>
+              </p>
+              <p v-else>
+                {{ getConversationSubtitle(activeConversation) }}
+              </p>
             </div>
             <div v-if="activeConversation?.context?.title" class="chat-job-context">
-              <span>{{ activeConversation.context.title }}</span>
+              <NuxtLink v-if="getConversationJobId(activeConversation)" :to="`/jobs/${getConversationJobId(activeConversation)}`" class="chat-job-title">
+                {{ activeConversation.context.title }}
+              </NuxtLink>
+              <span v-else class="chat-job-title">{{ activeConversation.context.title }}</span>
               <strong>{{ getConversationJobSalary(activeConversation) }}</strong>
             </div>
           </div>
-          <span :class="`is-${connectionState}`">{{ statusText }}</span>
+          <div class="chat-header-actions">
+            <button
+              v-if="audience === 'jobseeker' && getConversationJobId(activeConversation)"
+              type="button"
+              class="chat-favorite-button"
+              :class="{ 'is-active': isConversationJobFavorited(activeConversation) }"
+              :disabled="isFavoriteOperating"
+              @click="toggleConversationJobFavorite"
+            >
+              <span :class="isConversationJobFavorited(activeConversation) ? 'i-carbon-star-filled' : 'i-carbon-star'" />
+              {{ isConversationJobFavorited(activeConversation) ? '已收藏' : '收藏' }}
+            </button>
+            <span :class="`is-${connectionState}`">{{ statusText }}</span>
+          </div>
         </header>
 
         <div v-if="errorMessage" class="error-banner">
@@ -1419,7 +1716,15 @@ onBeforeUnmount(() => {
                   </div>
                   <p>{{ item.bizCard.summary || item.content }}</p>
                   <div class="message-card-foot">
-                    <span>{{ item.bizCard.card_type || 'biz_card' }}</span>
+                    <div v-if="canRespondToPhoneExchangeCard(item)" class="message-card-actions">
+                      <button type="button" :disabled="isBusinessActionOperating" @click="handlePhoneExchangeCardAction(item, 'accept')">
+                        同意
+                      </button>
+                      <button type="button" class="is-secondary" :disabled="isBusinessActionOperating" @click="handlePhoneExchangeCardAction(item, 'reject')">
+                        拒绝
+                      </button>
+                    </div>
+                    <span v-else>{{ getBusinessCardTypeLabel(item.bizCard) }}</span>
                     <NuxtLink v-if="item.bizCard.action_url" :to="item.bizCard.action_url">
                       查看详情
                     </NuxtLink>
@@ -1444,15 +1749,25 @@ onBeforeUnmount(() => {
         </div>
 
         <footer class="chat-composer">
+          <div class="composer-business-actions">
+            <span>快捷操作</span>
+            <button
+              v-for="action in composerQuickActions"
+              :key="action.label"
+              type="button"
+              :disabled="!activeConversationNo || isBusinessActionOperating"
+              @click="handleComposerQuickAction(action.label)"
+            >
+              <span :class="action.icon" />
+              {{ action.label }}
+            </button>
+          </div>
           <div class="composer-toolbar">
             <button ref="emojiButtonRef" type="button" title="表情" :disabled="!activeConversationNo" @click="toggleEmojiPanel">
               <span class="i-carbon-face-satisfied" />
             </button>
             <button type="button" title="选择图片" :disabled="!activeConversationNo || isUploadingImage" @click="openImagePicker">
               <span class="i-carbon-image" />
-            </button>
-            <button type="button" title="附件" :disabled="!activeConversationNo" @click="pushGlobalNotice('附件消息待接入上传接口', 'info')">
-              <span class="i-carbon-attachment" />
             </button>
             <button ref="quickPhraseButtonRef" type="button" title="快捷短语" :disabled="!activeConversationNo" @click="toggleQuickPhrasePanel">
               <span class="i-carbon-text-short-paragraph" />
@@ -1926,14 +2241,30 @@ onBeforeUnmount(() => {
   gap: 6px;
 }
 
-.chat-job-context span {
+.chat-job-title {
   max-width: 260px;
   overflow: hidden;
   color: #475569;
   font-size: 14px;
   font-weight: 600;
+  text-decoration: none;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.chat-job-title:hover,
+.chat-company-link:hover {
+  color: #ff9f00;
+}
+
+.chat-company-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.chat-company-separator {
+  margin: 0 6px;
+  color: #d1d5db;
 }
 
 .chat-job-context strong {
@@ -1974,7 +2305,14 @@ onBeforeUnmount(() => {
   font-size: 13px;
 }
 
-.chat-header > span {
+.chat-header-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+.chat-header-actions > span {
   border-radius: 999px;
   background: #f1f5f9;
   color: #64748b;
@@ -1983,14 +2321,37 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-.chat-header > span.is-connected {
+.chat-header-actions > span.is-connected {
   background: #dcfce7;
   color: #15803d;
 }
 
-.chat-header > span.is-error {
+.chat-header-actions > span.is-error {
   background: #fee2e2;
   color: #dc2626;
+}
+
+.chat-favorite-button {
+  display: inline-flex;
+  height: 30px;
+  align-items: center;
+  border: 1px solid #f59e0b;
+  border-radius: 999px;
+  background: #fff;
+  color: #f59e0b;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0 12px;
+  gap: 5px;
+}
+
+.chat-favorite-button.is-active {
+  background: #fff7e8;
+}
+
+.chat-favorite-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .error-banner {
@@ -2153,6 +2514,36 @@ onBeforeUnmount(() => {
   text-decoration: none;
 }
 
+.message-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.message-card-actions button {
+  display: inline-flex;
+  height: 28px;
+  align-items: center;
+  border: 1px solid #ff9f00;
+  border-radius: 6px;
+  background: #ff9f00;
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0 12px;
+}
+
+.message-card-actions button.is-secondary {
+  border-color: #e5e7eb;
+  background: #fff;
+  color: #64748b;
+}
+
+.message-card-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .message-image {
   max-width: min(260px, 100%);
   overflow: hidden;
@@ -2204,14 +2595,55 @@ onBeforeUnmount(() => {
 .chat-composer {
   position: relative;
   display: flex;
-  height: 182px;
-  min-height: 182px;
-  flex: 0 0 182px;
+  height: 224px;
+  min-height: 224px;
+  flex: 0 0 224px;
   box-sizing: border-box;
   flex-direction: column;
   border-top: 1px solid #edf0f5;
   background: #fff;
   padding: 10px 16px 12px;
+}
+
+.composer-business-actions {
+  display: flex;
+  height: 40px;
+  flex-shrink: 0;
+  align-items: center;
+  border-bottom: 1px solid #f1f5f9;
+  margin-bottom: 6px;
+  gap: 8px;
+}
+
+.composer-business-actions > span {
+  margin-right: 2px;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.composer-business-actions button {
+  display: inline-flex;
+  height: 28px;
+  align-items: center;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
+  color: #475569;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0 10px;
+  gap: 5px;
+}
+
+.composer-business-actions button:hover {
+  border-color: #ffb84d;
+  background: #fff7e8;
+  color: #e99000;
+}
+
+.composer-business-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .composer-toolbar {
@@ -2250,7 +2682,7 @@ onBeforeUnmount(() => {
 .emoji-panel {
   position: absolute;
   left: 16px;
-  bottom: 148px;
+  bottom: 190px;
   width: 352px;
   max-width: calc(100% - 32px);
   overflow: hidden;
@@ -2264,7 +2696,7 @@ onBeforeUnmount(() => {
 .quick-phrase-panel {
   position: absolute;
   left: 16px;
-  bottom: 148px;
+  bottom: 190px;
   width: 360px;
   max-width: calc(100% - 32px);
   max-height: 322px;

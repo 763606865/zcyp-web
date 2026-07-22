@@ -75,7 +75,11 @@ export interface ImParticipantIdentity {
 }
 
 export interface ImConversationContext {
+  id?: number | null
+  job_id?: number | null
   title?: string | null
+  application_id?: number | null
+  is_favorited?: boolean
   salary_min?: string | number | null
   salary_max?: string | number | null
   salary_unit_label?: string | null
@@ -107,6 +111,8 @@ export interface ImConversation {
   owner_type: string
   owner_id: number
   scene: string | null
+  job_id?: number | null
+  is_favorited?: boolean
   context?: ImConversationContext | null
   metadata: Record<string, unknown> | null
   last_message_at: string | null
@@ -153,6 +159,44 @@ export interface ImConversationMessagesResponse {
   items?: ImHistoryMessage[]
   next_cursor?: string | null
   has_more?: boolean
+}
+
+export type ImBusinessCardType
+  = 'recruiter_exchange_phone'
+    | 'recruiter_invite_interview'
+    | 'recruiter_send_offer'
+    | 'recruiter_reject'
+    | 'jobseeker_exchange_phone'
+    | 'jobseeker_apply_resume'
+    | 'jobseeker_report'
+    | 'jobseeker_not_interested'
+
+export interface ImBusinessCardPayload {
+  card_type: ImBusinessCardType
+  title?: string | null
+  summary?: string | null
+  biz?: {
+    application_id?: number | null
+    job_id?: number | null
+    resume_id?: number | null
+    interview_id?: number | null
+    offer_id?: number | null
+    report_id?: number | null
+  } | null
+  snapshot?: Record<string, unknown> | null
+  metadata?: Record<string, unknown> | null
+}
+
+export interface ImBusinessCardResponse {
+  message: {
+    id: string | number
+    conversation_id: string | number
+    message_type: string
+    created_at: string | null
+  }
+  card: ImBusinessCardPayload & {
+    card_type_label?: string | null
+  }
 }
 
 export interface ImQuickPhrase {
@@ -222,6 +266,16 @@ export async function getImConversationMessages(id: number, authorization?: stri
 export async function createImConversation(payload: ImConversationCreatePayload, authorization?: string) {
   const response = await postJson<ApiResponse<ImConversation>>(
     '/rc/im/conversations',
+    payload,
+    authorization ? { Authorization: authorization } : undefined,
+  )
+
+  return response.data
+}
+
+export async function sendImBusinessCard(conversationId: number, payload: ImBusinessCardPayload, authorization?: string) {
+  const response = await postJson<ApiResponse<ImBusinessCardResponse>>(
+    `/rc/im/conversations/${conversationId}/card-messages`,
     payload,
     authorization ? { Authorization: authorization } : undefined,
   )
