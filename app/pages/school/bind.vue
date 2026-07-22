@@ -101,7 +101,7 @@ await callOnce(async () => {
         <div v-else class="grid gap-6 md:grid-cols-2">
           <label class="text-[13px] text-[#8a6b34] space-y-2">
             <span>学校名称</span>
-            <NSelect v-model:value="schoolCode" :options="schoolOptions" placeholder="搜索学校名称" filterable clearable @update:value="onSchoolChange" />
+            <ClientOnly><NSelect v-model:value="schoolCode" :options="schoolOptions" placeholder="搜索学校名称" filterable clearable @update:value="onSchoolChange" /></ClientOnly>
           </label>
           <label class="text-[13px] text-[#8a6b34] space-y-2">
             <span>岗位名称</span>
