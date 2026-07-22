@@ -630,32 +630,82 @@ export async function getRecruiterStats(authorization: string) {
   return response.data
 }
 
-export interface InterviewResumeSnapshot {
-  name?: string
-  avatar?: string
-  gender?: string
-  age?: string | number
-  education?: string
-  work_experience?: string
-  expected_position?: string
-  expected_salary?: string
+export interface InterviewResumeEducation {
+  id?: number
+  degree?: number | string
+  degree_label?: string
+  school_name?: string
+  major?: string
+  [key: string]: any
+}
+
+export interface InterviewResumeIntention {
+  id?: number
+  expected_position_id?: number
+  expected_position_name?: string
+  job_status?: number | string
+  [key: string]: any
+}
+
+export interface InterviewResume {
+  id: number
+  title?: string
+  display_avatar?: string | null
+  full_name?: string
+  gender?: string | number
+  age?: number | string
+  educations?: InterviewResumeEducation[]
+  work_years?: number | string
+  intentions?: InterviewResumeIntention[]
+  expected_salary_min?: number | string
+  expected_salary_max?: number | string
   [key: string]: any
 }
 
 export interface InterviewItem {
   id: number
-  interview_at: string
-  duration_mins: number
-  mode: number
-  interviewer_name: string
-  location: string
-  status: number
+  interview_at: string | null
+  duration_mins: number | null
+  mode: number | null
+  mode_label: string | null
+  interviewer_name: string | null
+  location: string | null
+  meeting_url: string | null
+  note: string | null
+  status: number | null
+  status_label: string | null
   application: {
     id: number
+    company_id: number
     job_id: number
+    resume_id: number | null
     candidate_user_id: number
-    resume_snapshot: InterviewResumeSnapshot
-  }
+    current_stage_id: number | null
+    source_type: number | null
+    source_type_label: string | null
+    status: number | null
+    status_label: string | null
+    applied_at: string | null
+    withdrawn_at: string | null
+    created_at: string | null
+    updated_at: string | null
+    job: {
+      id: number
+      title: string
+    } | null
+    resume: InterviewResume | null
+    candidate?: Record<string, any> | null
+  } | null
+}
+
+export interface InterviewListResponse {
+  current_page: number
+  data: InterviewItem[]
+  from: number | null
+  last_page: number
+  per_page: number
+  to: number | null
+  total: number
 }
 
 export interface InterviewListParams {
@@ -667,7 +717,7 @@ export interface InterviewListParams {
 }
 
 export async function getCompanyInterviews(authorization: string, params?: InterviewListParams) {
-  const response = await getJson<ApiResponse<InterviewItem[]>>(
+  const response = await getJson<ApiResponse<InterviewListResponse>>(
     '/rc/companies/interviews',
     params as Record<string, string | number | undefined>,
     createAuthHeaders(authorization),
