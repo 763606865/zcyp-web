@@ -127,6 +127,7 @@ const isFavoriteOperating = ref(false)
 const handledBusinessCardKeys = ref<string[]>([])
 const historyError = ref('')
 const messages = ref<MessageItem[]>([])
+const unreadConversationNos = ref<string[]>([])
 const messageScrollRef = ref<HTMLDivElement | null>(null)
 const historyStateMap = ref<Record<number, {
   loaded: boolean
@@ -136,6 +137,7 @@ const historyStateMap = ref<Record<number, {
 }>>({})
 let socket: WebSocket | null = null
 let messageId = 0
+let shouldReloadConversations = false
 const HISTORY_PAGE_SIZE = 20
 const SUBSCRIBE_ACK_TIMEOUT = 3000
 const MAX_SUBSCRIBE_ATTEMPTS = 3
@@ -967,13 +969,13 @@ function resolvePayloadMessage(payload: Record<string, any>) {
   }
 }
 
-function appendSocketMessage(payload: Record<string, any>) {
+function appendSocketMessage(payload: Record<string, any>): MessageItem | null {
   const conversationNo = payload?.conversation_no || payload?.message?.conversation_no || activeConversationNo.value
   const conversation = conversations.value.find(item => item.conversation_no === conversationNo) || activeConversation.value
   const socketMessage = normalizeSocketMessage(payload, conversation)
 
   if (!socketMessage)
-    return
+    return null
 
   const optimisticIndex = messages.value.findIndex(item =>
     item.conversationNo === socketMessage.conversationNo
@@ -984,23 +986,59 @@ function appendSocketMessage(payload: Record<string, any>) {
   if (optimisticIndex >= 0) {
     const optimisticMessage = messages.value[optimisticIndex]
     if (!optimisticMessage)
-      return
+      return null
 
     messages.value[optimisticIndex] = {
       ...optimisticMessage,
       remoteId: socketMessage.remoteId,
       at: socketMessage.at,
     }
-    return
+    return null
   }
 
   if (isDuplicateMessage(socketMessage, socketMessage.conversationNo))
-    return
+    return null
 
   messages.value.push(socketMessage)
 
   if (socketMessage.conversationNo === activeConversationNo.value)
     scrollMessagesToBottom()
+
+  return socketMessage
+}
+
+function markConversationUnread(conversationNo: string) {
+  if (!conversationNo || conversationNo === activeConversationNo.value || unreadConversationNos.value.includes(conversationNo))
+    return
+  unreadConversationNos.value.push(conversationNo)
+}
+
+function clearConversationUnread(conversationNo: string) {
+  unreadConversationNos.value = unreadConversationNos.value.filter(item => item !== conversationNo)
+}
+
+function isConversationUnread(conversationNo: string) {
+  return unreadConversationNos.value.includes(conversationNo)
+}
+
+function promoteConversation(conversationNo: string, lastMessageAt?: string | null) {
+  const conversationIndex = conversations.value.findIndex(item => item.conversation_no === conversationNo)
+  if (conversationIndex < 0)
+    return false
+
+  const conversation = conversations.value[conversationIndex]
+  if (!conversation)
+    return false
+
+  const updatedConversation: ImConversation = {
+    ...conversation,
+    last_message_at: lastMessageAt || conversation.last_message_at,
+  }
+  conversations.value = [
+    updatedConversation,
+    ...conversations.value.filter(item => item.conversation_no !== conversationNo),
+  ]
+  return true
 }
 
 function selectConversation(conversationNo: string) {
@@ -1009,6 +1047,7 @@ function selectConversation(conversationNo: string) {
     return
 
   activeConversationNo.value = nextConversationNo
+  clearConversationUnread(nextConversationNo)
   ensureConversationInList(nextConversationNo)
   showEmojiPanel.value = false
   showQuickPhrasePanel.value = false
@@ -1143,9 +1182,8 @@ function subscribeConversation(conversationNo = activeConversationNo.value) {
   return requestConversationSubscription(nextConversationNo)
 }
 
-function subscribeSystemConversations() {
+function subscribeKnownConversations() {
   conversations.value
-    .filter(conversation => conversation.scene === 'system')
     .forEach((conversation) => {
       requestConversationSubscription(conversation.conversation_no)
     })
@@ -1154,6 +1192,10 @@ function subscribeSystemConversations() {
 async function loadConversations() {
   if (!userStore.authHeader)
     return
+  if (isLoadingConversations.value) {
+    shouldReloadConversations = true
+    return
+  }
 
   isLoadingConversations.value = true
   conversationError.value = ''
@@ -1162,7 +1204,7 @@ async function loadConversations() {
     const payload = await getImConversations(userStore.authHeader, { per_page: 50 })
     conversations.value = payload.data || []
     if (isConnected.value)
-      subscribeSystemConversations()
+      subscribeKnownConversations()
 
     const preferredConversationNo = activeConversationNo.value || getRouteConversationNo() || getPendingImConversationNo()
     if (preferredConversationNo) {
@@ -1179,6 +1221,10 @@ async function loadConversations() {
   }
   finally {
     isLoadingConversations.value = false
+    if (shouldReloadConversations) {
+      shouldReloadConversations = false
+      void loadConversations()
+    }
   }
 }
 
@@ -1228,7 +1274,7 @@ function connectSocket(nextToken = token.value) {
 
   socket.onopen = () => {
     connectionState.value = 'connected'
-    subscribeSystemConversations()
+    subscribeKnownConversations()
     if (activeConversationNo.value)
       subscribeConversation()
   }
@@ -1241,8 +1287,16 @@ function connectSocket(nextToken = token.value) {
 
     try {
       const payload = JSON.parse(event.data)
+      if (payload?.action === 'conversation_changed') {
+        void loadConversations()
+        return
+      }
       if (payload?.action === 'message') {
-        appendSocketMessage(payload)
+        const conversationNo = payload?.conversation_no || payload?.message?.conversation_no || ''
+        promoteConversation(conversationNo, payload?.message?.created_at || null)
+        const receivedMessage = appendSocketMessage(payload)
+        if (receivedMessage && receivedMessage.type !== 'outgoing')
+          markConversationUnread(conversationNo)
         return
       }
       if (payload?.action === 'subscribed') {
@@ -1670,7 +1724,9 @@ async function bootstrapChat(reason = 'mounted') {
 watch(
   () => userStore.currentIdentity,
   async () => {
+    shouldReloadConversations = false
     messages.value = []
+    unreadConversationNos.value = []
     conversations.value = []
     historyStateMap.value = {}
     activeConversationNo.value = ''
@@ -1752,9 +1808,12 @@ onBeforeUnmount(() => {
             :class="{ 'is-active': conversation.conversation_no === activeConversationNo }"
             @click="selectConversation(conversation.conversation_no)"
           >
-            <span class="conversation-avatar">
-              <img v-if="getConversationAvatar(conversation)" :src="getConversationAvatar(conversation)" :alt="getConversationTitle(conversation)">
-              <span v-else>{{ getConversationInitial(conversation) }}</span>
+            <span class="conversation-avatar-wrap">
+              <span class="conversation-avatar">
+                <img v-if="getConversationAvatar(conversation)" :src="getConversationAvatar(conversation)" :alt="getConversationTitle(conversation)">
+                <span v-else>{{ getConversationInitial(conversation) }}</span>
+              </span>
+              <span v-if="isConversationUnread(conversation.conversation_no)" class="conversation-unread-dot" aria-label="有未读消息" />
             </span>
             <span class="conversation-main">
               <strong>{{ getConversationTitle(conversation) }}</strong>
@@ -2313,6 +2372,13 @@ onBeforeUnmount(() => {
   background: #fff7e8;
 }
 
+.conversation-avatar-wrap {
+  position: relative;
+  display: inline-flex;
+  width: 42px;
+  height: 42px;
+}
+
 .conversation-avatar {
   display: inline-flex;
   width: 42px;
@@ -2325,6 +2391,24 @@ onBeforeUnmount(() => {
   font-weight: 700;
   overflow: hidden;
   flex-shrink: 0;
+}
+
+.conversation-unread-dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 10px;
+  height: 10px;
+  box-sizing: border-box;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #f43f5e;
+  box-shadow: 0 1px 3px rgba(244, 63, 94, 0.35);
+}
+
+.conversation-item.is-active .conversation-unread-dot,
+.conversation-item:hover .conversation-unread-dot {
+  border-color: #fff7e8;
 }
 
 .conversation-avatar img {
