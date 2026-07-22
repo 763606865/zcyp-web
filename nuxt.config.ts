@@ -3,6 +3,10 @@ import { pwa } from './app/config/pwa'
 import { appDescription } from './app/constants/index'
 
 export default defineNuxtConfig({
+  // Keep build artifacts outside node_modules. Package-manager cache cleanup
+  // during deployment must not remove the client manifest mid-build.
+  buildDir: '.nuxt-build',
+
   modules: [
     '@vueuse/nuxt',
     '@unocss/nuxt',

@@ -4,6 +4,7 @@ node_modules
 dist
 .output
 .nuxt
+.nuxt-build
 .idea/
 public/assets/fonts
 .hbuilderx/uni-agent/mcps/
