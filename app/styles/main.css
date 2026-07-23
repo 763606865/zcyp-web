@@ -1147,7 +1147,8 @@ body {
 
 .portal-header {
   position: relative;
-  z-index: 10;
+  z-index: 100;
+  overflow: visible;
   background: #fff;
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
 }
@@ -1367,6 +1368,8 @@ body {
 }
 
 .portal-search-row {
+  position: relative;
+  overflow: visible;
   background: linear-gradient(
     168deg,
     rgba(255, 236, 216, 0.86) 0%,
@@ -1376,7 +1379,9 @@ body {
 }
 
 .portal-search-inner {
+  position: relative;
   display: grid;
+  overflow: visible;
   grid-template-columns: 160px minmax(0, 1fr) 145px;
   align-items: center;
   gap: 22px;
@@ -1477,7 +1482,9 @@ body {
 }
 
 .portal-download {
+  position: relative;
   display: flex;
+  overflow: visible;
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
@@ -1491,6 +1498,14 @@ body {
   color: #2f333a;
 }
 
+.portal-download-qr {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  overflow: visible;
+  flex-shrink: 0;
+}
+
 .portal-mini-qr,
 .portal-footer-qr {
   display: grid;
@@ -1499,21 +1514,37 @@ body {
 }
 
 .portal-mini-qr {
-  grid-template-columns: repeat(5, 1fr);
+  display: block;
   width: 42px;
   height: 42px;
-  gap: 2px;
-  padding: 4px;
+  box-sizing: border-box;
+  object-fit: cover;
 }
 
-.portal-mini-qr span,
-.portal-footer-qr span {
-  background: #edf0f5;
+.portal-mini-qr-preview-layer {
+  position: fixed;
+  z-index: 2000;
+  display: block;
+  width: 84px;
+  height: 84px;
+  box-sizing: border-box;
+  border: 1px solid #d9dde5;
+  border-radius: 4px;
+  background: #fff;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.2);
+  object-fit: cover;
+  pointer-events: none;
 }
 
-.portal-mini-qr .dark,
-.portal-footer-qr .dark {
-  background: #222831;
+.portal-qr-preview-enter-active,
+.portal-qr-preview-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.portal-qr-preview-enter-from,
+.portal-qr-preview-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
 }
 
 .portal-hero-grid {
@@ -2926,12 +2957,12 @@ body {
 }
 
 .portal-footer-qr {
-  grid-template-columns: repeat(7, 1fr);
+  display: block;
   width: 86px;
   height: 86px;
-  gap: 2px;
+  box-sizing: border-box;
   border-radius: 4px;
-  padding: 7px;
+  object-fit: cover;
 }
 
 .portal-footer-record {

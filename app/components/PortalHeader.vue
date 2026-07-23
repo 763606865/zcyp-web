@@ -21,6 +21,9 @@ const { displayName, accountMenuItems } = usePortalUser()
 
 const searchKeyword = ref('')
 const isIdentityDropdownOpen = ref(false)
+const qrTriggerRef = ref<HTMLElement | null>(null)
+const isQrPreviewVisible = ref(false)
+const qrPreviewPosition = ref({ top: 0, left: 0 })
 const { isRefreshingIdentity, switchingIdentityCode, errorMessage: identityError, switchIdentity } = useIdentitySwitching({
   afterSwitch: async () => {
     isIdentityDropdownOpen.value = false
@@ -48,6 +51,28 @@ function handleSearch() {
   const kw = searchKeyword.value.trim()
   const path = props.searchPath || '/jobs'
   router.push(kw ? `${path}?keyword=${encodeURIComponent(kw)}` : path)
+}
+
+function showQrPreview() {
+  const trigger = qrTriggerRef.value
+  if (!trigger)
+    return
+
+  const rect = trigger.getBoundingClientRect()
+  const previewSize = 84
+  const viewportPadding = 8
+  qrPreviewPosition.value = {
+    top: rect.bottom + 8,
+    left: Math.min(
+      window.innerWidth - previewSize - viewportPadding,
+      Math.max(viewportPadding, rect.right - previewSize),
+    ),
+  }
+  isQrPreviewVisible.value = true
+}
+
+function hideQrPreview() {
+  isQrPreviewVisible.value = false
 }
 
 function toggleIdentityDropdown() {
@@ -202,13 +227,33 @@ onBeforeUnmount(() => {
             <span>扫码进公众号</span>
             <strong>扫码下载APP</strong>
           </div>
-          <div class="portal-mini-qr" aria-hidden="true">
-            <span v-for="cell in 25" :key="cell" :class="{ dark: cell % 2 === 0 || cell % 7 === 0 }" />
+          <div
+            ref="qrTriggerRef"
+            class="portal-download-qr"
+            tabindex="0"
+            aria-label="查看微信公众号二维码放大预览"
+            @mouseenter="showQrPreview"
+            @mouseleave="hideQrPreview"
+            @focus="showQrPreview"
+            @blur="hideQrPreview"
+          >
+            <img class="portal-mini-qr" src="/assets/images/wechat-official-account-qr-code.jpg" alt="微信公众号二维码">
           </div>
         </div>
       </div>
     </div>
   </header>
+  <Teleport to="body">
+    <Transition name="portal-qr-preview">
+      <img
+        v-if="isQrPreviewVisible"
+        class="portal-mini-qr-preview-layer"
+        src="/assets/images/wechat-official-account-qr-code.jpg"
+        alt="微信公众号二维码放大预览"
+        :style="{ top: `${qrPreviewPosition.top}px`, left: `${qrPreviewPosition.left}px` }"
+      >
+    </Transition>
+  </Teleport>
 </template>
 
  <style scoped>

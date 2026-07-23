@@ -47,9 +47,7 @@ await callOnce(async () => {
 
       <section class="portal-footer-qrcode">
         <h3>中测易聘公众号</h3>
-        <div class="portal-footer-qr" aria-hidden="true">
-          <span v-for="cell in 49" :key="cell" :class="{ dark: cell % 3 === 0 || cell % 8 === 0 || cell === 1 || cell === 7 || cell === 43 || cell === 49 }" />
-        </div>
+        <img class="portal-footer-qr" src="/assets/images/wechat-official-account-qr-code.jpg" alt="中测易聘公众号二维码">
       </section>
     </div>
 
