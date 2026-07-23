@@ -1762,7 +1762,6 @@ async function handleUploadConfirm() {
                     placeholder="最多选择 3 个行业"
                     multiple
                     :max="3"
-                    :max-depth="2"
                     control-class="profile-naive-control"
                   />
                 </label>

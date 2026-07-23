@@ -390,28 +390,40 @@ export const useMetaStore = defineStore('meta', () => {
     return (parent?.children || []).map(i => ({ label: i.name, value: i.code }))
   }
 
+  function findIndustryNode(nodes: RcIndustryNode[], code: string): RcIndustryNode | null {
+    for (const node of nodes) {
+      if (node.code === code)
+        return node
+      if (node.children?.length) {
+        const found = findIndustryNode(node.children, code)
+        if (found)
+          return found
+      }
+    }
+    return null
+  }
+
   function getIndustryByCode(code: string): RcIndustryNode | null {
-    for (const parent of industries.value) {
-      if (parent.code === code)
-        return parent
-      for (const child of parent.children || []) {
-        if (child.code === code)
-          return child
+    return findIndustryNode(industries.value, code)
+  }
+
+  function buildIndustryPath(nodes: RcIndustryNode[], code: string, path: string[]): string[] | null {
+    for (const node of nodes) {
+      const current = [...path, node.name]
+      if (node.code === code)
+        return current
+      if (node.children?.length) {
+        const found = buildIndustryPath(node.children, code, current)
+        if (found)
+          return found
       }
     }
     return null
   }
 
   function buildIndustryLabelByCode(code: string): string {
-    for (const parent of industries.value) {
-      if (parent.code === code)
-        return parent.name
-      for (const child of parent.children || []) {
-        if (child.code === code)
-          return `${parent.name} / ${child.name}`
-      }
-    }
-    return ''
+    const path = buildIndustryPath(industries.value, code, [])
+    return path ? path.join(' / ') : ''
   }
 
   const positionParentOptions = computed(() =>
