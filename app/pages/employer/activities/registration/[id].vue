@@ -344,7 +344,8 @@ onMounted(() => { loadData() })
         <!-- 营业执照上传 -->
         <div class="mb-[20px]">
           <label class="text-[14px] text-[#222] font-medium">
-            <span class="text-[#ff4d4f]">*</span>公司营业执照
+            <!-- <span class="text-[#ff4d4f]">*</span> -->
+            公司营业执照
           </label>
           <div class="mt-[12px] flex gap-[24px] items-start">
             <!-- 上传区 -->
@@ -386,7 +387,8 @@ onMounted(() => { loadData() })
           <!-- 公司名称 -->
           <div class="space-y-[8px]">
             <label class="text-[14px] text-[#222] font-medium">
-              <span class="text-[#ff4d4f]">*</span>公司名称
+              <!-- <span class="text-[#ff4d4f]">*</span> -->
+              公司名称
             </label>
             <input
               v-model="companyForm.company_name" type="text" placeholder="请输入公司名称" disabled
@@ -396,7 +398,8 @@ onMounted(() => { loadData() })
           <!-- 统一社会信用代码 -->
           <div class="space-y-[8px]">
             <label class="text-[14px] text-[#222] font-medium">
-              <span class="text-[#ff4d4f]">*</span>统一社会信用代码
+              <!-- <span class="text-[#ff4d4f]">*</span> -->
+              统一社会信用代码
             </label>
             <input
               v-model="companyForm.credit_code" type="text" placeholder="请输入统一社会信用代码" disabled
