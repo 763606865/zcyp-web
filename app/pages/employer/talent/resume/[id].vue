@@ -93,19 +93,12 @@ interface LanguageView {
   level: string
 }
 
-interface AttachmentView {
-  name: string
-  size: string
-  url: string
-}
-
 const works = ref<WorkView[]>([])
 const educations = ref<EducationView[]>([])
 const projects = ref<ProjectView[]>([])
 const trainings = ref<TrainingView[]>([])
 const languages = ref<LanguageView[]>([])
 const certificates = ref<ResumeCertificate[]>([])
-const attachments = ref<AttachmentView[]>([])
 
 const educationLevelMap: Record<number, string> = {
   1: '高中/中专',
@@ -216,7 +209,6 @@ function applyResumeDetail(detail: TalentResumeDetailResponse) {
   trainings.value = (detail.trainings || []).map(mapTraining)
   languages.value = (detail.languages || []).map(mapLanguage)
   certificates.value = detail.certificates || []
-  attachments.value = buildAttachments(detail)
   isFavorited.value = Boolean(detail.is_favorited)
 }
 
@@ -270,30 +262,6 @@ function mapLanguage(item: ResumeLanguage): LanguageView {
     language: item.language || '语种未填写',
     level: item.certificate || proficiencyMap[item.proficiency] || '等级未填写',
   }
-}
-
-function buildAttachments(detail: TalentResumeDetailResponse): AttachmentView[] {
-  const list: AttachmentView[] = []
-  if (detail.file_url) {
-    list.push({
-      name: detail.file_name || '简历附件',
-      size: readExtraString(detail.extra, 'file_size'),
-      url: detail.file_url,
-    })
-  }
-
-  for (const item of detail.portfolios || []) {
-    const url = item.display_url || item.url
-    if (!url)
-      continue
-    list.push({
-      name: item.title || '作品附件',
-      size: '',
-      url,
-    })
-  }
-
-  return list
 }
 
 function formatGender(gender?: number | null) {
@@ -552,9 +520,8 @@ async function toggleFavorite() {
         </div>
       </div>
 
-      <!-- 主体两栏布局 -->
+      <!-- 主体内容 -->
       <div class="mt-4 flex gap-4">
-        <!-- 左侧主内容 -->
         <div class="py-[22px] pl-[24px] pr-[20px] rounded-[4px] bg-white flex-1 min-w-0">
           <!-- 求职意向 -->
           <div class="mb-[31px]">
@@ -702,39 +669,6 @@ async function toggleFavorite() {
               <span class="text-[#999]">证书名称：</span>
               <span class="text-[#222]">{{ certificates[0].name }}</span>
             </div>
-          </div>
-        </div>
-
-        <!-- 右侧附件栏 -->
-        <div class="shrink-0 w-[280px]">
-          <div class="p-[16px] rounded-[8px] bg-white ring-1 ring-[#f0f0f0] shadow-sm">
-            <div class="text-[15px] text-[#222] font-bold mb-[16px]">
-              他的附件
-            </div>
-            <div v-if="attachments.length" class="space-y-[25px]">
-              <div v-for="(file, fi) in attachments" :key="fi" class="flex gap-3 items-start">
-                <div class="rounded-[6px] bg-[#fff0f0] flex shrink-0 h-[48px] w-[48px] items-center justify-center">
-                  <span class="text-[11px] text-[#f56c6c] font-bold">PDF</span>
-                </div>
-                <div class="flex-1 min-w-0">
-                  <div class="text-[16px] text-[#222] font-[500] mb-[7px] truncate">
-                    {{ file.name }}
-                  </div>
-                  <div v-if="file.size" class="text-[14px] text-[#999] leading-none">
-                    {{ file.size }}
-                  </div>
-                </div>
-                <a :href="file.url" class="text-[12px] text-[#FFA500] shrink-0 hover:underline">
-                  下载附件
-                </a>
-              </div>
-            </div>
-            <div v-else class="text-[14px] text-[#999] py-[12px] text-center">
-              暂无附件
-            </div>
-            <button v-if="attachments.length" class="text-[14px] text-white font-medium mt-[31px] rounded-[16px] border-none bg-[#FFA500] h-[32px] w-full">
-              全部下载
-            </button>
           </div>
         </div>
       </div>

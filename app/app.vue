@@ -54,7 +54,7 @@ function startPolling() {
     return
 
   pollUnreadNoticeCount()
-  pollTimer = setInterval(pollUnreadNoticeCount, 5000)
+  pollTimer = setInterval(pollUnreadNoticeCount, 10000)
 }
 
 function stopPolling() {

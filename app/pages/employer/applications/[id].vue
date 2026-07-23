@@ -7,7 +7,7 @@ definePageMeta({
 /* eslint-disable style/max-statements-per-line */
 import type { ApplicationItem, SendOfferPayload } from '~/services/application'
 import { NDatePicker, NInputNumber, NSelect } from 'naive-ui'
-import { getApplicationDetail, hireApplication, inviteInterview, rejectApplication, sendOffer } from '~/services/application'
+import { getCompanyApplicationDetail, hireApplication, inviteInterview, rejectApplication, sendOffer } from '~/services/application'
 import { getCompanyProfile } from '~/services/company'
 import { ApiRequestError } from '~/services/http'
 import { pushGlobalNotice } from '~/utils/notice'
@@ -46,7 +46,7 @@ async function loadApplicationDetail() {
     return null
 
   try {
-    return await getApplicationDetail(appId.value, userStore.authHeader)
+    return await getCompanyApplicationDetail(appId.value, userStore.authHeader)
   }
   catch {
     return null

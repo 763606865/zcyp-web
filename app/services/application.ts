@@ -5,7 +5,14 @@ interface ApiResponse<T> {
   code: number
   data: T
   message?: string
-  meta?: { timestamp?: number, response_time?: number }
+  meta?: {
+    current_page?: number
+    per_page?: number
+    total?: number
+    last_page?: number
+    timestamp?: number
+    response_time?: number
+  }
 }
 
 function createAuthHeaders(authorization: string) {
@@ -37,6 +44,7 @@ export interface ApplicationItem {
   job_id: number
   resume_id: number
   candidate_user_id: number
+  candidate_external_user_id?: string | null
   current_stage_id: number | null
   source_type: number
   source_type_label: string | null
@@ -85,10 +93,11 @@ export interface ApplicationItem {
   } | null
   company: { id: number, name: string } | null
   resume: ResumeRecord | null
-  resume_snapshot: ResumeRecord | null
-  candidate: {
+  resume_snapshot?: ResumeRecord | null
+  candidate?: {
     id: number
     full_name: string
+    external_user_id?: string | null
     gender: number
     age: number | null
     work_years: number | null
@@ -129,12 +138,53 @@ export async function getApplicationDetail(id: number, authorization: string) {
   return response.data
 }
 
+export async function getCompanyApplications(
+  authorization: string,
+  query?: {
+    page?: number
+    per_page?: number
+    job_id?: number
+    status?: number
+    candidate_user_id?: number
+  },
+) {
+  const response = await getJson<ApiResponse<ApplicationListResponse | ApplicationItem[]>>(
+    '/rc/companies/applications',
+    query,
+    createAuthHeaders(authorization),
+  )
+
+  if (!Array.isArray(response.data))
+    return response.data
+
+  const currentPage = response.meta?.current_page ?? query?.page ?? 1
+  const perPage = response.meta?.per_page ?? query?.per_page ?? 15
+  const total = response.meta?.total ?? response.data.length
+
+  return {
+    current_page: currentPage,
+    data: response.data,
+    total,
+    per_page: perPage,
+    last_page: response.meta?.last_page ?? Math.max(1, Math.ceil(total / perPage)),
+  } satisfies ApplicationListResponse
+}
+
+export async function getCompanyApplicationDetail(id: number, authorization: string) {
+  const response = await getJson<ApiResponse<ApplicationItem>>(
+    `/rc/companies/applications/${id}`,
+    undefined,
+    createAuthHeaders(authorization),
+  )
+  return response.data
+}
+
 export async function checkApplication(
   query: { job_id: number, candidate_user_id?: number, resume_id?: number },
   authorization: string,
 ) {
   const response = await getJson<ApiResponse<ApplicationItem | null>>(
-    '/rc/applications/check',
+    '/rc/companies/applications/check',
     query,
     createAuthHeaders(authorization),
   )
@@ -161,7 +211,7 @@ export async function withdrawApplication(id: number, authorization: string) {
 
 export async function inviteInterview(id: number, payload: Record<string, any>, authorization: string) {
   const response = await postJson<ApiResponse<any>>(
-    `/rc/applications/${id}/invite-interview`,
+    `/rc/companies/applications/${id}/invite-interview`,
     payload,
     createAuthHeaders(authorization),
   )
@@ -170,7 +220,7 @@ export async function inviteInterview(id: number, payload: Record<string, any>, 
 
 export async function rejectApplication(id: number, payload: { note?: string }, authorization: string) {
   const response = await postJson<ApiResponse<any>>(
-    `/rc/applications/${id}/reject`,
+    `/rc/companies/applications/${id}/reject`,
     payload,
     createAuthHeaders(authorization),
   )
@@ -213,7 +263,7 @@ export interface SendOfferPayload {
 
 export async function sendOffer(id: number, payload: SendOfferPayload, authorization: string) {
   const response = await postJson<ApiResponse<any>>(
-    `/rc/applications/${id}/send-offer`,
+    `/rc/companies/applications/${id}/send-offer`,
     payload,
     createAuthHeaders(authorization),
   )
@@ -240,7 +290,7 @@ export async function rejectOffer(id: number, payload: { note?: string }, author
 
 export async function hireApplication(id: number, payload: { note?: string }, authorization: string) {
   const response = await postJson<ApiResponse<any>>(
-    `/rc/applications/${id}/hire`,
+    `/rc/companies/applications/${id}/hire`,
     payload,
     createAuthHeaders(authorization),
   )

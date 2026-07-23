@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ApplicationItem } from '~/services/application'
 import type { ResumeRecord } from '~/types/resume'
-import { getApplications } from '~/services/application'
+import { getCompanyApplications } from '~/services/application'
 import { getFavoriteTalentResumes, unfavoriteTalentResume } from '~/services/talent'
 import { useMetaStore } from '~/stores/meta'
 import { pushGlobalNotice } from '~/utils/notice'
@@ -13,17 +13,19 @@ definePageMeta({
 
 const userStore = useUserStore()
 const metaStore = useMetaStore()
+const { isStartingConversation, startSingleConversation } = useImConversationStarter()
 
 const resumeStatus = ref(1)
 const statusFilter = ref(-1)
 const searchQuery = ref('')
 const currentPage = ref(1)
 const unfavoritingResumeId = ref<number | null>(null)
+const communicatingItemKey = ref<string | null>(null)
 const isLoadingList = ref(false)
 
 const applicationStatusOptions = [
   { label: '全部', value: -1 },
-  { label: '待处理', value: 0 },
+  { label: '待查看', value: 0 },
   { label: '筛选中', value: 1 },
   { label: '面试中', value: 2 },
   { label: 'Offer 中', value: 3 },
@@ -47,12 +49,27 @@ const jobStatusLabelMap: Record<number, string> = {
   4: '应届生',
 }
 
+const statusColors: Record<number, string> = {
+  0: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',
+  1: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200',
+  2: 'bg-purple-50 text-purple-700 ring-1 ring-purple-200',
+  3: 'bg-orange-50 text-orange-700 ring-1 ring-orange-200',
+  4: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',
+  5: 'bg-slate-100 text-slate-500 ring-1 ring-slate-200',
+  6: 'bg-red-50 text-red-500 ring-1 ring-red-200',
+}
+
 const trailingZeroRegex = /\.0$/
 const DAY_MS = 24 * 60 * 60 * 1000
 
 interface ApplicationListItem {
   id: number
+  application_id: number | null
   resume_id: number
+  job_id: number | null
+  job_title: string
+  candidate_user_id: number | null
+  contact_external_user_id: string | null
   detail_path: string
   avatar: string
   name: string
@@ -76,6 +93,42 @@ interface ApplicationListItem {
 
 const applicationList = ref<ApplicationListItem[]>([])
 
+function readUnknown(source: unknown, key: string) {
+  if (!source || typeof source !== 'object')
+    return undefined
+  return (source as Record<string, unknown>)[key]
+}
+
+function readString(source: unknown, key: string) {
+  const value = readUnknown(source, key)
+  return value == null ? '' : String(value)
+}
+
+function readContactExternalUserId(source: unknown) {
+  if (!source || typeof source !== 'object')
+    return null
+
+  const imUser = readUnknown(source, 'im_user')
+  return readString(source, 'external_user_id')
+    || readString(source, 'im_external_user_id')
+    || readString(source, 'external_im_user_id')
+    || readString(imUser, 'external_user_id')
+    || null
+}
+
+function getResumeExternalUserId(resume: unknown) {
+  return readContactExternalUserId(resume)
+    || readContactExternalUserId(readUnknown(resume, 'user'))
+    || readContactExternalUserId(readUnknown(resume, 'candidate'))
+}
+
+function getApplicationExternalUserId(item: ApplicationItem) {
+  return item.candidate_external_user_id
+    || getResumeExternalUserId(item.resume)
+    || getResumeExternalUserId(item.resume_snapshot)
+    || readContactExternalUserId(item.candidate)
+}
+
 async function loadApplications() {
   if (!userStore.authHeader)
     return
@@ -91,9 +144,8 @@ async function loadApplications() {
       return
     }
 
-    const res = await getApplications(userStore.authHeader, {
+    const res = await getCompanyApplications(userStore.authHeader, {
       status: statusFilter.value === -1 ? undefined : statusFilter.value,
-      keyword: searchQuery.value || undefined,
       page: currentPage.value,
       per_page: 15,
     })
@@ -116,7 +168,12 @@ function mapFavoriteResumeItem(resume: ResumeRecord): ApplicationListItem {
 
   return {
     id: resume.id,
+    application_id: null,
     resume_id: resume.id,
+    job_id: null,
+    job_title: '',
+    candidate_user_id: resume.user_id || null,
+    contact_external_user_id: getResumeExternalUserId(resume),
     detail_path: `/employer/talent/resume/${resume.id}`,
     avatar: resume.display_avatar || resume.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(resume.resume_no || resume.full_name || String(resume.id))}`,
     name: resume.full_name || resume.title || '匿名求职者',
@@ -149,7 +206,12 @@ function mapApplicationItem(item: ApplicationItem): ApplicationListItem {
 
   return {
     id: item.id,
+    application_id: item.id,
     resume_id: resume?.id || item.resume_id,
+    job_id: item.job_id || item.job?.id || null,
+    job_title: item.job?.title || item.job?.position?.name || '',
+    candidate_user_id: item.candidate_user_id || item.candidate?.id || null,
+    contact_external_user_id: getApplicationExternalUserId(item),
     detail_path: `/employer/applications/${item.id}`,
     avatar: resume?.display_avatar || resume?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(resume?.resume_no || resume?.full_name || String(item.id))}`,
     name: resume?.full_name || item.candidate?.full_name || '匿名求职者',
@@ -217,6 +279,29 @@ function formatAvailableTime(availableDate?: string | null) {
   return '不确定到岗时间'
 }
 
+function getApplicationItemKey(app: ApplicationListItem) {
+  return `${resumeStatus.value}-${app.id}-${app.resume_id}`
+}
+
+function getStatusTagClass(app: ApplicationListItem) {
+  if (resumeStatus.value === 2)
+    return 'bg-orange-50 text-[#FFA500] ring-1 ring-orange-200'
+  return statusColors[app.status] || 'bg-slate-100 text-slate-500 ring-1 ring-slate-200'
+}
+
+function buildConversationMetadata(app: ApplicationListItem) {
+  return {
+    source: resumeStatus.value === 2 ? 'employer_favorite_resume_list' : 'employer_application_list',
+    application_id: app.application_id,
+    job_id: app.job_id,
+    job_title: app.job_title,
+    resume_id: app.resume_id,
+    candidate_user_id: app.candidate_user_id,
+    candidate_name: app.name,
+    expected_position: app.job_expectation_position,
+  }
+}
+
 await callOnce(async () => {
   if (userStore.authHeader)
     await metaStore.ensureAllLoaded(userStore.authHeader)
@@ -262,6 +347,19 @@ async function handleUnfavoriteResume(app: ApplicationListItem) {
   }
   finally {
     unfavoritingResumeId.value = null
+  }
+}
+
+async function handleStartConversation(app: ApplicationListItem) {
+  if (!app.contact_external_user_id || communicatingItemKey.value || isStartingConversation.value)
+    return
+
+  communicatingItemKey.value = getApplicationItemKey(app)
+  try {
+    await startSingleConversation(app.contact_external_user_id, buildConversationMetadata(app))
+  }
+  finally {
+    communicatingItemKey.value = null
   }
 }
 </script>
@@ -321,26 +419,45 @@ async function handleUnfavoriteResume(app: ApplicationListItem) {
             class="border-1 border-[transparent] rounded-[2px] bg-[#ffffff] no-underline block shadow-[0_-1px_0px_0_rgba(148,92,0,0.06)] transition hover:border-[#FFA500]"
             style="height: 119px;"
           >
-            <div class="px-[20px] py-[20px] flex gap-[16px] h-full shadow-[inset_0px_-1px_0px_0px_rgba(0,0,0,0.1)] items-center relative">
+            <div class="px-[20px] py-[20px] pr-[140px] flex gap-[16px] h-full shadow-[inset_0px_-1px_0px_0px_rgba(0,0,0,0.1)] items-center relative">
               <!-- 头像 -->
-              <div class="rounded-[50%] shrink-0 self-start relative">
-                <img :src="app.avatar" :alt="app.name" class="rounded-[50%] h-[48px] w-[48px]">
-                <img v-if="app.gender === 1" src="/assets/images/employer/man.png" alt="男" class="h-[16px] w-[16px] bottom-[-2px] right-[1px] absolute">
-                <img v-else src="/assets/images/employer/woman.png" alt="女" class="h-[16px] w-[16px] bottom-[-2px] right-[1px] absolute">
+              <div class="flex shrink-0 flex-col gap-[8px] w-[72px] items-center self-start">
+                <div class="rounded-[50%] relative">
+                  <img :src="app.avatar" :alt="app.name" class="rounded-[50%] h-[48px] w-[48px]">
+                  <img v-if="app.gender === 1" src="/assets/images/employer/man.png" alt="男" class="h-[16px] w-[16px] bottom-[-2px] right-[1px] absolute">
+                  <img v-else src="/assets/images/employer/woman.png" alt="女" class="h-[16px] w-[16px] bottom-[-2px] right-[1px] absolute">
+                </div>
+                <span class="text-[12px] leading-none font-medium px-[8px] py-[3px] rounded-full whitespace-nowrap" :class="getStatusTagClass(app)">
+                  {{ app.status_label }}
+                </span>
               </div>
               <EmployerResumeSummary :item="app" />
-              <button
-                v-if="resumeStatus === 2"
-                type="button"
-                class="border-[1px] border-[#FFA500] rounded-[4px] bg-[#FFffff] flex gap-[4px] h-[32px] w-[88px] cursor-pointer items-center right-[24px] top-[20px] justify-center absolute disabled:opacity-60"
-                :disabled="unfavoritingResumeId === app.resume_id"
-                @click.prevent.stop="handleUnfavoriteResume(app)"
-              >
-                <img class="h-[16px] w-[16px]" src="/assets/images/employer/interview-collection-icon.png" alt="取消收藏">
-                <p class="text-[14px] text-[#FFA500]">
-                  {{ unfavoritingResumeId === app.resume_id ? '取消中' : '取消收藏' }}
-                </p>
-              </button>
+              <div class="flex flex-col gap-[8px] items-end right-[24px] top-[20px] absolute">
+                <button
+                  v-if="app.contact_external_user_id"
+                  type="button"
+                  class="border-[1px] border-[#FFA500] rounded-[4px] bg-[#FFA500] flex gap-[4px] h-[32px] w-[96px] cursor-pointer items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed"
+                  :disabled="Boolean(communicatingItemKey)"
+                  @click.prevent.stop="handleStartConversation(app)"
+                >
+                  <span class="i-carbon-chat text-[16px] text-white" />
+                  <span class="text-[14px] text-white">
+                    {{ communicatingItemKey === getApplicationItemKey(app) ? '进入中' : '立即沟通' }}
+                  </span>
+                </button>
+                <button
+                  v-if="resumeStatus === 2"
+                  type="button"
+                  class="border-[1px] border-[#FFA500] rounded-[4px] bg-[#FFffff] flex gap-[4px] h-[32px] w-[96px] cursor-pointer items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed"
+                  :disabled="unfavoritingResumeId === app.resume_id"
+                  @click.prevent.stop="handleUnfavoriteResume(app)"
+                >
+                  <img class="h-[16px] w-[16px]" src="/assets/images/employer/interview-collection-icon.png" alt="取消收藏">
+                  <span class="text-[14px] text-[#FFA500]">
+                    {{ unfavoritingResumeId === app.resume_id ? '取消中' : '取消收藏' }}
+                  </span>
+                </button>
+              </div>
             </div>
           </NuxtLink>
         </div>
