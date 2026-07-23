@@ -5,7 +5,6 @@ import { appDescription } from './app/constants/index'
 export default defineNuxtConfig({
   // Keep build artifacts outside node_modules. Package-manager cache cleanup
   // during deployment must not remove the client manifest mid-build.
-  buildDir: '.nuxt-build',
 
   modules: [
     '@vueuse/nuxt',
@@ -15,6 +14,8 @@ export default defineNuxtConfig({
     '@vite-pwa/nuxt',
     '@nuxt/eslint',
   ],
+
+  ssr: true,
 
   devtools: {
     enabled: true,
@@ -55,6 +56,7 @@ export default defineNuxtConfig({
       cnzzKey: process.env.NUXT_PUBLIC_CNZZ_KEY || '',
     },
   },
+  buildDir: '.nuxt-build',
 
   devServer: {
     host: '127.0.0.1',
@@ -80,71 +82,7 @@ export default defineNuxtConfig({
         target: 'esnext',
       },
     },
-    prerender: {
-      crawlLinks: true,
-      routes: [
-        '/',
-        '/about',
-        '/announcements',
-        '/announcements/list',
-        '/applications',
-        '/assessment',
-        '/base_info',
-        '/base_info/jobseeker',
-        '/base_info/recruiter',
-        '/campus',
-        '/campus/activities',
-        '/campus/activities/companies',
-        '/campus/booth',
-        '/campus/cooperation',
-        '/campus/dashboard',
-        '/campus/news',
-        '/campus/profile',
-        '/career-space',
-        '/city-select',
-        '/city-stations',
-        '/company',
-        '/company/bind',
-        '/discovery/jobs',
-        '/employer',
-        '/employer/activities/create',
-        '/employer/activities/index',
-        '/employer/applications',
-        '/employer/company/albums',
-        '/employer/company/index',
-        '/employer/dashboard',
-        '/employer/im',
-        '/employer/jobs/add',
-        '/employer/jobs/index',
-        '/employer/resumes',
-        '/employer/talent',
-        '/identity/select',
-        '/im/jobseeker',
-        '/im/recruiter',
-        '/jobs',
-        '/login',
-        '/notifications',
-        '/profile',
-        '/profile/campus_manager',
-        '/profile/government_manager',
-        '/profile/headhunter',
-        '/profile/jobseeker',
-        '/profile/jobseeker/applications',
-        '/profile/jobseeker/favorites',
-        '/profile/jobseeker/index',
-        '/profile/jobseeker/settings',
-        '/profile/recruiter',
-        '/region/bind',
-        '/resume',
-        '/school',
-        '/school/activities',
-        '/school/activities/dual-selection',
-        '/school/activities/presentation',
-        '/school/articles',
-        '/school/bind',
-      ],
-      ignore: ['/hi'],
-    },
+
   },
 
   vite: {
