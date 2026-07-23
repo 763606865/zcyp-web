@@ -54,7 +54,7 @@ const logoUrl = computed(() => campusShellData.value.logoUrl)
   <div class="bg-[#f9f6f0] flex flex-col" style="height: 100dvh">
     <header class="bg-white/80 shrink-0 shadow-[0_2px_12px_rgba(148,92,0,0.06)] z-40 backdrop-blur">
       <div class="px-6 py-3 flex items-center">
-        <NuxtLink to="/" class="no-underline flex shrink-0 w-[208px] items-center">
+        <NuxtLink to="/campus/dashboard" class="no-underline flex shrink-0 w-[208px] items-center">
           <img v-if="logoUrl" :src="logoUrl" alt="Logo" class="h-[34px] max-w-[180px] object-contain">
           <span v-else class="text-[20px] text-[#24180c] tracking-tight font-bold">PR OFFER</span>
         </NuxtLink>
