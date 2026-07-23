@@ -629,6 +629,29 @@ function getBusinessCardTypeLabel(card: BizCardContent) {
   return businessCardTypeLabelMap[card.card_type || ''] || card.card_type || '业务消息'
 }
 
+function getApplicationCardDetailPath(item: MessageItem) {
+  if (props.audience !== 'employer' || item.bizCard?.card_type !== 'jobseeker_apply_resume')
+    return ''
+
+  const rawApplicationId = item.bizCard.biz?.application_id || item.bizCard.biz_id
+  const applicationId = Number(rawApplicationId)
+  return Number.isInteger(applicationId) && applicationId > 0
+    ? `/employer/applications/${applicationId}`
+    : ''
+}
+
+async function openApplicationCardDetail(item: MessageItem, event?: Event) {
+  const path = getApplicationCardDetailPath(item)
+  if (!path)
+    return
+
+  const target = event?.target
+  if (target instanceof Element && target.closest('a, button'))
+    return
+
+  await navigateTo(path)
+}
+
 function getBusinessCardActionKey(item: MessageItem) {
   return String(item.remoteId || item.bizCard?.biz_id || item.clientMsgId || item.id)
 }
@@ -1925,7 +1948,16 @@ onBeforeUnmount(() => {
                     </NuxtLink>
                   </div>
                 </div>
-                <div v-else-if="item.messageType === 'biz_card' && item.bizCard" class="message-card">
+                <div
+                  v-else-if="item.messageType === 'biz_card' && item.bizCard"
+                  class="message-card"
+                  :class="{ 'is-clickable': getApplicationCardDetailPath(item) }"
+                  :role="getApplicationCardDetailPath(item) ? 'link' : undefined"
+                  :tabindex="getApplicationCardDetailPath(item) ? 0 : undefined"
+                  @click="openApplicationCardDetail(item, $event)"
+                  @keydown.enter="openApplicationCardDetail(item, $event)"
+                  @keydown.space.prevent="openApplicationCardDetail(item, $event)"
+                >
                   <div class="message-card-head">
                     <strong>{{ item.bizCard.title || '业务消息' }}</strong>
                     <span v-if="item.bizCard.status">{{ item.bizCard.status }}</span>
@@ -1941,6 +1973,10 @@ onBeforeUnmount(() => {
                       </button>
                     </div>
                     <span v-else>{{ getBusinessCardTypeLabel(item.bizCard) }}</span>
+                    <span v-if="getApplicationCardDetailPath(item)" class="message-card-detail-hint">
+                      查看投递详情
+                      <span class="i-carbon-chevron-right" />
+                    </span>
                     <NuxtLink v-if="item.bizCard.action_url" :to="item.bizCard.action_url">
                       查看详情
                     </NuxtLink>
@@ -2803,6 +2839,22 @@ onBeforeUnmount(() => {
   border: 1px solid rgba(255, 159, 0, 0.28);
 }
 
+.message-card.is-clickable {
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.message-card.is-clickable:hover,
+.message-card.is-clickable:focus-visible {
+  border-color: rgba(255, 159, 0, 0.45);
+  outline: none;
+  box-shadow: 0 10px 26px rgba(30, 41, 59, 0.11);
+  transform: translateY(-1px);
+}
+
 .message-card-head {
   display: flex;
   align-items: center;
@@ -2846,6 +2898,15 @@ onBeforeUnmount(() => {
 .message-card-foot a {
   color: #ff9f00;
   text-decoration: none;
+}
+
+.message-card-detail-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  color: #ff9f00;
+  font-weight: 600;
 }
 
 .message-card-actions {
