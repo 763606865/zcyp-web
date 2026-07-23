@@ -328,6 +328,12 @@ watch(intentionCityCode, (code) => {
   intentionForm.value.expectedCityCode = code || intentionProvinceCode.value || ''
 })
 
+watch(() => workForm.value.isCurrent, (isCurrent) => {
+  if (isCurrent) {
+    workForm.value.endDate = ''
+  }
+})
+
 const birthDateTimestamp = computed({
   get: () => parseDateString(basicForm.value.birthDate),
   set: (value: number | null) => {
@@ -413,8 +419,12 @@ function optionLabel(options: SelectOption[], value: string | number | null | un
 function parseDateString(value?: string | null) {
   if (!value)
     return null
-  const parsed = new Date(value).getTime()
-  return Number.isNaN(parsed) ? null : parsed
+  // 使用 toDateString() 解析再转回本地午夜时间戳，避免日期字符串被当作 UTC 解析导致时区偏移
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime()))
+    return null
+  const local = new Date(d.toDateString())
+  return local.getTime()
 }
 
 function formatDateTimestamp(value: number | null) {
@@ -465,6 +475,15 @@ function setWorkDateRange(value: DatePickerUpdateValue) {
   const range = normalizeDateRangeUpdate(value)
   workForm.value.startDate = formatDateTimestamp(range?.[0] ?? null)
   workForm.value.endDate = formatDateTimestamp(range?.[1] ?? null)
+}
+
+function setWorkStartDate(value: number | null) {
+  workForm.value.startDate = formatDateTimestamp(value)
+  workForm.value.endDate = ''
+}
+
+function setWorkEndDate(value: number | null) {
+  workForm.value.endDate = formatDateTimestamp(value)
 }
 
 function setEducationDateRange(value: DatePickerUpdateValue) {
@@ -921,6 +940,22 @@ async function saveWork() {
   if (!workForm.value.companyName.trim() || !workForm.value.startDate) {
     errorMessage.value = '请填写公司名称和开始时间。'
     return
+  }
+
+  if (!workForm.value.positionCode) {
+    errorMessage.value = '请选择职位类别。'
+    return
+  }
+
+  if (!workForm.value.isCurrent) {
+    if (!workForm.value.endDate) {
+      errorMessage.value = '请填写结束时间，或勾选"至今在职"。'
+      return
+    }
+    if (workForm.value.startDate && workForm.value.endDate && workForm.value.endDate < workForm.value.startDate) {
+      errorMessage.value = '结束时间不能早于开始时间。'
+      return
+    }
   }
 
   const payload: ResumeWorkSavePayload = {
@@ -1989,7 +2024,7 @@ async function handleUploadConfirm() {
                     control-class="profile-naive-control"
                   />
                 </label>
-                <label class="form-field">
+                <label class="form-field form-field-wide">
                   <span>工作类型</span>
                   <NaiveClientSelect
                     :value="workForm.employmentType"
@@ -2000,23 +2035,35 @@ async function handleUploadConfirm() {
                     @update:value="workForm.employmentType = Number($event || 1)"
                   />
                 </label>
-                <label class="form-field form-field-wide">
-                  <span>开始时间 / 结束时间</span>
-                  <NaiveClientDatePicker
-                    :value="dateRangeTimestamp(workForm.startDate, workForm.endDate)"
-                    type="daterange"
-                    start-placeholder="开始时间"
-                    end-placeholder="结束时间"
-                    clearable
-                    to="body"
-                    class="profile-naive-control"
-                    @update:value="setWorkDateRange"
-                  />
-                </label>
-                <label class="check-field">
-                  <input v-model="workForm.isCurrent" type="checkbox">
-                  <span>至今在职</span>
-                </label>
+                <div class="form-field form-field-wide">
+                  <div>工作时间</div>
+                  <div class="work-date-row">
+                    <NaiveClientDatePicker
+                      :value="parseDateString(workForm.startDate)"
+                      type="date"
+                      placeholder="开始时间"
+                      clearable
+                      to="body"
+                      class="profile-naive-control"
+                      @update:value="setWorkStartDate"
+                    />
+                    <NaiveClientDatePicker
+                      :value="workForm.isCurrent ? null : parseDateString(workForm.endDate)"
+                      type="date"
+                      placeholder="结束时间"
+                      clearable
+                      :disabled="workForm.isCurrent"
+                      :is-date-disabled="(ts: number) => !!workForm.startDate && ts < parseDateString(workForm.startDate)!"
+                      to="body"
+                      class="profile-naive-control"
+                      @update:value="setWorkEndDate"
+                    />
+                    <div class="flex gap-[4px] items-center">
+                      <input v-model="workForm.isCurrent" class="timeBoxCheck" type="checkbox">
+                      <span>至今在职</span>
+                    </div>
+                  </div>
+                </div>
                 <label class="form-field form-field-full">
                   <span>工作内容</span>
                   <textarea v-model="workForm.description" rows="5" placeholder="描述你的职责、成果或项目经验" />
@@ -2056,7 +2103,7 @@ async function handleUploadConfirm() {
                         control-class="profile-naive-control"
                       />
                     </label>
-                    <label class="form-field">
+                    <label class="form-field form-field-wide">
                       <span>工作类型</span>
                       <NaiveClientSelect
                         :value="workForm.employmentType"
@@ -2067,23 +2114,26 @@ async function handleUploadConfirm() {
                         @update:value="workForm.employmentType = Number($event || 1)"
                       />
                     </label>
-                    <label class="form-field form-field-wide">
-                      <span>开始时间 / 结束时间</span>
-                      <NaiveClientDatePicker
-                        :value="dateRangeTimestamp(workForm.startDate, workForm.endDate)"
-                        type="daterange"
-                        start-placeholder="开始时间"
-                        end-placeholder="结束时间"
-                        clearable
-                        to="body"
-                        class="profile-naive-control"
-                        @update:value="setWorkDateRange"
-                      />
-                    </label>
-                    <label class="check-field">
-                      <input v-model="workForm.isCurrent" type="checkbox">
-                      <span>至今在职</span>
-                    </label>
+                    <div class="form-field form-field-wide">
+                      <div>工作时间</div>
+                      <div class="work-date-row">
+                        <NaiveClientDatePicker
+                          :value="parseDateString(workForm.startDate)" type="date"
+                          placeholder="开始时间" clearable to="body" class="profile-naive-control"
+                          @update:value="setWorkStartDate"
+                        />
+                        <NaiveClientDatePicker
+                          :value="workForm.isCurrent ? null : parseDateString(workForm.endDate)"
+                          type="date" placeholder="结束时间" clearable :disabled="workForm.isCurrent"
+                          :is-date-disabled="(ts: number) => !!workForm.startDate && ts < parseDateString(workForm.startDate)!"
+                          to="body" class="profile-naive-control" @update:value="setWorkEndDate"
+                        />
+                        <div class="flex gap-[4px] items-center">
+                          <input v-model="workForm.isCurrent" class="timeBoxCheck" type="checkbox">
+                          <span>至今在职</span>
+                        </div>
+                      </div>
+                    </div>
                     <label class="form-field form-field-full">
                       <span>工作内容</span>
                       <textarea v-model="workForm.description" rows="5" placeholder="描述你的职责、成果或项目经验" />
@@ -3300,6 +3350,13 @@ async function handleUploadConfirm() {
   grid-column: span 2;
 }
 
+.work-date-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 18px 16px;
+  align-items: end;
+}
+
 .form-field input,
 .form-field select,
 .form-field textarea {
@@ -3561,6 +3618,11 @@ async function handleUploadConfirm() {
   justify-content: flex-end;
   gap: 12px;
   margin-top: 24px;
+}
+
+.timeBoxCheck {
+  width: 16px !important;
+  min-height: 16px !important;
 }
 
 @keyframes loading-shimmer {
