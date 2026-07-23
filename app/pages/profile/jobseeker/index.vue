@@ -486,6 +486,15 @@ function setWorkEndDate(value: number | null) {
   workForm.value.endDate = formatDateTimestamp(value)
 }
 
+function setEducationStartDate(value: number | null) {
+  educationForm.value.startDate = formatDateTimestamp(value)
+  educationForm.value.endDate = ''
+}
+
+function setEducationEndDate(value: number | null) {
+  educationForm.value.endDate = formatDateTimestamp(value)
+}
+
 function setEducationDateRange(value: DatePickerUpdateValue) {
   const range = normalizeDateRangeUpdate(value)
   educationForm.value.startDate = formatDateTimestamp(range?.[0] ?? null)
@@ -2218,23 +2227,26 @@ async function handleUploadConfirm() {
                     @update:value="educationForm.educationType = Number($event || 1)"
                   />
                 </label>
-                <label class="form-field form-field-wide">
-                  <span>开始时间 / 结束时间</span>
-                  <NaiveClientDatePicker
-                    :value="dateRangeTimestamp(educationForm.startDate, educationForm.endDate)"
-                    type="daterange"
-                    start-placeholder="开始时间"
-                    end-placeholder="结束时间"
-                    clearable
-                    to="body"
-                    class="profile-naive-control"
-                    @update:value="setEducationDateRange"
-                  />
-                </label>
-                <label class="check-field">
-                  <input v-model="educationForm.isCurrent" type="checkbox">
-                  <span>至今在读</span>
-                </label>
+                <div class="form-field form-field-wide">
+                  <div>开始时间 / 结束时间</div>
+                  <div class="work-date-row">
+                    <NaiveClientDatePicker
+                      :value="parseDateString(educationForm.startDate)" type="date"
+                      placeholder="开始时间" clearable to="body" class="profile-naive-control"
+                      @update:value="setEducationStartDate"
+                    />
+                    <NaiveClientDatePicker
+                      :value="educationForm.isCurrent ? null : parseDateString(educationForm.endDate)"
+                      type="date" placeholder="结束时间" clearable :disabled="educationForm.isCurrent"
+                      :is-date-disabled="(ts: number) => !!educationForm.startDate && ts < parseDateString(educationForm.startDate)!"
+                      to="body" class="profile-naive-control" @update:value="setEducationEndDate"
+                    />
+                    <div class="flex gap-[4px] items-center">
+                      <input v-model="educationForm.isCurrent" class="timeBoxCheck" type="checkbox">
+                      <span>至今在读</span>
+                    </div>
+                  </div>
+                </div>
                 <label class="form-field form-field-full">
                   <span>在校经历</span>
                   <textarea v-model="educationForm.description" rows="5" placeholder="描述校园经历、课程、奖项或实践经历" />
@@ -2288,23 +2300,26 @@ async function handleUploadConfirm() {
                         @update:value="educationForm.educationType = Number($event || 1)"
                       />
                     </label>
-                    <label class="form-field form-field-wide">
-                      <span>开始时间 / 结束时间</span>
-                      <NaiveClientDatePicker
-                        :value="dateRangeTimestamp(educationForm.startDate, educationForm.endDate)"
-                        type="daterange"
-                        start-placeholder="开始时间"
-                        end-placeholder="结束时间"
-                        clearable
-                        to="body"
-                        class="profile-naive-control"
-                        @update:value="setEducationDateRange"
-                      />
-                    </label>
-                    <label class="check-field">
-                      <input v-model="educationForm.isCurrent" type="checkbox">
-                      <span>至今在读</span>
-                    </label>
+                    <div class="form-field form-field-wide">
+                      <div>开始时间 / 结束时间</div>
+                      <div class="work-date-row">
+                        <NaiveClientDatePicker
+                          :value="parseDateString(educationForm.startDate)" type="date"
+                          placeholder="开始时间" clearable to="body" class="profile-naive-control"
+                          @update:value="setEducationStartDate"
+                        />
+                        <NaiveClientDatePicker
+                          :value="educationForm.isCurrent ? null : parseDateString(educationForm.endDate)"
+                          type="date" placeholder="结束时间" clearable :disabled="educationForm.isCurrent"
+                          :is-date-disabled="(ts: number) => !!educationForm.startDate && ts < parseDateString(educationForm.startDate)!"
+                          to="body" class="profile-naive-control" @update:value="setEducationEndDate"
+                        />
+                        <div class="flex gap-[4px] items-center">
+                          <input v-model="educationForm.isCurrent" class="timeBoxCheck" type="checkbox">
+                          <span>至今在读</span>
+                        </div>
+                      </div>
+                    </div>
                     <label class="form-field form-field-full">
                       <span>在校经历</span>
                       <textarea v-model="educationForm.description" rows="5" placeholder="描述校园经历、课程、奖项或实践经历" />
@@ -2320,9 +2335,9 @@ async function handleUploadConfirm() {
                   </div>
                 </form>
                 <template v-else>
-                  <div class="education-logo">
+                  <!-- <div class="education-logo">
                     {{ item.school_name }}
-                  </div>
+                  </div> -->
                   <div class="list-item-main">
                     <div class="item-title-row">
                       <strong>{{ item.school_name }}</strong>
@@ -3354,7 +3369,7 @@ async function handleUploadConfirm() {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 18px 16px;
-  align-items: end;
+  align-items: center;
 }
 
 .form-field input,
