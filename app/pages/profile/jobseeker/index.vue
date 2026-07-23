@@ -2769,7 +2769,7 @@ async function handleUploadConfirm() {
       <aside class="resume-side-column">
         <section class="side-card">
           <h2>我的简历</h2>
-          <div class="resume-file-list">
+          <!-- <div class="resume-file-list">
             <div class="resume-file-row">
               <div class="file-icon word">
                 W
@@ -2794,7 +2794,7 @@ async function handleUploadConfirm() {
                 设为默认
               </button>
             </div>
-          </div>
+          </div> -->
           <div class="completion-box">
             <div>
               <span>简历完整度</span>
@@ -2809,16 +2809,7 @@ async function handleUploadConfirm() {
           </button>
         </section>
 
-        <section class="side-card ai-card">
-          <div class="ai-row">
-            <span class="i-carbon-document-preliminary" />
-            <span>AI优化简历</span>
-          </div>
-          <div class="ai-row">
-            <span class="i-carbon-video-chat" />
-            <span>AI模拟面试</span>
-          </div>
-        </section>
+        <CmsAdSlotStack class="side-card" code="profile.jobseeker.right-side-1" />
       </aside>
     </div>
 
@@ -3570,32 +3561,6 @@ async function handleUploadConfirm() {
   justify-content: flex-end;
   gap: 12px;
   margin-top: 24px;
-}
-
-.ai-card {
-  padding: 10px 20px;
-}
-
-.ai-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 0;
-  color: #222;
-  font-size: 15px;
-}
-
-.ai-row + .ai-row {
-  border-top: 1px dashed #f0d6b4;
-}
-
-.ai-row span:first-child {
-  color: #6b9bff;
-  font-size: 28px;
-}
-
-.ai-row:nth-child(2) span:first-child {
-  color: #ff7f62;
 }
 
 @keyframes loading-shimmer {
