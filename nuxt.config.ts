@@ -60,6 +60,7 @@ export default defineNuxtConfig({
 
   devServer: {
     host: '127.0.0.1',
+    port: Number.parseInt(process.env.NUXT_DEV_SERVER_PORT || '3000', 10),
   },
 
   future: {
