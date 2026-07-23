@@ -199,6 +199,79 @@ export interface ImBusinessCardResponse {
   }
 }
 
+export type ImInteractionRequestType = 'exchange_contact' | 'respond_interview_invitation' | 'respond_offer'
+export type ImInteractionRequestAction = 'accept' | 'reject'
+export type ImInteractionRequestStatus = 'pending' | 'accepted' | 'rejected' | 'expired' | 'cancelled'
+
+export interface ImInteractionRequest {
+  id: number
+  conversation_id: number
+  sender_user_im_id: number
+  receiver_user_im_id: number
+  type: ImInteractionRequestType | string
+  type_label: string | null
+  status: ImInteractionRequestStatus | string
+  status_label: string | null
+  payload: Record<string, unknown> | null
+  result_payload: Record<string, unknown> | null
+  responded_at: string | null
+  expires_at: string | null
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface ImInteractionCard {
+  interaction_request_id: number
+  type: ImInteractionRequestType | string
+  type_label?: string | null
+  title?: string | null
+  summary?: string | null
+  status: ImInteractionRequestStatus | string
+  status_label?: string | null
+  actions?: ImInteractionRequestAction[]
+  payload?: Record<string, unknown> | null
+  result?: Record<string, unknown> | null
+}
+
+export interface ImInteractionResponse {
+  interaction_request: ImInteractionRequest
+  message: {
+    id: string | number
+    conversation_id: string | number
+    message_type: string
+    created_at?: string | null
+  }
+  card: ImInteractionCard
+}
+
+export async function createImInteractionRequest(payload: {
+  conversation_id: number
+  receiver_user_im_id: number
+  type: ImInteractionRequestType
+  payload?: Record<string, unknown> | null
+  expires_at?: string | null
+}, authorization: string) {
+  const response = await postJson<ApiResponse<ImInteractionResponse>>(
+    '/rc/im/interaction-requests',
+    payload,
+    authorization ? { Authorization: authorization } : undefined,
+  )
+  return response.data
+}
+
+export async function respondImInteractionRequest(
+  id: number,
+  payload: { action: ImInteractionRequestAction, reason?: string | null },
+  authorization: string,
+) {
+  const response = await postJson<ApiResponse<ImInteractionResponse>>(
+    `/rc/im/interaction-requests/${id}/respond`,
+    payload,
+    authorization ? { Authorization: authorization } : undefined,
+  )
+  return response.data
+}
+
 export interface ImQuickPhrase {
   id: number
   user_im_id: number

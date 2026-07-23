@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import type { ImBusinessCardResponse, ImConversation, ImHistoryMessage, ImParticipant, ImQuickPhrase } from '~/services/im'
+import type { ApplicationItem } from '~/services/application'
+import type { ImBusinessCardResponse, ImBusinessCardType, ImConversation, ImHistoryMessage, ImInteractionCard, ImInteractionRequestAction, ImInteractionResponse, ImParticipant, ImQuickPhrase } from '~/services/im'
 import type { AuthIdentityCode } from '~/types/auth'
 import { appEnv } from '~/config/env'
-import { createApplication } from '~/services/application'
+import { checkApplication, createApplication, rejectApplication } from '~/services/application'
 import { resolveAssetUrl } from '~/services/http'
-import { createImQuickPhrase, deleteImQuickPhrase, getImConversationMessages, getImConversations, getImQuickPhrases, refreshImToken, sendImBusinessCard, updateImQuickPhrase } from '~/services/im'
+import { createImInteractionRequest, createImQuickPhrase, deleteImQuickPhrase, getImConversationMessages, getImConversations, getImQuickPhrases, refreshImToken, respondImInteractionRequest, sendImBusinessCard, updateImQuickPhrase } from '~/services/im'
 import { favoriteTalentJob, unfavoriteTalentJob } from '~/services/talent-jobs'
 import { upload } from '~/services/upload'
 import { pushGlobalNotice } from '~/utils/notice'
@@ -21,6 +22,7 @@ interface MessageItem {
   messageType: 'system' | 'text' | 'biz_card' | string
   content: string
   bizCard?: BizCardContent | null
+  interaction?: ImInteractionCard | null
   systemNotice?: SystemNoticeContent | null
   image?: ImageMessageContent | null
   at: string
@@ -129,6 +131,28 @@ const handledBusinessCardKeys = ref<string[]>([])
 const historyError = ref('')
 const messages = ref<MessageItem[]>([])
 const unreadConversationNos = ref<string[]>([])
+const employerActionApplication = ref<ApplicationItem | null>(null)
+const employerActionType = ref<'interview' | 'offer' | 'reject' | null>(null)
+const interviewActionForm = ref({
+  interview_at: '',
+  mode: 1,
+  duration_mins: 60,
+  interviewer_name: '',
+  location: '',
+  meeting_url: '',
+  note: '',
+})
+const offerActionForm = ref({
+  salary: null as number | null,
+  salary_unit: 1,
+  has_probation: false,
+  entry_date: '',
+  expire_date: '',
+  remuneration_note: '',
+  attendance_note: '',
+  note: '',
+})
+const rejectActionNote = ref('')
 const messageScrollRef = ref<HTMLDivElement | null>(null)
 const historyStateMap = ref<Record<number, {
   loaded: boolean
@@ -151,7 +175,19 @@ const isConnected = computed(() => connectionState.value === 'connected')
 const canConnect = computed(() => Boolean(userStore.authHeader && appEnv.imBaseUrl))
 const activeConversation = computed(() => conversations.value.find(item => item.conversation_no === activeConversationNo.value) || null)
 const isActiveSystemConversation = computed(() => activeConversation.value?.scene === 'system')
-const activeMessages = computed(() => messages.value.filter(item => item.conversationNo === activeConversationNo.value))
+const activeMessages = computed(() => {
+  const items = messages.value.filter(item => item.conversationNo === activeConversationNo.value)
+  const requestIds = new Set(
+    items
+      .filter(item => item.messageType === 'interaction_request' && item.interaction)
+      .map(item => item.interaction!.interaction_request_id),
+  )
+  return items.filter(item =>
+    item.messageType !== 'interaction_result'
+    || !item.interaction
+    || !requestIds.has(item.interaction.interaction_request_id),
+  )
+})
 const commonEmojis = ['😀', '😁', '😂', '😊', '😍', '👍', '👏', '🤝', '🎉', '💪', '🙏', '❤️']
 const currentUserName = computed(() => userStore.user?.nickname || userStore.user?.name || userStore.user?.phone || '当前用户')
 const currentUserAvatar = computed(() => userStore.user?.display_avatar || userStore.user?.avatar || '')
@@ -500,12 +536,6 @@ function getConversationJobId(conversation: ImConversation | null) {
   return Number.isInteger(id) && id > 0 ? id : null
 }
 
-function getConversationApplicationId(conversation: ImConversation | null) {
-  const rawId = conversation?.context?.application_id || conversation?.metadata?.application_id
-  const id = Number(rawId)
-  return Number.isInteger(id) && id > 0 ? id : null
-}
-
 function getConversationCompanyName(conversation: ImConversation | null) {
   const value = conversation?.metadata?.company_name
   return typeof value === 'string' ? value : ''
@@ -551,35 +581,206 @@ function setComposerShortcut(content: string) {
   nextTick(() => editorRef.value?.focus())
 }
 
+function toLocalDateTimeInput(date: Date) {
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+function closeEmployerActionModal() {
+  employerActionType.value = null
+  employerActionApplication.value = null
+}
+
+async function prepareEmployerApplicationAction(action: 'interview' | 'offer' | 'reject') {
+  const conversation = activeConversation.value
+  const jobId = getConversationJobId(conversation)
+  const candidateUserId = getPrimaryParticipant(conversation)?.user_id
+  if (!conversation || !jobId || !candidateUserId || !userStore.authHeader || isBusinessActionOperating.value) {
+    pushGlobalNotice(!jobId ? '该会话暂无关联职位' : '无法识别当前求职者', 'warning')
+    return
+  }
+
+  isBusinessActionOperating.value = true
+  try {
+    const application = await checkApplication({
+      job_id: jobId,
+      candidate_user_id: candidateUserId,
+    }, userStore.authHeader)
+    if (!application) {
+      pushGlobalNotice('当前用户尚未投递', 'warning')
+      return
+    }
+
+    employerActionApplication.value = application
+    employerActionType.value = action
+    if (action === 'interview' && !interviewActionForm.value.interview_at) {
+      const defaultInterviewTime = new Date(Date.now() + 24 * 60 * 60 * 1000)
+      interviewActionForm.value.interview_at = toLocalDateTimeInput(defaultInterviewTime)
+    }
+  }
+  catch (error) {
+    pushGlobalNotice(error instanceof Error ? error.message : '查询投递记录失败', 'error')
+  }
+  finally {
+    isBusinessActionOperating.value = false
+  }
+}
+
+async function sendEmployerActionCard(
+  cardType: Extract<ImBusinessCardType, 'recruiter_reject'>,
+  summary: string,
+  biz: { application_id: number, job_id: number, interview_id?: number | null, offer_id?: number | null },
+  snapshot?: Record<string, unknown>,
+) {
+  const conversation = activeConversation.value
+  if (!conversation?.id || !userStore.authHeader)
+    throw new Error('当前会话不可用')
+
+  const result = await sendImBusinessCard(conversation.id, {
+    card_type: cardType,
+    summary,
+    biz,
+    snapshot,
+  }, userStore.authHeader)
+  appendBusinessCardResponse(result)
+}
+
+async function submitEmployerApplicationAction() {
+  const action = employerActionType.value
+  const application = employerActionApplication.value
+  const authorization = userStore.authHeader
+  if (!action || !application || !authorization || isBusinessActionOperating.value)
+    return
+
+  isBusinessActionOperating.value = true
+  let businessActionCompleted = false
+  try {
+    if (action === 'interview') {
+      const form = interviewActionForm.value
+      if (!form.interview_at) {
+        pushGlobalNotice('请选择面试时间', 'warning')
+        return
+      }
+      const interviewAt = new Date(form.interview_at)
+      if (!Number.isFinite(interviewAt.getTime()) || interviewAt.getTime() <= Date.now()) {
+        pushGlobalNotice('面试时间必须晚于当前时间', 'warning')
+        return
+      }
+      const conversation = activeConversation.value
+      const receiverUserImId = getPrimaryParticipant(conversation)?.id
+      if (!conversation?.id || !receiverUserImId)
+        throw new Error('当前会话参与者信息不完整')
+      const result = await createImInteractionRequest({
+        conversation_id: conversation.id,
+        receiver_user_im_id: receiverUserImId,
+        type: 'respond_interview_invitation',
+        payload: {
+          application_id: application.id,
+          job_id: application.job_id,
+          interview_at: interviewAt.toISOString(),
+          mode: form.mode,
+          duration_mins: form.duration_mins || undefined,
+          interviewer_name: form.interviewer_name || undefined,
+          location: form.location || undefined,
+          meeting_url: form.meeting_url || undefined,
+          note: form.note || undefined,
+        },
+      }, authorization)
+      businessActionCompleted = true
+      appendInteractionResponse(result, 'interaction_request', 'outgoing')
+      pushGlobalNotice('面试邀请已发送，等待对方确认')
+    }
+    else if (action === 'offer') {
+      const form = offerActionForm.value
+      if (!form.salary || form.salary <= 0) {
+        pushGlobalNotice('请输入有效的 Offer 薪资', 'warning')
+        return
+      }
+      const conversation = activeConversation.value
+      const receiverUserImId = getPrimaryParticipant(conversation)?.id
+      if (!conversation?.id || !receiverUserImId)
+        throw new Error('当前会话参与者信息不完整')
+      const result = await createImInteractionRequest({
+        conversation_id: conversation.id,
+        receiver_user_im_id: receiverUserImId,
+        type: 'respond_offer',
+        payload: {
+          application_id: application.id,
+          job_id: application.job_id,
+          salary: form.salary,
+          salary_unit: form.salary_unit,
+          has_probation: form.has_probation,
+          entry_date: form.entry_date || undefined,
+          expire_date: form.expire_date || undefined,
+          remuneration_note: form.remuneration_note || undefined,
+          attendance_note: form.attendance_note || undefined,
+          note: form.note || undefined,
+        },
+      }, authorization)
+      businessActionCompleted = true
+      appendInteractionResponse(result, 'interaction_request', 'outgoing')
+      pushGlobalNotice('Offer 已发送，等待对方确认')
+    }
+    else {
+      const result = await rejectApplication(application.id, {
+        note: rejectActionNote.value || undefined,
+      }, authorization)
+      businessActionCompleted = true
+      await sendEmployerActionCard(
+        'recruiter_reject',
+        `很遗憾，你对「${application.job?.title || '应聘职位'}」的投递暂未通过`,
+        {
+          application_id: application.id,
+          job_id: application.job_id,
+        },
+        {
+          status: result?.status,
+          status_label: result?.status_label,
+          note: rejectActionNote.value || null,
+        },
+      )
+      pushGlobalNotice('已拒绝该投递')
+    }
+    closeEmployerActionModal()
+  }
+  catch (error) {
+    const message = businessActionCompleted
+      ? `业务操作成功，但卡片消息发送失败：${error instanceof Error ? error.message : '未知错误'}`
+      : error instanceof Error ? error.message : '操作失败'
+    pushGlobalNotice(message, 'error')
+  }
+  finally {
+    isBusinessActionOperating.value = false
+    if (businessActionCompleted)
+      closeEmployerActionModal()
+  }
+}
+
 async function handleComposerQuickAction(label: string) {
   if (!activeConversation.value)
     return
 
-  if (props.audience === 'jobseeker' && label === '换电话') {
-    await sendJobseekerExchangePhoneCard()
+  if (label === '换电话') {
+    await sendInteractionRequest('exchange_contact')
     return
   }
   if (props.audience === 'jobseeker' && label === '投递简历') {
     await applyResumeAndSendCard()
     return
   }
-  if (label === '换电话') {
-    setComposerShortcut('方便交换一下联系电话吗？')
+  if (props.audience === 'employer') {
+    const actionMap = {
+      邀请面试: 'interview',
+      发Offer: 'offer',
+      拒绝: 'reject',
+    } as const
+    const action = actionMap[label as keyof typeof actionMap]
+    if (action)
+      await prepareEmployerApplicationAction(action)
     return
   }
 
   const jobId = getConversationJobId(activeConversation.value)
-  if (props.audience === 'employer') {
-    const applicationId = getConversationApplicationId(activeConversation.value)
-    if (!applicationId) {
-      pushGlobalNotice('该会话暂无投递记录，暂不能办理此操作', 'warning')
-      return
-    }
-    pushGlobalNotice(`请在投递详情中完成“${label}”操作`, 'info')
-    await navigateTo(`/employer/applications/${applicationId}`)
-    return
-  }
-
   if (!jobId) {
     pushGlobalNotice('该会话暂无关联职位', 'warning')
     return
@@ -623,6 +824,119 @@ function appendBusinessCardResponse(result: ImBusinessCardResponse) {
   if (!isDuplicateMessage(item, conversation.conversation_no))
     messages.value.push(item)
   scrollMessagesToBottom()
+}
+
+function appendInteractionResponse(
+  result: ImInteractionResponse,
+  messageType: 'interaction_request' | 'interaction_result',
+  type: MessageItem['type'],
+) {
+  let mergedIntoRequest = false
+  let sameMessageExists = false
+  messages.value.forEach((item) => {
+    if (item.interaction?.interaction_request_id === result.card.interaction_request_id) {
+      item.interaction.status = result.card.status
+      item.interaction.status_label = result.card.status_label
+      item.interaction.result = result.card.result
+      item.interaction.actions = result.card.actions
+      if (item.messageType === 'interaction_request')
+        mergedIntoRequest = true
+      if (item.messageType === messageType)
+        sameMessageExists = true
+    }
+  })
+
+  if (sameMessageExists || (messageType === 'interaction_result' && mergedIntoRequest)) {
+    scrollMessagesToBottom()
+    return
+  }
+
+  const item: MessageItem = {
+    id: ++messageId,
+    remoteId: result.message.id,
+    clientMsgId: null,
+    conversationNo: activeConversationNo.value,
+    type,
+    messageType,
+    content: result.card.title || result.card.summary || result.card.type_label || '交互请求',
+    interaction: result.card,
+    image: null,
+    at: result.message.created_at ? formatMessageTime(result.message.created_at) : nowText(),
+  }
+  if (!isDuplicateMessage(item, item.conversationNo))
+    messages.value.push(item)
+  scrollMessagesToBottom()
+}
+
+async function sendInteractionRequest(
+  type: 'exchange_contact' | 'respond_interview_invitation' | 'respond_offer',
+  payload?: Record<string, unknown>,
+) {
+  const conversation = activeConversation.value
+  const receiverUserImId = getPrimaryParticipant(conversation)?.id
+  if (!conversation?.id || !receiverUserImId || !userStore.authHeader || isBusinessActionOperating.value)
+    return null
+
+  isBusinessActionOperating.value = true
+  try {
+    const result = await createImInteractionRequest({
+      conversation_id: conversation.id,
+      receiver_user_im_id: receiverUserImId,
+      type,
+      payload,
+    }, userStore.authHeader)
+    appendInteractionResponse(result, 'interaction_request', 'outgoing')
+    const successMessageMap = {
+      exchange_contact: '换电话请求已发送，等待对方处理',
+      respond_interview_invitation: '面试邀请已发送，等待对方确认',
+      respond_offer: 'Offer 已发送，等待对方确认',
+    }
+    pushGlobalNotice(successMessageMap[type])
+    return result
+  }
+  catch (error) {
+    pushGlobalNotice(error instanceof Error ? error.message : '交互请求发送失败', 'error')
+    return null
+  }
+  finally {
+    isBusinessActionOperating.value = false
+  }
+}
+
+async function handleInteractionAction(item: MessageItem, action: ImInteractionRequestAction) {
+  const interaction = item.interaction
+  if (!interaction || interaction.status !== 'pending' || !userStore.authHeader || isBusinessActionOperating.value)
+    return
+
+  isBusinessActionOperating.value = true
+  try {
+    const result = await respondImInteractionRequest(interaction.interaction_request_id, {
+      action,
+    }, userStore.authHeader)
+    appendInteractionResponse(result, 'interaction_result', 'outgoing')
+    pushGlobalNotice(action === 'accept' ? '已同意请求' : '已拒绝请求')
+  }
+  catch (error) {
+    pushGlobalNotice(error instanceof Error ? error.message : '请求处理失败', 'error')
+  }
+  finally {
+    isBusinessActionOperating.value = false
+  }
+}
+
+function canRespondToInteraction(item: MessageItem) {
+  return item.type === 'incoming'
+    && item.messageType === 'interaction_request'
+    && item.interaction?.status === 'pending'
+}
+
+function getInteractionContacts(interaction: ImInteractionCard | null | undefined) {
+  const contacts = interaction?.result?.contacts
+  if (!Array.isArray(contacts))
+    return []
+  return contacts.filter((contact): contact is Record<string, unknown> =>
+    Boolean(contact && typeof contact === 'object' && typeof contact.phone === 'string'),
+  )
 }
 
 function getBusinessCardTypeLabel(card: BizCardContent) {
@@ -698,27 +1012,6 @@ async function handlePhoneExchangeCardAction(item: MessageItem, action: PhoneExc
   }
   catch (error) {
     pushGlobalNotice(error instanceof Error ? error.message : '操作失败', 'error')
-  }
-  finally {
-    isBusinessActionOperating.value = false
-  }
-}
-
-async function sendJobseekerExchangePhoneCard() {
-  const conversation = activeConversation.value
-  if (!conversation?.id || !userStore.authHeader || isBusinessActionOperating.value)
-    return
-
-  isBusinessActionOperating.value = true
-  try {
-    const result = await sendImBusinessCard(conversation.id, {
-      card_type: 'jobseeker_exchange_phone',
-    }, userStore.authHeader)
-    appendBusinessCardResponse(result)
-    pushGlobalNotice('换电话卡片已发送')
-  }
-  catch (error) {
-    pushGlobalNotice(error instanceof Error ? error.message : '卡片发送失败', 'error')
   }
   finally {
     isBusinessActionOperating.value = false
@@ -823,7 +1116,7 @@ function resolveMessageContentText(messageType: string, content: ImHistoryMessag
   if (messageType === 'image')
     return content.name || content.url || content.path || '图片消息'
 
-  if (messageType === 'biz_card' || messageType === 'system_notice')
+  if (messageType === 'biz_card' || messageType === 'system_notice' || messageType === 'interaction_request' || messageType === 'interaction_result')
     return content.title || content.summary || '业务消息'
 
   if (content.text)
@@ -853,6 +1146,30 @@ function resolveSystemNoticeContent(messageType: string, content: ImHistoryMessa
     action_url: typeof content.action_url === 'string' ? content.action_url : null,
     biz_id: typeof content.biz_id === 'string' || typeof content.biz_id === 'number' ? content.biz_id : null,
     notice_type: typeof content.notice_type === 'string' ? content.notice_type : '',
+  }
+}
+
+function resolveInteractionContent(messageType: string, content: ImHistoryMessage['content']): ImInteractionCard | null {
+  if ((messageType !== 'interaction_request' && messageType !== 'interaction_result') || !content || typeof content === 'string')
+    return null
+
+  const requestId = Number(content.interaction_request_id)
+  if (!Number.isInteger(requestId) || requestId <= 0)
+    return null
+
+  return {
+    interaction_request_id: requestId,
+    type: typeof content.type === 'string' ? content.type : '',
+    type_label: typeof content.type_label === 'string' ? content.type_label : null,
+    title: typeof content.title === 'string' ? content.title : null,
+    summary: typeof content.summary === 'string' ? content.summary : null,
+    status: typeof content.status === 'string' ? content.status : 'pending',
+    status_label: typeof content.status_label === 'string' ? content.status_label : null,
+    actions: Array.isArray(content.actions)
+      ? content.actions.filter((action): action is ImInteractionRequestAction => action === 'accept' || action === 'reject')
+      : [],
+    payload: content.payload && typeof content.payload === 'object' ? content.payload as Record<string, unknown> : null,
+    result: content.result && typeof content.result === 'object' ? content.result as Record<string, unknown> : null,
   }
 }
 
@@ -910,6 +1227,7 @@ function normalizeHistoryMessage(message: ImHistoryMessage, conversation: ImConv
     messageType,
     content: resolveMessageContentText(messageType, message.content),
     bizCard: resolveBizCardContent(messageType, message.content),
+    interaction: resolveInteractionContent(messageType, message.content),
     systemNotice: resolveSystemNoticeContent(messageType, message.content),
     image: resolveImageContent(messageType, message.content),
     at: message.created_at ? formatMessageTime(message.created_at) : nowText(),
@@ -935,6 +1253,7 @@ function normalizeSocketMessage(payload: Record<string, any>, conversation: ImCo
     messageType,
     content: resolveMessageContentText(messageType, socketMessage.content || null),
     bizCard: resolveBizCardContent(messageType, socketMessage.content || null),
+    interaction: resolveInteractionContent(messageType, socketMessage.content || null),
     systemNotice: resolveSystemNoticeContent(messageType, socketMessage.content || null),
     image: resolveImageContent(messageType, socketMessage.content || null),
     at: socketMessage.created_at ? formatMessageTime(socketMessage.created_at) : nowText(),
@@ -997,12 +1316,85 @@ function resolvePayloadMessage(payload: Record<string, any>) {
   }
 }
 
+function syncInteractionRequestStates(conversationNo: string) {
+  const conversationMessages = messages.value.filter(item => item.conversationNo === conversationNo)
+  const results = new Map<number, ImInteractionCard>()
+  conversationMessages.forEach((item) => {
+    if (item.messageType === 'interaction_result' && item.interaction)
+      results.set(item.interaction.interaction_request_id, item.interaction)
+  })
+  conversationMessages.forEach((item) => {
+    const interaction = item.interaction
+    if (item.messageType !== 'interaction_request' || !interaction)
+      return
+    const result = results.get(interaction.interaction_request_id)
+    if (!result)
+      return
+    interaction.status = result.status
+    interaction.status_label = result.status_label
+    interaction.result = result.result
+    interaction.actions = result.actions
+  })
+}
+
+function mergeSocketInteractionResult(socketMessage: MessageItem) {
+  const interaction = socketMessage.interaction
+  if (socketMessage.messageType !== 'interaction_result' || !interaction)
+    return false
+
+  const requestMessage = messages.value.find(item =>
+    item.conversationNo === socketMessage.conversationNo
+    && item.messageType === 'interaction_request'
+    && item.interaction?.interaction_request_id === interaction.interaction_request_id,
+  )
+  if (!requestMessage?.interaction)
+    return false
+
+  requestMessage.interaction.status = interaction.status
+  requestMessage.interaction.status_label = interaction.status_label
+  requestMessage.interaction.result = interaction.result
+  requestMessage.interaction.actions = interaction.actions
+  requestMessage.at = socketMessage.at
+  return true
+}
+
+function mergeDuplicateSocketInteraction(socketMessage: MessageItem) {
+  const interaction = socketMessage.interaction
+  if (!interaction)
+    return false
+
+  const existingMessage = messages.value.find(item =>
+    item.conversationNo === socketMessage.conversationNo
+    && item.messageType === socketMessage.messageType
+    && item.interaction?.interaction_request_id === interaction.interaction_request_id,
+  )
+  if (!existingMessage?.interaction)
+    return false
+
+  existingMessage.remoteId = socketMessage.remoteId || existingMessage.remoteId
+  existingMessage.at = socketMessage.at
+  existingMessage.interaction.status = interaction.status
+  existingMessage.interaction.status_label = interaction.status_label
+  existingMessage.interaction.result = interaction.result
+  existingMessage.interaction.actions = interaction.actions
+  return true
+}
+
 function appendSocketMessage(payload: Record<string, any>): MessageItem | null {
   const conversationNo = payload?.conversation_no || payload?.message?.conversation_no || activeConversationNo.value
   const conversation = conversations.value.find(item => item.conversation_no === conversationNo) || activeConversation.value
   const socketMessage = normalizeSocketMessage(payload, conversation)
 
   if (!socketMessage)
+    return null
+
+  if (mergeSocketInteractionResult(socketMessage)) {
+    if (socketMessage.conversationNo === activeConversationNo.value)
+      scrollMessagesToBottom()
+    return null
+  }
+
+  if (mergeDuplicateSocketInteraction(socketMessage))
     return null
 
   const optimisticIndex = messages.value.findIndex(item =>
@@ -1028,6 +1420,8 @@ function appendSocketMessage(payload: Record<string, any>): MessageItem | null {
     return null
 
   messages.value.push(socketMessage)
+  if (socketMessage.interaction)
+    syncInteractionRequestStates(socketMessage.conversationNo)
 
   if (socketMessage.conversationNo === activeConversationNo.value)
     scrollMessagesToBottom()
@@ -1076,6 +1470,7 @@ function selectConversation(conversationNo: string) {
 
   activeConversationNo.value = nextConversationNo
   clearConversationUnread(nextConversationNo)
+  closeEmployerActionModal()
   ensureConversationInList(nextConversationNo)
   showEmojiPanel.value = false
   showQuickPhrasePanel.value = false
@@ -1171,6 +1566,7 @@ async function loadConversationHistory(conversation: ImConversation, mode: 'init
       ]
       scrollMessagesToBottom()
     }
+    syncInteractionRequestStates(conversation.conversation_no)
 
     state.loaded = true
     state.nextCursor = payload.next_cursor || null
@@ -1927,7 +2323,40 @@ onBeforeUnmount(() => {
             <div v-for="item in activeMessages" :key="item.id" class="message-row" :class="`is-${item.type}`">
               <div class="message-body">
                 <div
-                  v-if="item.messageType === 'system_notice' && item.systemNotice"
+                  v-if="item.interaction"
+                  class="interaction-card"
+                  :class="[`is-${item.interaction.type}`, `is-${item.interaction.status}`]"
+                >
+                  <div class="interaction-card-icon">
+                    <span
+                      :class="item.interaction.type === 'respond_interview_invitation'
+                        ? 'i-carbon-calendar'
+                        : item.interaction.type === 'respond_offer' ? 'i-carbon-document-signed' : 'i-carbon-phone'"
+                    />
+                  </div>
+                  <div class="interaction-card-main">
+                    <div class="interaction-card-head">
+                      <strong>{{ item.interaction.title || item.interaction.type_label || '交互请求' }}</strong>
+                      <span>{{ item.interaction.status_label || (item.interaction.status === 'pending' ? '待处理' : item.interaction.status) }}</span>
+                    </div>
+                    <p>{{ item.interaction.summary || item.content }}</p>
+                    <div v-if="getInteractionContacts(item.interaction).length" class="interaction-contacts">
+                      <span v-for="contact in getInteractionContacts(item.interaction)" :key="String(contact.user_im_id || contact.phone)">
+                        {{ contact.phone }}
+                      </span>
+                    </div>
+                    <div v-if="canRespondToInteraction(item)" class="interaction-card-actions">
+                      <button type="button" :disabled="isBusinessActionOperating" @click="handleInteractionAction(item, 'accept')">
+                        同意
+                      </button>
+                      <button type="button" class="is-secondary" :disabled="isBusinessActionOperating" @click="handleInteractionAction(item, 'reject')">
+                        拒绝
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div
+                  v-else-if="item.messageType === 'system_notice' && item.systemNotice"
                   class="system-notice-card"
                   :class="`is-${item.systemNotice.notice_type || 'default'}`"
                 >
@@ -2093,6 +2522,114 @@ onBeforeUnmount(() => {
         </footer>
       </section>
     </section>
+
+    <Teleport to="body">
+      <div v-if="employerActionType" class="em-action-overlay" @click.self="closeEmployerActionModal">
+        <form class="em-action-modal" @submit.prevent="submitEmployerApplicationAction">
+          <header>
+            <div>
+              <h3>
+                {{ employerActionType === 'interview' ? '邀请面试' : employerActionType === 'offer' ? '发送 Offer' : '拒绝投递' }}
+              </h3>
+              <p>{{ employerActionApplication?.candidate?.full_name || '当前求职者' }} · {{ employerActionApplication?.job?.title }}</p>
+            </div>
+            <button type="button" aria-label="关闭" @click="closeEmployerActionModal">
+              <span class="i-carbon-close" />
+            </button>
+          </header>
+
+          <div v-if="employerActionType === 'interview'" class="em-action-form">
+            <label>
+              <span>面试时间 <b>*</b></span>
+              <input v-model="interviewActionForm.interview_at" type="datetime-local" required>
+            </label>
+            <label>
+              <span>面试方式 <b>*</b></span>
+              <select v-model.number="interviewActionForm.mode">
+                <option :value="1">线上面试</option>
+                <option :value="2">线下面试</option>
+                <option :value="3">电话面试</option>
+              </select>
+            </label>
+            <label>
+              <span>面试时长（分钟）</span>
+              <input v-model.number="interviewActionForm.duration_mins" type="number" min="1">
+            </label>
+            <label>
+              <span>面试官</span>
+              <input v-model.trim="interviewActionForm.interviewer_name" type="text" placeholder="请输入面试官姓名">
+            </label>
+            <label v-if="interviewActionForm.mode === 2" class="is-wide">
+              <span>面试地点</span>
+              <input v-model.trim="interviewActionForm.location" type="text" placeholder="请输入线下面试地点">
+            </label>
+            <label v-if="interviewActionForm.mode === 1" class="is-wide">
+              <span>会议链接</span>
+              <input v-model.trim="interviewActionForm.meeting_url" type="url" placeholder="https://">
+            </label>
+            <label class="is-wide">
+              <span>备注</span>
+              <textarea v-model.trim="interviewActionForm.note" rows="3" placeholder="面试注意事项等" />
+            </label>
+          </div>
+
+          <div v-else-if="employerActionType === 'offer'" class="em-action-form">
+            <label>
+              <span>确认薪资 <b>*</b></span>
+              <input v-model.number="offerActionForm.salary" type="number" min="0.01" step="0.01" required>
+            </label>
+            <label>
+              <span>薪资单位</span>
+              <select v-model.number="offerActionForm.salary_unit">
+                <option :value="1">元/月</option>
+                <option :value="2">元/日</option>
+                <option :value="3">元/时</option>
+              </select>
+            </label>
+            <label>
+              <span>入职日期</span>
+              <input v-model="offerActionForm.entry_date" type="date">
+            </label>
+            <label>
+              <span>Offer 有效期至</span>
+              <input v-model="offerActionForm.expire_date" type="date">
+            </label>
+            <label class="is-wide is-checkbox">
+              <input v-model="offerActionForm.has_probation" type="checkbox">
+              <span>包含试用期</span>
+            </label>
+            <label class="is-wide">
+              <span>薪酬说明</span>
+              <textarea v-model.trim="offerActionForm.remuneration_note" rows="2" placeholder="五险一金、奖金等" />
+            </label>
+            <label class="is-wide">
+              <span>考勤说明</span>
+              <textarea v-model.trim="offerActionForm.attendance_note" rows="2" placeholder="工作时间、休息安排等" />
+            </label>
+            <label class="is-wide">
+              <span>备注</span>
+              <textarea v-model.trim="offerActionForm.note" rows="2" />
+            </label>
+          </div>
+
+          <div v-else class="em-action-form">
+            <label class="is-wide">
+              <span>拒绝原因</span>
+              <textarea v-model.trim="rejectActionNote" rows="4" placeholder="可填写拒绝该投递的原因" />
+            </label>
+          </div>
+
+          <footer>
+            <button type="button" class="is-secondary" :disabled="isBusinessActionOperating" @click="closeEmployerActionModal">
+              取消
+            </button>
+            <button type="submit" :disabled="isBusinessActionOperating">
+              {{ isBusinessActionOperating ? '处理中...' : '确认提交' }}
+            </button>
+          </footer>
+        </form>
+      </div>
+    </Teleport>
 
     <!-- 快捷语管理弹窗 -->
     <Teleport to="body">
@@ -2733,6 +3270,131 @@ onBeforeUnmount(() => {
   word-break: break-word;
 }
 
+.interaction-card {
+  display: flex;
+  width: min(430px, 100%);
+  box-sizing: border-box;
+  gap: 14px;
+  border: 1px solid #e6eaf0;
+  border-radius: 12px;
+  background: #fff;
+  padding: 17px;
+  text-align: left;
+  box-shadow: 0 8px 24px rgba(30, 41, 59, 0.08);
+}
+
+.interaction-card-icon {
+  display: inline-flex;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 11px;
+  background: #fff7e8;
+  color: #ff9f00;
+  font-size: 21px;
+}
+
+.interaction-card.is-respond_interview_invitation .interaction-card-icon {
+  background: #eef6ff;
+  color: #2878ff;
+}
+
+.interaction-card.is-respond_offer .interaction-card-icon {
+  background: #f5f3ff;
+  color: #7c3aed;
+}
+
+.interaction-card-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.interaction-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.interaction-card-head strong {
+  color: #1e293b;
+  font-size: 15px;
+}
+
+.interaction-card-head > span {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #fff7e8;
+  color: #ff9f00;
+  font-size: 11px;
+  padding: 3px 8px;
+}
+
+.interaction-card.is-accepted .interaction-card-head > span {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.interaction-card.is-rejected .interaction-card-head > span,
+.interaction-card.is-expired .interaction-card-head > span,
+.interaction-card.is-cancelled .interaction-card-head > span {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.interaction-card-main > p {
+  margin: 7px 0 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.interaction-contacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.interaction-contacts span {
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 9px;
+}
+
+.interaction-card-actions {
+  display: flex;
+  gap: 9px;
+  margin-top: 14px;
+}
+
+.interaction-card-actions button {
+  height: 32px;
+  border: 1px solid #ff9f00;
+  border-radius: 6px;
+  background: #ff9f00;
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 17px;
+}
+
+.interaction-card-actions button.is-secondary {
+  border-color: #dfe3e8;
+  background: #fff;
+  color: #64748b;
+}
+
+.interaction-card-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .system-notice-card {
   display: flex;
   width: min(420px, 100%);
@@ -3302,6 +3964,158 @@ onBeforeUnmount(() => {
   font-size: 12px;
   padding: 8px 0;
   text-align: center;
+}
+
+.em-action-overlay {
+  position: fixed;
+  z-index: 1100;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.48);
+  padding: 20px;
+}
+
+.em-action-modal {
+  width: min(620px, 100%);
+  max-height: min(760px, calc(100vh - 40px));
+  overflow: auto;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
+}
+
+.em-action-modal > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  border-bottom: 1px solid #edf0f5;
+  padding: 20px 22px 16px;
+}
+
+.em-action-modal > header h3,
+.em-action-modal > header p {
+  margin: 0;
+}
+
+.em-action-modal > header h3 {
+  color: #1e293b;
+  font-size: 18px;
+}
+
+.em-action-modal > header p {
+  margin-top: 5px;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.em-action-modal > header button {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 19px;
+}
+
+.em-action-form {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 22px;
+}
+
+.em-action-form label {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.em-action-form label.is-wide {
+  grid-column: 1 / -1;
+}
+
+.em-action-form label > span {
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.em-action-form label > span b {
+  color: #f43f5e;
+}
+
+.em-action-form input,
+.em-action-form select,
+.em-action-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #dfe3e8;
+  border-radius: 7px;
+  background: #fff;
+  color: #1e293b;
+  font: inherit;
+  outline: none;
+  padding: 9px 11px;
+}
+
+.em-action-form input:focus,
+.em-action-form select:focus,
+.em-action-form textarea:focus {
+  border-color: #ff9f00;
+  box-shadow: 0 0 0 3px rgba(255, 159, 0, 0.1);
+}
+
+.em-action-form textarea {
+  resize: vertical;
+}
+
+.em-action-form label.is-checkbox {
+  flex-direction: row;
+  align-items: center;
+}
+
+.em-action-form label.is-checkbox input {
+  width: 16px;
+  height: 16px;
+  accent-color: #ff9f00;
+}
+
+.em-action-modal > footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid #edf0f5;
+  padding: 15px 22px;
+}
+
+.em-action-modal > footer button {
+  min-width: 90px;
+  height: 38px;
+  border: 1px solid #ff9f00;
+  border-radius: 7px;
+  background: #ff9f00;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.em-action-modal > footer button.is-secondary {
+  border-color: #dfe3e8;
+  background: #fff;
+  color: #64748b;
+}
+
+.em-action-modal > footer button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 /* 快捷语管理弹窗 */

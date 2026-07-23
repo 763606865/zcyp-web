@@ -129,6 +129,18 @@ export async function getApplicationDetail(id: number, authorization: string) {
   return response.data
 }
 
+export async function checkApplication(
+  query: { job_id: number, candidate_user_id?: number, resume_id?: number },
+  authorization: string,
+) {
+  const response = await getJson<ApiResponse<ApplicationItem | null>>(
+    '/rc/applications/check',
+    query,
+    createAuthHeaders(authorization),
+  )
+  return response.data
+}
+
 export async function createApplication(payload: ApplicationCreatePayload, authorization: string) {
   const response = await postJson<ApiResponse<ApplicationItem>>(
     '/rc/applications',
