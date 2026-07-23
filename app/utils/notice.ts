@@ -4,6 +4,11 @@ let globalNotify: ((msg: string, type?: 'success' | 'error' | 'warning' | 'info'
 
 export function setGlobalNotify(fn: typeof globalNotify) {
   globalNotify = fn
+
+  return () => {
+    if (globalNotify === fn)
+      globalNotify = null
+  }
 }
 
 export function pushGlobalNotice(message: string, type: 'success' | 'error' | 'warning' | 'info' = 'success') {

@@ -3,7 +3,7 @@ import type { ApplicationItem } from '~/services/application'
 import type { ImBusinessCardResponse, ImBusinessCardType, ImConversation, ImHistoryMessage, ImInteractionCard, ImInteractionRequestAction, ImInteractionResponse, ImParticipant, ImQuickPhrase } from '~/services/im'
 import type { AuthIdentityCode } from '~/types/auth'
 import { appEnv } from '~/config/env'
-import { checkApplication, createApplication, rejectApplication } from '~/services/application'
+import { checkApplication, createApplication, inviteInterview, rejectApplication, sendOffer } from '~/services/application'
 import { resolveAssetUrl } from '~/services/http'
 import { createImInteractionRequest, createImQuickPhrase, deleteImQuickPhrase, getImConversationMessages, getImConversations, getImQuickPhrases, refreshImToken, respondImInteractionRequest, sendImBusinessCard, updateImQuickPhrase } from '~/services/im'
 import { favoriteTalentJob, unfavoriteTalentJob } from '~/services/talent-jobs'
@@ -670,6 +670,17 @@ async function submitEmployerApplicationAction() {
       const receiverUserImId = getPrimaryParticipant(conversation)?.id
       if (!conversation?.id || !receiverUserImId)
         throw new Error('当前会话参与者信息不完整')
+      const interviewPayload = {
+        interview_at: interviewAt.toISOString(),
+        mode: form.mode,
+        duration_mins: form.duration_mins || undefined,
+        interviewer_name: form.interviewer_name || undefined,
+        location: form.location || undefined,
+        meeting_url: form.meeting_url || undefined,
+        note: form.note || undefined,
+      }
+      const interviewResult = await inviteInterview(application.id, interviewPayload, authorization)
+      businessActionCompleted = true
       const result = await createImInteractionRequest({
         conversation_id: conversation.id,
         receiver_user_im_id: receiverUserImId,
@@ -677,16 +688,12 @@ async function submitEmployerApplicationAction() {
         payload: {
           application_id: application.id,
           job_id: application.job_id,
-          interview_at: interviewAt.toISOString(),
-          mode: form.mode,
-          duration_mins: form.duration_mins || undefined,
-          interviewer_name: form.interviewer_name || undefined,
-          location: form.location || undefined,
-          meeting_url: form.meeting_url || undefined,
-          note: form.note || undefined,
+          interview_id: interviewResult?.id
+            ?? interviewResult?.interview?.id
+            ?? interviewResult?.pending_interview_invitation?.id,
+          ...interviewPayload,
         },
       }, authorization)
-      businessActionCompleted = true
       appendInteractionResponse(result, 'interaction_request', 'outgoing')
       pushGlobalNotice('面试邀请已发送，等待对方确认')
     }
@@ -700,6 +707,18 @@ async function submitEmployerApplicationAction() {
       const receiverUserImId = getPrimaryParticipant(conversation)?.id
       if (!conversation?.id || !receiverUserImId)
         throw new Error('当前会话参与者信息不完整')
+      const offerPayload = {
+        salary: form.salary,
+        salary_unit: form.salary_unit,
+        has_probation: form.has_probation,
+        entry_date: form.entry_date || undefined,
+        expire_date: form.expire_date || undefined,
+        remuneration_note: form.remuneration_note || undefined,
+        attendance_note: form.attendance_note || undefined,
+        note: form.note || undefined,
+      }
+      const offerResult = await sendOffer(application.id, offerPayload, authorization)
+      businessActionCompleted = true
       const result = await createImInteractionRequest({
         conversation_id: conversation.id,
         receiver_user_im_id: receiverUserImId,
@@ -707,17 +726,10 @@ async function submitEmployerApplicationAction() {
         payload: {
           application_id: application.id,
           job_id: application.job_id,
-          salary: form.salary,
-          salary_unit: form.salary_unit,
-          has_probation: form.has_probation,
-          entry_date: form.entry_date || undefined,
-          expire_date: form.expire_date || undefined,
-          remuneration_note: form.remuneration_note || undefined,
-          attendance_note: form.attendance_note || undefined,
-          note: form.note || undefined,
+          offer_id: offerResult?.id ?? offerResult?.offer?.id,
+          ...offerPayload,
         },
       }, authorization)
-      businessActionCompleted = true
       appendInteractionResponse(result, 'interaction_request', 'outgoing')
       pushGlobalNotice('Offer 已发送，等待对方确认')
     }
@@ -745,7 +757,7 @@ async function submitEmployerApplicationAction() {
   }
   catch (error) {
     const message = businessActionCompleted
-      ? `业务操作成功，但卡片消息发送失败：${error instanceof Error ? error.message : '未知错误'}`
+      ? `业务操作成功，但交互消息发送失败：${error instanceof Error ? error.message : '未知错误'}`
       : error instanceof Error ? error.message : '操作失败'
     pushGlobalNotice(message, 'error')
   }

@@ -11,6 +11,7 @@ const activeNav = computed(() => route.meta.activeNav as string | undefined)
 const hidePortalSearchRow = computed(() => route.meta.hidePortalSearchRow === true)
 const searchPlaceholder = computed(() => route.meta.searchPlaceholder as string | undefined)
 const searchPath = computed(() => route.meta.searchPath as string | undefined)
+let disposeGlobalNotify: (() => void) | null = null
 
 await callOnce(async () => {
   await siteStore.loadAreas()
@@ -27,13 +28,14 @@ onMounted(() => {
     },
   })
 
-  setGlobalNotify((msg: string, type = 'success') => {
+  disposeGlobalNotify = setGlobalNotify((msg: string, type = 'success') => {
     message[type](msg, { closable: true, duration: 3000 })
   })
 })
 
 onBeforeUnmount(() => {
-  setGlobalNotify(null)
+  disposeGlobalNotify?.()
+  disposeGlobalNotify = null
 })
 </script>
 
