@@ -699,7 +699,7 @@ const allInfoLabels = computed(() => {
             <!-- 审批中状态 -->
             <div v-if="orgStatus === 2" class="px-[8px] py-[3px] rounded-[4px] bg-[#1890ff] flex gap-[2px] items-center">
               <span class="i-carbon-time text-[12px] text-[#fff] leading-none" />
-              <span class="text-[12px] text-[#fff] leading-none">审批中</span>
+              <span class="text-[12px] text-[#fff] leading-none">审核中</span>
             </div>
           </div>
           <!-- 下方：标签（竖线分隔） -->

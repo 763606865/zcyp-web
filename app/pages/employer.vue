@@ -126,7 +126,7 @@ function handleClickOutside() {
           </button> -->
           <div type="button" class="portal-city-button text-[14px] text-[#222] font-medium flex gap-[4px] items-center relative z-[55]">
             <img class="h-[16px] w-[16px]" src="/assets/images/employer/enterprise-icon.png" :alt="currentOrgName || '企业logo'">
-            <span>{{ currentOrgName || '' }}</span>
+            <span>{{ currentOrgName || '' }}</span><span v-if="orgStatus === 2" class="text-[12px] text-[#ffffff] ml-[4px] px-[12px] py-[2px] rounded-[4px] bg-[#1890ff]">审核中</span>
           </div>
           <div class="relative" @click.stop>
             <button type="button" class="text-[12px] text-[#FFA500] px-[9px] rounded-[4px] bg-[#FFF6E6] flex gap-[4px] h-[24px] items-center" @click="showSwitchPanel = !showSwitchPanel">

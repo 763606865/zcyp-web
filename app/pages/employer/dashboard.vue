@@ -9,6 +9,11 @@ definePageMeta({
 const userStore = useUserStore()
 const metaStore = useMetaStore()
 
+const isOrgApproved = computed(() => {
+  const info = userStore.currentIdentityInfo
+  return info && typeof info === 'object' && info.identity_type === 2 && info.organization?.status === 1
+})
+
 interface DashboardData {
   employerCount: number
   resumeCount: number
@@ -193,7 +198,14 @@ onMounted(() => {
 </script>
 
 <template>
-  <div>
+  <div class="relative">
+    <!-- 企业审批中蒙层 -->
+    <div v-if="!isOrgApproved" class="rounded-[8px] bg-white/80 flex flex-col items-center inset-0 justify-center absolute z-10 backdrop-blur-sm">
+      <span class="i-carbon-building text-[48px] text-slate-300" />
+      <span class="text-[16px] text-slate-700 font-semibold mt-3">企业信息审核中</span>
+      <span class="text-[13px] text-slate-500 mt-1.5">您的企业信息正在等待平台审核，审核通过后即可查看数据。</span>
+    </div>
+
     <h1 class="text-[14px] text-[#222222] font-bold">
       数据看板
     </h1>
