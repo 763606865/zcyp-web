@@ -7,6 +7,7 @@ import { checkApplication, createApplication, inviteInterview, rejectApplication
 import { getCompanyProfile } from '~/services/company'
 import { resolveAssetUrl } from '~/services/http'
 import { createImInteractionRequest, createImQuickPhrase, deleteImQuickPhrase, getImConversationMessages, getImConversations, getImQuickPhrases, refreshImToken, respondImInteractionRequest, sendImBusinessCard, updateImQuickPhrase } from '~/services/im'
+import { favoriteTalentResume, unfavoriteTalentResume } from '~/services/talent'
 import { favoriteTalentJob, unfavoriteTalentJob } from '~/services/talent-jobs'
 import { upload } from '~/services/upload'
 import { pushGlobalNotice } from '~/utils/notice'
@@ -548,7 +549,47 @@ function getConversationCompanyId(conversation: ImConversation | null) {
 }
 
 function isConversationJobFavorited(conversation: ImConversation | null) {
-  return conversation?.context?.is_favorited ?? false
+  return conversation?.viewer_context?.is_job_favorited ?? false
+}
+
+function isConversationResumeFavorited(conversation: ImConversation | null) {
+  return conversation?.viewer_context?.is_resume_favorited ?? false
+}
+
+function getConversationResumeId(conversation: ImConversation | null) {
+  const rawId = conversation?.viewer_context?.resume_id
+    || conversation?.context?.resume_id
+    || conversation?.metadata?.resume_id
+    || conversation?.metadata?.candidate_resume_id
+  const id = Number(rawId)
+  return Number.isInteger(id) && id > 0 ? id : null
+}
+
+function canFavoriteConversationResume(conversation: ImConversation | null) {
+  if (!conversation || conversation.scene === 'system')
+    return false
+
+  return Boolean(
+    getConversationResumeId(conversation)
+    || (getConversationJobId(conversation) && getPrimaryParticipant(conversation)?.user_id),
+  )
+}
+
+async function resolveConversationResumeId(conversation: ImConversation) {
+  const resumeId = getConversationResumeId(conversation)
+  if (resumeId)
+    return resumeId
+
+  const jobId = getConversationJobId(conversation)
+  const candidateUserId = getPrimaryParticipant(conversation)?.user_id
+  if (!jobId || !candidateUserId || !userStore.authHeader)
+    return null
+
+  const application = await checkApplication({
+    job_id: jobId,
+    candidate_user_id: candidateUserId,
+  }, userStore.authHeader)
+  return application?.resume_id || null
 }
 
 async function toggleConversationJobFavorite() {
@@ -562,10 +603,38 @@ async function toggleConversationJobFavorite() {
     const result = isConversationJobFavorited(conversation)
       ? await unfavoriteTalentJob(jobId, userStore.authHeader)
       : await favoriteTalentJob(jobId, userStore.authHeader)
-    conversation.is_favorited = result.is_favorited
-    if (conversation.context)
-      conversation.context.is_favorited = result.is_favorited
+    conversation.viewer_context ||= {}
+    conversation.viewer_context.is_job_favorited = result.is_favorited
     pushGlobalNotice(result.is_favorited ? '已收藏职位' : '已取消收藏')
+  }
+  catch (error) {
+    pushGlobalNotice(error instanceof Error ? error.message : '收藏操作失败', 'error')
+  }
+  finally {
+    isFavoriteOperating.value = false
+  }
+}
+
+async function toggleConversationResumeFavorite() {
+  const conversation = activeConversation.value
+  if (!conversation || !userStore.authHeader || isFavoriteOperating.value)
+    return
+
+  isFavoriteOperating.value = true
+  try {
+    const resumeId = await resolveConversationResumeId(conversation)
+    if (!resumeId) {
+      pushGlobalNotice('当前会话暂无可收藏的简历', 'warning')
+      return
+    }
+
+    const result = isConversationResumeFavorited(conversation)
+      ? await unfavoriteTalentResume(resumeId, userStore.authHeader)
+      : await favoriteTalentResume(resumeId, userStore.authHeader)
+    conversation.viewer_context ||= {}
+    conversation.viewer_context.resume_id = resumeId
+    conversation.viewer_context.is_resume_favorited = result.is_favorited
+    pushGlobalNotice(result.is_favorited ? '已收藏简历' : '已取消收藏')
   }
   catch (error) {
     pushGlobalNotice(error instanceof Error ? error.message : '收藏操作失败', 'error')
@@ -2319,6 +2388,17 @@ onBeforeUnmount(() => {
             >
               <span :class="isConversationJobFavorited(activeConversation) ? 'i-carbon-star-filled' : 'i-carbon-star'" />
               {{ isConversationJobFavorited(activeConversation) ? '已收藏' : '收藏' }}
+            </button>
+            <button
+              v-if="audience === 'employer' && canFavoriteConversationResume(activeConversation)"
+              type="button"
+              class="chat-favorite-button"
+              :class="{ 'is-active': isConversationResumeFavorited(activeConversation) }"
+              :disabled="isFavoriteOperating"
+              @click="toggleConversationResumeFavorite"
+            >
+              <span :class="isConversationResumeFavorited(activeConversation) ? 'i-carbon-star-filled' : 'i-carbon-star'" />
+              {{ isConversationResumeFavorited(activeConversation) ? '已收藏简历' : '收藏简历' }}
             </button>
             <span :class="`is-${connectionState}`">{{ isActiveSystemConversation ? activeSubscriptionText : statusText }}</span>
           </div>

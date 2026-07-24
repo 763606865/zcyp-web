@@ -79,11 +79,18 @@ export interface ImConversationContext {
   job_id?: number | null
   title?: string | null
   application_id?: number | null
-  is_favorited?: boolean
+  resume_id?: number | null
   salary_min?: string | number | null
   salary_max?: string | number | null
   salary_unit_label?: string | null
   annual_salary_months?: string | number | null
+  [key: string]: unknown
+}
+
+export interface ImConversationViewerContext {
+  is_job_favorited?: boolean
+  is_resume_favorited?: boolean
+  resume_id?: number | null
   [key: string]: unknown
 }
 
@@ -112,8 +119,8 @@ export interface ImConversation {
   owner_id: number
   scene: string | null
   job_id?: number | null
-  is_favorited?: boolean
   context?: ImConversationContext | null
+  viewer_context?: ImConversationViewerContext | null
   metadata: Record<string, unknown> | null
   last_message_at: string | null
   expires_at: string | null
