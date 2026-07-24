@@ -107,6 +107,8 @@ async function openOfferModal() {
       const profile = await getCompanyProfile(userStore.authHeader)
       if (profile?.benefit_tag_labels?.length)
         offerForm.value.remuneration_note = profile.benefit_tag_labels.join('、')
+      if (profile?.work_time)
+        offerForm.value.attendance_note = profile.work_time
     }
     catch {}
   }
