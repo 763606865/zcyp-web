@@ -312,6 +312,8 @@ function resolveSalaryRange(label: string): Pick<TalentJobQuery, 'salary_min' | 
 
 function resolveExperienceRange(value: number): Pick<TalentJobQuery, 'experience_min' | 'experience_max'> {
   switch (value) {
+    case 1:
+      return { experience_min: 0, experience_max: 1 }
     case 2:
       return { experience_min: 1, experience_max: 3 }
     case 3:
