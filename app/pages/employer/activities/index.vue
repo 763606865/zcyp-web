@@ -373,6 +373,11 @@ watch(availablePage, () => fetchAvailable())
               <div class="text-[16px] text-[#222] font-medium mb-2 h-[45px] line-clamp-2">
                 {{ item.activity.title }}
               </div>
+              <div class="mb-2">
+                <span class="text-[12px] px-2 py-0.5 rounded-[2px] inline-flex" :class="typeTagStyles[item.activity.type] || 'bg-[#f5f5f5] text-[#666] ring-1 ring-[#e5e5e5]'">
+                  {{ item.activity.type_label || '其他活动' }}
+                </span>
+              </div>
               <div class="flex items-center justify-between">
                 <span class="text-[12px] text-[#999]">
                   {{ item.activity.start_time?.slice(0, 10) }}至{{ item.activity.end_time?.slice(0, 10) }}
@@ -452,6 +457,11 @@ watch(availablePage, () => fetchAvailable())
               <div class="text-[16px] text-[#222] font-medium mb-2 h-[45px] line-clamp-2">
                 {{ item.title }}
               </div>
+              <div class="mb-2">
+                <span class="text-[12px] px-2 py-0.5 rounded-[2px] inline-flex" :class="typeTagStyles[item.type] || 'bg-[#f5f5f5] text-[#666] ring-1 ring-[#e5e5e5]'">
+                  {{ item.type_label || '其他活动' }}
+                </span>
+              </div>
               <div class="text-[12px] text-[#999] mb-1">
                 报名时间：{{ item.register_start_date?.slice(0, 10) }}至{{ item.register_end_date?.slice(0, 10) }}
               </div>
@@ -521,6 +531,11 @@ watch(availablePage, () => fetchAvailable())
             <div class="p-3">
               <div class="text-[16px] text-[#222] font-medium mb-2 h-[45px] line-clamp-2">
                 {{ item.title }}
+              </div>
+              <div class="mb-2">
+                <span class="text-[12px] px-2 py-0.5 rounded-[2px] inline-flex" :class="typeTagStyles[item.type] || 'bg-[#f5f5f5] text-[#666] ring-1 ring-[#e5e5e5]'">
+                  {{ item.type_label || '其他活动' }}
+                </span>
               </div>
               <div class="flex items-center justify-between">
                 <span class="text-[12px] text-[#999]">

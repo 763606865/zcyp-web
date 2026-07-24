@@ -55,6 +55,10 @@ export interface ApplicationItem {
   created_at: string | null
   updated_at: string | null
   offer: OfferInfo | null
+  latest_flow?: {
+    note?: string | null
+    [key: string]: unknown
+  } | null
   job: {
     id: number
     title: string

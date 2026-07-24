@@ -21,6 +21,8 @@ const { isStartingConversation, startSingleConversation } = useImConversationSta
 const appId = computed(() => Number((route.params as Record<string, string>).id))
 const app = ref<ApplicationItem | null>(null)
 const resumeDetail = computed(() => app.value?.resume_snapshot || app.value?.resume || null)
+const FLOW_ADVANCE_NOTE_REGEX = /接受|同意/
+const FLOW_STOP_NOTE_REGEX = /拒绝|取消|淘汰/
 
 const statusColors: Record<number, string> = {
   0: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',
@@ -30,6 +32,16 @@ const statusColors: Record<number, string> = {
   4: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',
   5: 'bg-slate-100 text-slate-500 ring-1 ring-slate-200',
   6: 'bg-red-50 text-red-500 ring-1 ring-red-200',
+}
+
+function getFlowNoteClass(note?: string | null) {
+  if (!note)
+    return ''
+  if (FLOW_STOP_NOTE_REGEX.test(note))
+    return 'bg-red-50 text-red-600 ring-1 ring-red-200'
+  if (FLOW_ADVANCE_NOTE_REGEX.test(note))
+    return 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'
+  return 'bg-slate-50 text-slate-600 ring-1 ring-slate-200'
 }
 
 const educationLevelMap: Record<number, string> = { 1: '高中/中专', 2: '专科', 3: '本科', 4: '硕士', 5: '博士' }
@@ -208,6 +220,13 @@ async function handleStartConversation() {
               </h2>
               <span class="text-[12px] font-medium px-3 py-1 rounded-full" :class="statusColors[app.status] || ''">
                 {{ app.status_label || '未知状态' }}
+              </span>
+              <span
+                v-if="app.latest_flow?.note"
+                class="text-[12px] font-medium px-3 py-1 rounded-full"
+                :class="getFlowNoteClass(app.latest_flow.note)"
+              >
+                {{ app.latest_flow.note }}
               </span>
             </div>
             <div class="text-[13px] text-slate-500 mt-1">

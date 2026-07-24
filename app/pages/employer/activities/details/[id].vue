@@ -13,6 +13,7 @@ definePageMeta({
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+const metaStore = useMetaStore()
 
 // --- 通过 query 参数区分页面类型 ---
 const isOrganized = computed(() => route.query.type === 'organized')
@@ -27,6 +28,17 @@ const detailLoading = ref(false)
 const activity = computed(() => activityData.value?.activity)
 const application = computed(() => applicationData.value?.application)
 const jobs = computed<ActivityJobItem[]>(() => jobsData.value?.data || [])
+const activityAreaLabel = computed(() => {
+  const detail = activity.value
+  if (!detail)
+    return ''
+
+  const areaCode = detail.district_code || detail.city_code || detail.province_code || ''
+  return metaStore.buildAreaLabel(areaCode)
+})
+const activityFullAddress = computed(() =>
+  [activityAreaLabel.value, activity.value?.address].filter(Boolean).join(' ') || '-',
+)
 
 async function loadJoinedDetail() {
   if (!userStore.authHeader)
@@ -80,7 +92,10 @@ async function loadOrganizedDetail() {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  if (userStore.authHeader)
+    await metaStore.ensureAreasLoaded(userStore.authHeader)
+
   if (isOrganized.value)
     loadOrganizedDetail()
   else loadJoinedDetail()
@@ -185,6 +200,9 @@ function schoolsLabel(schools?: { name: string }[]): string {
                   <div class="mt-[12px] flex gap-[25px] items-center">
                     <div class="text-[14px] text-[#999] leading-none">
                       报名时间：{{ activity.register_start_date?.slice(0, 10) }}至{{ activity.register_end_date?.slice(0, 10) }}
+                    </div>
+                    <div class="text-[14px] text-[#999] leading-none">
+                      活动地址：{{ activityFullAddress }}
                     </div>
                     <button
                       v-if="application?.apply_status === 2"
@@ -354,7 +372,7 @@ function schoolsLabel(schools?: { name: string }[]): string {
                   关联院校：{{ schoolsLabel(activity.schools) }}
                 </div>
                 <div class="text-[14px] text-[#999]">
-                  活动地址：{{ activity.address || '-' }}
+                  活动地址：{{ activityFullAddress }}
                 </div>
                 <div class="text-[14px] text-[#999]">
                   联系人：{{ activity.contact_name || '-' }}
