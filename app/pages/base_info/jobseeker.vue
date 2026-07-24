@@ -1609,7 +1609,7 @@ watch(
           </div>
 
           <div class="form-actions">
-            <button v-if="currentStep === 'intention'" type="button" class="skip-button" :disabled="isSaving" @click="skipToIntention">
+            <button v-if="currentStepIndex > 0" type="button" class="skip-button" :disabled="isSaving" @click="skipToIntention">
               跳过
             </button>
             <button v-if="currentStepIndex > 0" type="button" class="prev-button" :disabled="isSaving" @click="moveToPrevStep">
