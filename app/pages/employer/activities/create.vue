@@ -20,6 +20,7 @@ const metaStore = useMetaStore()
 
 const isEdit = computed(() => !!route.query.edit)
 const editId = computed(() => route.query.id ? Number(route.query.id) : null)
+const WHITESPACE_REGEX = /\s+/g
 
 const typeOptions = [
   { value: 0, label: '招聘会', desc: '线下招聘会，企业可设置展位，学生到场投递简历', icon: '/assets/images/employer/jobfair-icon.png' },
@@ -41,7 +42,7 @@ const form = ref({
   school_codes: [] as string[],
 })
 
-const areaCascaderValue = ref<string[]>([])
+const areaCascaderValue = ref<string | null>(null)
 
 const saving = ref(false)
 const uploadingCover = ref(false)
@@ -57,38 +58,46 @@ const areaCascaderOptions = computed(() => {
   function mapArea(n: RcAreaNode): { value: string, label: string, children?: any[] } {
     return { value: n.code, label: n.name, children: n.children?.length ? n.children.map(mapArea) : undefined }
   }
-  return (metaStore.normalizedAreas || []).map(mapArea)
+  return metaStore.areas.map(mapArea)
 })
 
 const schoolOptions = computed(() => metaStore.schools)
-
-watch(() => form.value.province_code, () => {
-  form.value.city_code = ''
-  form.value.district_code = ''
+const activityLocationKeyword = computed(() => {
+  const areaCode = form.value.district_code || form.value.city_code || form.value.province_code
+  return metaStore.buildAreaLabel(areaCode).replace(WHITESPACE_REGEX, '')
 })
 
-watch(() => form.value.city_code, () => {
-  form.value.district_code = ''
-})
+function findAreaPath(code: string) {
+  for (const province of metaStore.areas) {
+    if (province.code === code)
+      return [province.code]
 
-watch(areaCascaderValue, (val) => {
-  if (!val || val.length === 0) {
+    for (const city of province.children || []) {
+      if (city.code === code)
+        return [province.code, city.code]
+
+      for (const district of city.children || []) {
+        if (district.code === code)
+          return [province.code, city.code, district.code]
+      }
+    }
+  }
+
+  return []
+}
+
+watch(areaCascaderValue, (code) => {
+  if (!code) {
     form.value.province_code = ''
     form.value.city_code = ''
     form.value.district_code = ''
     return
   }
-  const level = val.length
-  if (level >= 1)
-    form.value.province_code = val[0] || ''
-  if (level >= 2)
-    form.value.city_code = val[1] || ''
-  else
-    form.value.city_code = ''
-  if (level >= 3)
-    form.value.district_code = val[2] || ''
-  else
-    form.value.district_code = ''
+
+  const path = findAreaPath(code)
+  form.value.province_code = path[0] || ''
+  form.value.city_code = path[1] || ''
+  form.value.district_code = path[2] || ''
 })
 
 function tsToStr(ts: number | null): string | null {
@@ -163,15 +172,8 @@ async function loadEditData() {
         status: 'finished',
       }]
     }
-    // 还原级联选择器的值
-    const path: string[] = []
-    if (data.province_code)
-      path.push(data.province_code)
-    if (data.city_code)
-      path.push(data.city_code)
-    if (data.district_code)
-      path.push(data.district_code)
-    areaCascaderValue.value = path
+    // Cascader 使用最末级地区编码，自动显示完整省/市/区路径。
+    areaCascaderValue.value = data.district_code || data.city_code || data.province_code || null
   }
   catch {
     pushGlobalNotice('加载活动数据失败', 'error')
@@ -419,6 +421,7 @@ onMounted(async () => {
             v-model:value="areaCascaderValue"
             :options="areaCascaderOptions as any"
             placeholder="请选择地区"
+            check-strategy="child"
             filterable
             clearable
             class="w-full"
@@ -432,6 +435,7 @@ onMounted(async () => {
             <AmapLocationPicker
               class="locationStyle"
               :model-value="form.address || undefined"
+              :location-keyword="activityLocationKeyword"
               @update:model-value="form.address = $event ?? ''"
             />
           </ClientOnly>
