@@ -2834,8 +2834,8 @@ async function handleUploadConfirm() {
       <aside class="resume-side-column">
         <section class="side-card">
           <h2>我的简历</h2>
-          <!-- <div class="resume-file-list">
-            <div class="resume-file-row">
+          <div v-if="resume?.file_name" class="resume-file-list">
+            <!-- <div class="resume-file-row">
               <div class="file-icon word">
                 W
               </div>
@@ -2846,8 +2846,8 @@ async function handleUploadConfirm() {
               <button type="button">
                 设为默认
               </button>
-            </div>
-            <div v-if="resume?.file_name" class="resume-file-row">
+            </div> -->
+            <div class="resume-file-row">
               <div class="file-icon pdf">
                 PDF
               </div>
@@ -2855,11 +2855,11 @@ async function handleUploadConfirm() {
                 <div>{{ resume.file_name }}</div>
                 <span>{{ resume.updated_at?.slice(0, 10) || '-' }}</span>
               </div>
-              <button type="button">
+              <!-- <button type="button">
                 设为默认
-              </button>
+              </button> -->
             </div>
-          </div> -->
+          </div>
           <div class="completion-box">
             <div>
               <span>简历完整度</span>
