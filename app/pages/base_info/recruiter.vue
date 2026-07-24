@@ -462,20 +462,18 @@ function validatePersonalForm() {
     return '联系电话不能超过 20 个字符。'
   }
 
-  const jobTitle = personalForm.jobTitle.trim()
-  if (!jobTitle) {
-    setFieldError('jobTitle')
-    return '请填写岗位名称。'
-  }
-  if (jobTitle.length > 50) {
-    setFieldError('jobTitle')
-    return '岗位名称不能超过 50 个字符。'
-  }
-
   return ''
 }
 
 function validateCreditCode() {
+  if (!personalForm.jobTitle.trim()) {
+    setFieldError('jobTitle')
+    return '请填写职位名称。'
+  }
+  if (!bindForm.companyName.trim()) {
+    setFieldError('companyName')
+    return '请填写公司名称。'
+  }
   if (!CREDIT_CODE_RE.test(bindForm.creditCode.trim())) {
     setFieldError('creditCode')
     return '请输入 18 位统一社会信用代码。'
@@ -653,16 +651,13 @@ async function handleCompanyBind() {
   if (!userStore.authHeader || isSaving.value)
     return
 
-  const personalError = validatePersonalForm()
-  if (personalError) {
-    errorMessage.value = personalError
-    currentStep.value = 'personal'
-    return
-  }
-
   const creditError = validateCreditCode()
   if (creditError) {
     errorMessage.value = creditError
+    return
+  }
+  if (!licenseFileName.value) {
+    errorMessage.value = '请上传营业执照。'
     return
   }
 
@@ -847,7 +842,7 @@ watch(
           <p v-if="licenseFileName" class="license-file-name">
             {{ licenseFileName }}
           </p>
-          <button type="button" class="license-button" :disabled="isUploadingLicense || isRecognizingLicense" @click="openLicensePicker">
+          <button v-if="currentStep === 'companyBind'" type="button" class="license-button" :disabled="isUploadingLicense || isRecognizingLicense" @click="openLicensePicker">
             {{ isRecognizingLicense ? '识别中...' : isUploadingLicense ? '上传中...' : '上传营业执照' }}
           </button>
           <input ref="licenseFileInputRef" type="file" accept="image/*,.pdf,application/pdf" class="visually-hidden" @change="handleLicenseFileInput">
@@ -884,10 +879,6 @@ watch(
               <label class="recruiter-field" :class="{ 'is-error': fieldErrors.contactName }">
                 <span>姓名</span>
                 <NInput v-model:value="personalForm.contactName" placeholder="请输入姓名" clearable />
-              </label>
-              <label class="recruiter-field" :class="{ 'is-error': fieldErrors.jobTitle }">
-                <span>在公司职位</span>
-                <NInput v-model:value="personalForm.jobTitle" placeholder="请输入职位" clearable />
               </label>
               <label class="recruiter-field" :class="{ 'is-error': fieldErrors.contactPhone }">
                 <span>联系电话</span>
@@ -938,6 +929,10 @@ watch(
             </div>
 
             <div class="form-grid two-col">
+              <label class="recruiter-field field-wide">
+                <span>在公司职位</span>
+                <NInput v-model:value="personalForm.jobTitle" placeholder="请输入职位" clearable />
+              </label>
               <label class="recruiter-field field-wide">
                 <span>公司名称</span>
                 <NInput v-model:value="bindForm.companyName" placeholder="请输入公司名称" clearable />
