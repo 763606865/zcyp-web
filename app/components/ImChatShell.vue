@@ -4,6 +4,7 @@ import type { ImBusinessCardResponse, ImBusinessCardType, ImConversation, ImHist
 import type { AuthIdentityCode } from '~/types/auth'
 import { appEnv } from '~/config/env'
 import { checkApplication, createApplication, inviteInterview, rejectApplication, sendOffer } from '~/services/application'
+import { getCompanyProfile } from '~/services/company'
 import { resolveAssetUrl } from '~/services/http'
 import { createImInteractionRequest, createImQuickPhrase, deleteImQuickPhrase, getImConversationMessages, getImConversations, getImQuickPhrases, refreshImToken, respondImInteractionRequest, sendImBusinessCard, updateImQuickPhrase } from '~/services/im'
 import { favoriteTalentJob, unfavoriteTalentJob } from '~/services/talent-jobs'
@@ -616,6 +617,18 @@ async function prepareEmployerApplicationAction(action: 'interview' | 'offer' | 
     if (action === 'interview' && !interviewActionForm.value.interview_at) {
       const defaultInterviewTime = new Date(Date.now() + 24 * 60 * 60 * 1000)
       interviewActionForm.value.interview_at = toLocalDateTimeInput(defaultInterviewTime)
+    }
+    if (action === 'offer') {
+      try {
+        const profile = await getCompanyProfile(userStore.authHeader)
+        if (profile?.benefit_tag_labels?.length)
+          offerActionForm.value.remuneration_note = profile.benefit_tag_labels.join('、')
+        if (profile?.work_time)
+          offerActionForm.value.attendance_note = profile.work_time
+      }
+      catch {
+        // 企业资料加载失败不影响手动填写 Offer。
+      }
     }
   }
   catch (error) {

@@ -20,6 +20,7 @@ const metaStore = useMetaStore()
 const isSaving = ref(false)
 const MIN_ANNUAL_SALARY_MONTHS = 12
 const MAX_ANNUAL_SALARY_MONTHS = 100
+const WHITESPACE_REGEX = /\s+/g
 
 const jobForm = ref({
   employmentType: 1,
@@ -56,6 +57,10 @@ const areaCascaderOptions = computed(() => {
   }
   return metaStore.areas.map(mapArea)
 })
+
+const workplaceLocationKeyword = computed(() =>
+  metaStore.buildAreaLabel(jobForm.value.cityCode).replace(WHITESPACE_REGEX, ''),
+)
 
 const employmentTypeOptions = [
   { label: '社招全职', value: 1 },
@@ -432,7 +437,11 @@ await callOnce(async () => {
               <div class="space-y-2">
                 <label class="text-[14px] text-[#222] font-medium">详细地址</label>
                 <div class="mt-[8px]">
-                  <AmapLocationPicker v-model="jobForm.workplace" placeholder="请输入详细地址" />
+                  <AmapLocationPicker
+                    v-model="jobForm.workplace"
+                    :location-keyword="workplaceLocationKeyword"
+                    placeholder="请输入详细地址"
+                  />
                 </div>
               </div>
 

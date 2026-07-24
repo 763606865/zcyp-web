@@ -1,6 +1,7 @@
 import type { AuthCurrentIdentity, AuthIdentityCode, AuthIdentityInfo, AuthIdentityValue, AuthLoginResponse, AuthUser } from '~/types/auth'
 import { acceptHMRUpdate, defineStore } from 'pinia'
 import { authIdentityCodeMap, authIdentityTypeValueMap } from '~/types/auth'
+import { clearCmsContentCache } from '~/utils/cms-cache'
 
 const AUTH_STORAGE_KEY = 'zcgz-auth-session'
 const EMPTY_SESSION: AuthSession = { tokenType: '', accessToken: '', user: null }
@@ -103,6 +104,12 @@ export const useUserStore = defineStore('user', () => {
   }
 
   function setAuthSession(payload: AuthLoginResponse) {
+    const tokenChanged = tokenType.value !== payload.token_type || accessToken.value !== payload.access_token
+    if (tokenChanged) {
+      clearCmsContentCache()
+      usePageDataStore().clearCmsData()
+    }
+
     tokenType.value = payload.token_type
     accessToken.value = payload.access_token
     user.value = payload.user
@@ -140,6 +147,8 @@ export const useUserStore = defineStore('user', () => {
   }
 
   function clearAuthSession() {
+    clearCmsContentCache()
+    usePageDataStore().clearCmsData()
     tokenType.value = ''
     accessToken.value = ''
     user.value = null
