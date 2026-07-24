@@ -63,7 +63,7 @@ export function useIdentitySwitching(options: UseIdentitySwitchingOptions = {}) 
 
       const redirectTo = options.getRedirectTo?.(identity)
       if (redirectTo && route.path !== redirectTo)
-        await router.push(redirectTo)
+        await router.replace(redirectTo)
     }
     catch (error) {
       errorMessage.value = error instanceof ApiRequestError ? error.message : '身份切换失败，请稍后重试。'
