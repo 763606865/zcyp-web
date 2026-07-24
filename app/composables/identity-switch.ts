@@ -59,6 +59,7 @@ export function useIdentitySwitching(options: UseIdentitySwitchingOptions = {}) 
       userStore.setAuthSession(authData)
       pushGlobalNotice(`已切换为${identityOptions.find(item => item.code === identity)?.label || '新身份'}`)
 
+      await ensureHomePageData({ authorization: userStore.authHeader || undefined, force: true })
       await options.afterSwitch?.(identity)
 
       const redirectTo = options.getRedirectTo?.(identity)

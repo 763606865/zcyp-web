@@ -25,9 +25,8 @@ const qrTriggerRef = ref<HTMLElement | null>(null)
 const isQrPreviewVisible = ref(false)
 const qrPreviewPosition = ref({ top: 0, left: 0 })
 const { isRefreshingIdentity, switchingIdentityCode, errorMessage: identityError, switchIdentity } = useIdentitySwitching({
-  afterSwitch: async () => {
+  afterSwitch: () => {
     isIdentityDropdownOpen.value = false
-    await ensureHomePageData({ authorization: userStore.authHeader || undefined, force: true })
   },
   getRedirectTo: identity => resolveIdentityProfileRoute(identity),
 })
