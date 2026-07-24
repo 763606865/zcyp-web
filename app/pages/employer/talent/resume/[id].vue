@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { TalentResumeDetailResponse } from '~/services/talent'
 import type { JobRecord } from '~/types/jobs'
-import type { ResumeCertificate, ResumeEducation, ResumeIntention, ResumeLanguage, ResumeProject, ResumeTraining, ResumeWork } from '~/types/resume'
+import type { ResumeCertificate, ResumeEducation, ResumeIntention, ResumeLanguage, ResumePortfolio, ResumeProject, ResumeSkill, ResumeTraining, ResumeWork } from '~/types/resume'
 import { ApiRequestError } from '~/services/http'
 import { getJobs } from '~/services/jobs'
 import { favoriteTalentResume, getTalentResumeDetail, unfavoriteTalentResume } from '~/services/talent'
@@ -99,6 +99,8 @@ const projects = ref<ProjectView[]>([])
 const trainings = ref<TrainingView[]>([])
 const languages = ref<LanguageView[]>([])
 const certificates = ref<ResumeCertificate[]>([])
+const skills = ref<ResumeSkill[]>([])
+const portfolios = ref<ResumePortfolio[]>([])
 
 const educationLevelMap: Record<number, string> = {
   1: '高中/中专',
@@ -209,6 +211,8 @@ function applyResumeDetail(detail: TalentResumeDetailResponse) {
   trainings.value = (detail.trainings || []).map(mapTraining)
   languages.value = (detail.languages || []).map(mapLanguage)
   certificates.value = detail.certificates || []
+  skills.value = detail.skills || []
+  portfolios.value = detail.portfolios || []
   isFavorited.value = Boolean(detail.is_favorited)
 }
 
@@ -670,19 +674,50 @@ async function toggleFavorite() {
               <span class="text-[#222]">{{ certificates[0].name }}</span>
             </div>
           </div>
+
+          <!-- 专业技能 -->
+          <div v-if="skills.length" class="mt-[31px]">
+            <div class="text-[14px] text-[#222] font-bold mb-[16px] flex gap-2 items-center">
+              <span class="rounded-full bg-[#f90] h-[16px] w-[3px] inline-block" />
+              专业技能
+            </div>
+            <div class="flex flex-wrap gap-[8px]">
+              <span
+                v-for="sk in skills"
+                :key="sk.id"
+                class="text-[14px] text-[#555] px-[18px] py-[6px] rounded-[4px] bg-[#efefef]"
+              >
+                {{ sk.skill_name }}
+              </span>
+            </div>
+          </div>
+
+          <!-- 个人作品 -->
+          <div v-if="portfolios.length" class="mt-[31px]">
+            <div class="text-[14px] text-[#222] font-bold mb-[16px] flex gap-2 items-center">
+              <span class="rounded-full bg-[#f90] h-[16px] w-[3px] inline-block" />
+              个人作品
+            </div>
+            <div class="space-y-[10px]">
+              <div v-for="pf in portfolios" :key="pf.id" class="text-[14px]">
+                <span class="text-[#222]">{{ pf.title }}</span>
+                <span v-if="pf.display_url" class="text-[#999]">：{{ pf.display_url }}</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
     <!-- 选择沟通职位 -->
     <div v-if="showJobSelectDialog" class="px-4 bg-black/45 flex items-center inset-0 justify-center fixed z-50" @click.self="showJobSelectDialog = false">
-      <div class="p-6 rounded-[10px] bg-white w-full max-w-[520px] shadow-xl" role="dialog" aria-modal="true" aria-labelledby="job-select-dialog-title">
+      <div class="p-6 rounded-[10px] bg-white max-w-[520px] w-full shadow-xl" role="dialog" aria-modal="true" aria-labelledby="job-select-dialog-title">
         <div class="flex items-center justify-between">
           <div>
             <h2 id="job-select-dialog-title" class="text-[18px] text-[#222] font-bold m-0">
               选择沟通职位
             </h2>
-            <p class="text-[13px] text-[#999] mt-2 mb-0">
+            <p class="text-[13px] text-[#999] mb-0 mt-2">
               请选择一个已发布职位，再与该求职者发起沟通
             </p>
           </div>
@@ -696,14 +731,18 @@ async function toggleFavorite() {
             正在加载已发布职位...
           </div>
           <div v-else-if="publishedJobsError" class="text-[14px] text-red-500 py-8 text-center">
-            <p class="m-0">{{ publishedJobsError }}</p>
+            <p class="m-0">
+              {{ publishedJobsError }}
+            </p>
             <button type="button" class="text-[13px] text-[#f90] mt-3 border-none bg-transparent cursor-pointer" @click="loadPublishedJobs">
               重新加载
             </button>
           </div>
           <div v-else-if="publishedJobs.length === 0" class="text-[14px] text-[#999] py-8 text-center">
-            <p class="m-0">暂无已发布职位，请先发布职位</p>
-            <NuxtLink to="/employer/jobs/add" class="text-[13px] text-[#f90] mt-3 inline-block no-underline" @click="showJobSelectDialog = false">
+            <p class="m-0">
+              暂无已发布职位，请先发布职位
+            </p>
+            <NuxtLink to="/employer/jobs/add" class="text-[13px] text-[#f90] mt-3 no-underline inline-block" @click="showJobSelectDialog = false">
               去发布职位
             </NuxtLink>
           </div>
@@ -712,7 +751,7 @@ async function toggleFavorite() {
               v-for="job in publishedJobs"
               :key="job.id"
               type="button"
-              class="p-3 text-left border rounded-[6px] bg-white flex w-full cursor-pointer items-center justify-between transition-colors"
+              class="p-3 text-left border rounded-[6px] bg-white flex w-full cursor-pointer transition-colors items-center justify-between"
               :class="selectedJobId === job.id ? 'border-[#f90] bg-[#fff8eb]' : 'border-[#e5e7eb] hover:border-[#ffbd59]'"
               :aria-pressed="selectedJobId === job.id"
               @click="selectedJobId = job.id"
@@ -730,7 +769,7 @@ async function toggleFavorite() {
           <button type="button" class="text-[14px] px-5 border border-[#d9d9d9] rounded-[6px] bg-white h-[36px] cursor-pointer" :disabled="isStartingConversation" @click="showJobSelectDialog = false">
             取消
           </button>
-          <button type="button" class="text-[14px] text-white px-5 border-none rounded-[6px] bg-[#f90] h-[36px] cursor-pointer disabled:cursor-not-allowed disabled:opacity-60" :disabled="!selectedJobId || isStartingConversation || isLoadingPublishedJobs" @click="confirmStartConversation">
+          <button type="button" class="text-[14px] text-white px-5 rounded-[6px] border-none bg-[#f90] h-[36px] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed" :disabled="!selectedJobId || isStartingConversation || isLoadingPublishedJobs" @click="confirmStartConversation">
             {{ isStartingConversation ? '发起中...' : '发起沟通' }}
           </button>
         </div>

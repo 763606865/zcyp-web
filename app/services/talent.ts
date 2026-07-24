@@ -1,4 +1,4 @@
-import type { ResumeCertificate, ResumeEducation, ResumeIntention, ResumeLanguage, ResumeListResponse, ResumePortfolio, ResumeProject, ResumeTraining, ResumeWork } from '~/types/resume'
+import type { ResumeCertificate, ResumeEducation, ResumeIntention, ResumeLanguage, ResumeListResponse, ResumePortfolio, ResumeProject, ResumeSkill, ResumeTraining, ResumeWork } from '~/types/resume'
 import { delJson, getJson, postJson } from './http'
 
 interface ApiResponse<T> {
@@ -92,6 +92,7 @@ export interface TalentResumeDetailResponse {
   trainings?: ResumeTraining[]
   languages?: ResumeLanguage[]
   certificates?: ResumeCertificate[]
+  skills?: ResumeSkill[]
   portfolios?: ResumePortfolio[]
 }
 
