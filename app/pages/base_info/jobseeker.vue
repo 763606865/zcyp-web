@@ -802,6 +802,10 @@ function moveToPrevStep() {
     currentStep.value = prevStep.code
 }
 
+async function skipToIntention() {
+  await router.replace('/')
+}
+
 async function handleNext() {
   if (isSaving.value)
     return
@@ -1605,6 +1609,9 @@ watch(
           </div>
 
           <div class="form-actions">
+            <button v-if="currentStep === 'intention'" type="button" class="skip-button" :disabled="isSaving" @click="skipToIntention">
+              跳过
+            </button>
             <button v-if="currentStepIndex > 0" type="button" class="prev-button" :disabled="isSaving" @click="moveToPrevStep">
               上一步
             </button>
@@ -2268,6 +2275,7 @@ watch(
 }
 
 .prev-button,
+.skip-button,
 .next-button {
   width: 112px;
   height: 40px;
@@ -2281,6 +2289,12 @@ watch(
   border: 1px solid var(--yp-orange);
   background-color: rgba(255, 255, 255, 1);
   color: var(--yp-orange);
+}
+
+.skip-button {
+  border: 1px solid var(--yp-border);
+  background-color: rgba(255, 255, 255, 1);
+  color: rgba(153, 153, 153, 1);
 }
 
 .next-button {
