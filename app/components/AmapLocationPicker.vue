@@ -8,9 +8,11 @@ declare global {
 const props = withDefaults(defineProps<{
   modelValue?: string
   placeholder?: string
+  locationKeyword?: string
 }>(), {
   modelValue: '',
   placeholder: '点击选择位置',
+  locationKeyword: '',
 })
 
 const emit = defineEmits<{
@@ -26,6 +28,8 @@ const mapContainer = ref<HTMLDivElement | null>(null)
 let mapInstance: any = null
 let markerInstance: any = null
 let mapLoaded = false
+
+type MapCenter = [number, number]
 
 function formatAddress(name: string, address: string) {
   return address ? `${name}（${address}）` : name
@@ -48,42 +52,50 @@ async function loadAmap() {
 
 async function openMap() {
   showMap.value = true
-  await loadAmap()
+  searchKeyword.value = props.locationKeyword || props.modelValue
+  const [, clientCenter] = await Promise.all([
+    loadAmap(),
+    getClientCoordinates(),
+  ])
   await nextTick()
-  initMap()
+  initMap(clientCenter)
 }
 
-function initMap() {
+function getClientCoordinates() {
+  if (typeof navigator === 'undefined' || !navigator.geolocation)
+    return Promise.resolve<MapCenter | null>(null)
+
+  return new Promise<MapCenter | null>((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      position => resolve([position.coords.longitude, position.coords.latitude]),
+      () => resolve(null),
+      {
+        enableHighAccuracy: true,
+        timeout: 5000,
+        maximumAge: 60_000,
+      },
+    )
+  })
+}
+
+function initMap(clientCenter: MapCenter | null) {
   if (!mapContainer.value || !window.AMap)
     return
-  const center = [116.397428, 39.90923] as [number, number]
+  const center = clientCenter || [116.397428, 39.90923]
 
   mapInstance = new window.AMap.Map(mapContainer.value, {
-    zoom: 13,
+    zoom: clientCenter ? 14 : 13,
     center,
     mapStyle: 'amap://styles/light',
   })
+
+  if (clientCenter)
+    placeMarker({ lng: clientCenter[0], lat: clientCenter[1] })
 
   mapInstance.on('click', (e: any) => {
     const lnglat = e.lnglat
     placeMarker(lnglat)
     reverseGeocode(lnglat.lng, lnglat.lat)
-  })
-
-  window.AMap.plugin('AMap.Geolocation', () => {
-    const geolocation = new window.AMap.Geolocation({
-      enableHighAccuracy: true,
-      timeout: 5000,
-    })
-    geolocation.getCurrentPosition((status: string, result: any) => {
-      if (status === 'complete' && result.position) {
-        const pos = [result.position.lng, result.position.lat] as [number, number]
-        mapInstance.setCenter(pos)
-        mapInstance.setZoom(14)
-        placeMarker(result.position)
-        reverseGeocode(result.position.lng, result.position.lat)
-      }
-    })
   })
 }
 
