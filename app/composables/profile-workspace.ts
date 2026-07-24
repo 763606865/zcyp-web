@@ -12,8 +12,8 @@ function hasApprovedEmployerWorkspace(identity: AuthCurrentIdentity) {
   return Boolean(
     identity
     && typeof identity === 'object'
-    && identity.identity_type === 2
-    && identity.organization?.status === 1,
+    && identity.identity_type === 2,
+    // && identity.organization?.status === 1,
   )
 }
 
