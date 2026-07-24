@@ -23,7 +23,7 @@ const activityId = computed(() => Number(route.params.id))
 const { dialog } = createDiscreteApi(['dialog'])
 
 // ==================== 步骤控制 ====================
-const currentStep = ref(1)
+const currentStep = ref(2)
 
 // ==================== API 数据 ====================
 const activityData = ref<any>(null)
@@ -219,9 +219,9 @@ function toggleJob(jobId: number) {
     selectedJobIds.value.push(jobId)
 }
 
-function goPrevStep() {
-  currentStep.value = 1
-}
+// function goPrevStep() {
+//   currentStep.value = 1
+// }
 
 async function handleSubmit() {
   if (selectedJobIds.value.length === 0) {
@@ -242,7 +242,10 @@ async function handleSubmit() {
   finally { submitting.value = false }
 }
 
-onMounted(() => { loadData() })
+onMounted(() => {
+  loadData()
+  loadJobs()
+})
 </script>
 
 <template>
@@ -335,8 +338,8 @@ onMounted(() => { loadData() })
 
     <!-- 报名表单 Card -->
     <div class="mt-[18px] rounded-[4px] bg-white shadow-[0_2px_8px_rgba(0,0,0,0.06)]" style="padding: 16px 24px 23px;">
-      <!-- ========== Step 1: 公司信息 ========== -->
-      <template v-if="currentStep === 1">
+      <!-- ========== Step 1: 公司信息（已隐藏） ========== -->
+      <template v-if="false && currentStep === 1">
         <h3 class="text-[16px] text-[#222] font-bold mb-[16px]">
           公司信息
         </h3>
@@ -527,12 +530,7 @@ onMounted(() => { loadData() })
           >
             提交报名
           </button>
-          <button
-            class="text-[14px] text-[#222] px-[24px] border border-[#E8E8E8] rounded-[4px] bg-white h-[36px] cursor-pointer transition hover:bg-[#FAFAFA]"
-            @click="goPrevStep"
-          >
-            上一步
-          </button>
+
           <button
             class="text-[14px] text-[#222] px-[24px] border border-[#E8E8E8] rounded-[4px] bg-white h-[36px] cursor-pointer transition hover:bg-[#FAFAFA]"
             @click="router.back()"
