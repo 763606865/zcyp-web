@@ -60,6 +60,12 @@ export const usePageDataStore = defineStore('pageData', () => {
       siteConfig.value = null
   }
 
+  function clearCmsData() {
+    menus.value = []
+    siteConfig.value = null
+    friendLinks.value = []
+  }
+
   return {
     siteConfig,
     homeData,
@@ -75,6 +81,7 @@ export const usePageDataStore = defineStore('pageData', () => {
     setHomeData,
     setHomeDirectoryData,
     clearHomeDirectoryData,
+    clearCmsData,
   }
 })
 

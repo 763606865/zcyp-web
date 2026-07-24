@@ -1,5 +1,6 @@
 import type { CmsSiteConfig, CompanyDirectoryItem, HomePageData, JobSummary, NoticeSummary, RcPositionNode } from '~/types/recruitment'
 import { getCmsFriendLinks, getCmsMenus, getCmsSiteConfigs, getCompanyList, getHomePageData, getHomePositions, getJobList, getNoticeList } from '~/services/recruitment'
+import { cacheCmsFriendLinks, cacheCmsMenus, cacheCmsSiteConfig, readCachedCmsFriendLinks, readCachedCmsMenus, readCachedCmsSiteConfig } from '~/utils/cms-cache'
 
 interface HomeBootstrapOptions {
   authorization?: string
@@ -14,12 +15,67 @@ interface HomeDirectoryBootstrapResult {
   positionTree: RcPositionNode[]
 }
 
+let pendingMenusRequest: Promise<ReturnType<typeof getCmsMenus> extends Promise<infer T> ? T : never> | null = null
+let pendingSiteConfigRequest: Promise<CmsSiteConfig | null> | null = null
+let pendingFriendLinksRequest: Promise<ReturnType<typeof getCmsFriendLinks> extends Promise<infer T> ? T : never> | null = null
+
 function resolveBootstrapAuthorization(authorization?: string) {
   if (authorization)
     return authorization
 
   const userStore = useUserStore()
   return userStore.authHeader || undefined
+}
+
+async function ensureCmsMenus(authorization?: string) {
+  const pageDataStore = usePageDataStore()
+  const cachedMenus = readCachedCmsMenus()
+  if (cachedMenus !== null) {
+    pageDataStore.setMenus(cachedMenus)
+    return cachedMenus
+  }
+
+  pendingMenusRequest ||= getCmsMenus(authorization).finally(() => {
+    pendingMenusRequest = null
+  })
+  const menus = await pendingMenusRequest
+  pageDataStore.setMenus(menus)
+  cacheCmsMenus(menus)
+  return menus
+}
+
+async function ensureCmsSiteConfig(authorization?: string) {
+  const pageDataStore = usePageDataStore()
+  const cachedSiteConfig = readCachedCmsSiteConfig()
+  if (cachedSiteConfig !== null) {
+    pageDataStore.setSiteConfig(cachedSiteConfig)
+    return cachedSiteConfig
+  }
+
+  pendingSiteConfigRequest ||= getCmsSiteConfigs(authorization).finally(() => {
+    pendingSiteConfigRequest = null
+  })
+  const siteConfig = await pendingSiteConfigRequest
+  pageDataStore.setSiteConfig(siteConfig)
+  cacheCmsSiteConfig(siteConfig)
+  return siteConfig
+}
+
+async function ensureCmsFriendLinks(authorization?: string) {
+  const pageDataStore = usePageDataStore()
+  const cachedFriendLinks = readCachedCmsFriendLinks()
+  if (cachedFriendLinks !== null) {
+    pageDataStore.setFriendLinks(cachedFriendLinks)
+    return cachedFriendLinks
+  }
+
+  pendingFriendLinksRequest ||= getCmsFriendLinks(authorization).finally(() => {
+    pendingFriendLinksRequest = null
+  })
+  const friendLinks = await pendingFriendLinksRequest
+  pageDataStore.setFriendLinks(friendLinks)
+  cacheCmsFriendLinks(friendLinks)
+  return friendLinks
 }
 
 export async function ensureHomePageData(options: HomeBootstrapOptions = {}) {
@@ -30,9 +86,9 @@ export async function ensureHomePageData(options: HomeBootstrapOptions = {}) {
     const authHeader = resolveBootstrapAuthorization(options.authorization)
     const [homeData, menus, siteConfig, friendLinks] = await Promise.all([
       getHomePageData(authHeader),
-      getCmsMenus(authHeader),
-      getCmsSiteConfigs(authHeader),
-      getCmsFriendLinks(authHeader),
+      ensureCmsMenus(authHeader),
+      ensureCmsSiteConfig(authHeader),
+      ensureCmsFriendLinks(authHeader),
     ])
     pageDataStore.setHomeData(homeData)
     pageDataStore.setMenus(menus)
@@ -48,7 +104,7 @@ export async function ensureSiteConfig(options: HomeBootstrapOptions = {}) {
 
   if (!pageDataStore.siteConfig || options.force) {
     const authHeader = resolveBootstrapAuthorization(options.authorization)
-    const siteConfig = await getCmsSiteConfigs(authHeader)
+    const siteConfig = await ensureCmsSiteConfig(authHeader)
     pageDataStore.setSiteConfig(siteConfig)
   }
 
@@ -72,9 +128,9 @@ export async function ensureHomeDirectoryData(options: HomeBootstrapOptions = {}
       getNoticeList(),
       getCompanyList(),
       getHomePositions(authHeader),
-      getCmsMenus(authHeader),
-      getCmsSiteConfigs(authHeader),
-      getCmsFriendLinks(authHeader),
+      ensureCmsMenus(authHeader),
+      ensureCmsSiteConfig(authHeader),
+      ensureCmsFriendLinks(authHeader),
     ])
 
     pageDataStore.setHomeDirectoryData({
