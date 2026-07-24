@@ -4,7 +4,7 @@ import { getAuthOrganizations, refreshToken } from '~/services/auth'
 import { resolveAssetUrl } from '~/services/http'
 import { pushGlobalNotice } from '~/utils/notice'
 
-const DISABLED_PATHS_WHEN_PENDING = ['/employer/jobs', '/employer/applications', '/employer/activities']
+const DISABLED_PATHS_WHEN_PENDING = ['/employer/jobs', '/employer/talent', '/employer/applications', '/employer/activities']
 
 definePageMeta({
   layout: 'default',
