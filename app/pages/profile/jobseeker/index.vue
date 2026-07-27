@@ -142,6 +142,13 @@ const editingCertificateId = ref<number | null>(null)
 const editingPortfolioId = ref<number | null>(null)
 
 const errorMessage = ref('')
+const errorNoticeCount = ref(0)
+
+watch([errorMessage, errorNoticeCount], ([val]) => {
+  if (val)
+    pushGlobalNotice(val, 'error')
+})
+
 const isSaving = ref(false)
 const showUploadModal = ref(false)
 const uploadFileObj = ref<File | null>(null)
@@ -713,6 +720,7 @@ async function loadProfileResume(): Promise<ResumeProfileData> {
   }
   catch (error) {
     errorMessage.value = error instanceof ApiRequestError ? error.message : '简历加载失败，请稍后刷新。'
+    errorNoticeCount.value++
     return emptyProfileData()
   }
 }
@@ -779,16 +787,17 @@ async function saveBasic() {
   if (!userStore.authHeader || isSaving.value)
     return
 
+  errorMessage.value = ''
   const name = basicForm.value.name.trim()
   const phone = basicForm.value.phone.trim()
   const email = basicForm.value.email.trim()
   if (!name || !phone || !email) {
     errorMessage.value = '请先填写姓名、联系电话和邮箱。'
+    errorNoticeCount.value++
     return
   }
 
   isSaving.value = true
-  errorMessage.value = ''
   try {
     const payload = buildBasicPayload()
     const nextResume = resume.value
@@ -801,6 +810,7 @@ async function saveBasic() {
   }
   catch (error) {
     errorMessage.value = error instanceof ApiRequestError ? error.message : '基础信息保存失败，请稍后重试。'
+    errorNoticeCount.value++
   }
   finally {
     isSaving.value = false
@@ -811,6 +821,7 @@ function ensureResumeId() {
   if (resume.value?.id)
     return resume.value.id
   errorMessage.value = '请先保存基础信息，再继续完善简历模块。'
+  errorNoticeCount.value++
   editingSection.value = 'basic'
   return null
 }
@@ -895,6 +906,7 @@ async function saveIntention() {
   }
   catch (error) {
     errorMessage.value = error instanceof ApiRequestError ? error.message : '求职意向保存失败，请稍后重试。'
+    errorNoticeCount.value++
   }
   finally {
     isSaving.value = false
@@ -946,23 +958,29 @@ async function saveWork() {
   if (!resumeId || !userStore.authHeader || isSaving.value)
     return
 
+  errorMessage.value = ''
+
   if (!workForm.value.companyName.trim() || !workForm.value.startDate) {
     errorMessage.value = '请填写公司名称和开始时间。'
+    errorNoticeCount.value++
     return
   }
 
   if (!workForm.value.positionCode) {
     errorMessage.value = '请选择职位类别。'
+    errorNoticeCount.value++
     return
   }
 
   if (!workForm.value.isCurrent) {
     if (!workForm.value.endDate) {
-      errorMessage.value = '请填写结束时间，或勾选"至今在职"。'
+      errorMessage.value = '请填写结束时间，或勾选“至今在职”。'
+      errorNoticeCount.value++
       return
     }
     if (workForm.value.startDate && workForm.value.endDate && workForm.value.endDate < workForm.value.startDate) {
       errorMessage.value = '结束时间不能早于开始时间。'
+      errorNoticeCount.value++
       return
     }
   }
@@ -979,7 +997,6 @@ async function saveWork() {
   }
 
   isSaving.value = true
-  errorMessage.value = ''
   try {
     if (editingWorkId.value)
       await updateResumeWork(resumeId, editingWorkId.value, payload, userStore.authHeader)
@@ -993,6 +1010,7 @@ async function saveWork() {
   }
   catch (error) {
     errorMessage.value = error instanceof ApiRequestError ? error.message : '工作经历保存失败，请稍后重试。'
+    errorNoticeCount.value++
   }
   finally {
     isSaving.value = false
@@ -1044,8 +1062,11 @@ async function saveEducation() {
   if (!resumeId || !userStore.authHeader || isSaving.value)
     return
 
+  errorMessage.value = ''
+
   if (!educationForm.value.schoolName.trim() || !educationForm.value.startDate) {
     errorMessage.value = '请填写学校名称和开始时间。'
+    errorNoticeCount.value++
     return
   }
 
@@ -1061,7 +1082,6 @@ async function saveEducation() {
   }
 
   isSaving.value = true
-  errorMessage.value = ''
   try {
     if (editingEducationId.value)
       await updateResumeEducation(resumeId, editingEducationId.value, payload, userStore.authHeader)
@@ -1075,6 +1095,7 @@ async function saveEducation() {
   }
   catch (error) {
     errorMessage.value = error instanceof ApiRequestError ? error.message : '教育经历保存失败，请稍后重试。'
+    errorNoticeCount.value++
   }
   finally {
     isSaving.value = false
@@ -1125,8 +1146,12 @@ async function saveProject() {
   const resumeId = ensureResumeId()
   if (!resumeId || !userStore.authHeader || isSaving.value)
     return
+
+  errorMessage.value = ''
+
   if (!projectForm.value.projectName.trim() || !projectForm.value.startDate) {
     errorMessage.value = '请填写项目名称和开始时间。'
+    errorNoticeCount.value++
     return
   }
 
@@ -1142,7 +1167,6 @@ async function saveProject() {
   }
 
   isSaving.value = true
-  errorMessage.value = ''
   try {
     if (editingProjectId.value)
       await updateResumeProject(resumeId, editingProjectId.value, payload, userStore.authHeader)
@@ -1155,6 +1179,7 @@ async function saveProject() {
   }
   catch (error) {
     errorMessage.value = error instanceof ApiRequestError ? error.message : '项目经历保存失败，请稍后重试。'
+    errorNoticeCount.value++
   }
   finally {
     isSaving.value = false
@@ -1199,8 +1224,12 @@ async function saveTraining() {
   const resumeId = ensureResumeId()
   if (!resumeId || !userStore.authHeader || isSaving.value)
     return
+
+  errorMessage.value = ''
+
   if (!trainingForm.value.institutionName.trim() || !trainingForm.value.courseName.trim() || !trainingForm.value.startDate) {
     errorMessage.value = '请填写培训机构、课程名称和开始时间。'
+    errorNoticeCount.value++
     return
   }
 
@@ -1213,7 +1242,6 @@ async function saveTraining() {
   }
 
   isSaving.value = true
-  errorMessage.value = ''
   try {
     if (editingTrainingId.value)
       await updateResumeTraining(resumeId, editingTrainingId.value, payload, userStore.authHeader)
@@ -1226,6 +1254,7 @@ async function saveTraining() {
   }
   catch (error) {
     errorMessage.value = error instanceof ApiRequestError ? error.message : '培训经历保存失败，请稍后重试。'
+    errorNoticeCount.value++
   }
   finally {
     isSaving.value = false
@@ -1266,8 +1295,12 @@ async function saveLanguage() {
   const resumeId = ensureResumeId()
   if (!resumeId || !userStore.authHeader || isSaving.value)
     return
+
+  errorMessage.value = ''
+
   if (!languageForm.value.language.trim()) {
     errorMessage.value = '请填写语言名称。'
+    errorNoticeCount.value++
     return
   }
 
@@ -1278,7 +1311,6 @@ async function saveLanguage() {
   }
 
   isSaving.value = true
-  errorMessage.value = ''
   try {
     if (editingLanguageId.value)
       await updateResumeLanguage(resumeId, editingLanguageId.value, payload, userStore.authHeader)
@@ -1291,6 +1323,7 @@ async function saveLanguage() {
   }
   catch (error) {
     errorMessage.value = error instanceof ApiRequestError ? error.message : '语言能力保存失败，请稍后重试。'
+    errorNoticeCount.value++
   }
   finally {
     isSaving.value = false
@@ -1331,8 +1364,12 @@ async function saveSkill() {
   const resumeId = ensureResumeId()
   if (!resumeId || !userStore.authHeader || isSaving.value)
     return
+
+  errorMessage.value = ''
+
   if (!skillForm.value.skillName.trim()) {
     errorMessage.value = '请填写技能名称。'
+    errorNoticeCount.value++
     return
   }
 
@@ -1343,7 +1380,6 @@ async function saveSkill() {
   }
 
   isSaving.value = true
-  errorMessage.value = ''
   try {
     if (editingSkillId.value)
       await updateResumeSkill(resumeId, editingSkillId.value, payload, userStore.authHeader)
@@ -1356,6 +1392,7 @@ async function saveSkill() {
   }
   catch (error) {
     errorMessage.value = error instanceof ApiRequestError ? error.message : '专业技能保存失败，请稍后重试。'
+    errorNoticeCount.value++
   }
   finally {
     isSaving.value = false
@@ -1404,8 +1441,12 @@ async function saveCertificate() {
   const resumeId = ensureResumeId()
   if (!resumeId || !userStore.authHeader || isSaving.value)
     return
+
+  errorMessage.value = ''
+
   if (!certificateForm.value.name.trim()) {
     errorMessage.value = '请填写证书/荣誉名称。'
+    errorNoticeCount.value++
     return
   }
 
@@ -1420,7 +1461,6 @@ async function saveCertificate() {
   }
 
   isSaving.value = true
-  errorMessage.value = ''
   try {
     if (editingCertificateId.value)
       await updateResumeCertificate(resumeId, editingCertificateId.value, payload, userStore.authHeader)
@@ -1433,6 +1473,7 @@ async function saveCertificate() {
   }
   catch (error) {
     errorMessage.value = error instanceof ApiRequestError ? error.message : '证书/荣誉保存失败，请稍后重试。'
+    errorNoticeCount.value++
   }
   finally {
     isSaving.value = false
@@ -1477,8 +1518,12 @@ async function savePortfolio() {
   const resumeId = ensureResumeId()
   if (!resumeId || !userStore.authHeader || isSaving.value)
     return
+
+  errorMessage.value = ''
+
   if (!portfolioForm.value.title.trim()) {
     errorMessage.value = '请填写作品标题。'
+    errorNoticeCount.value++
     return
   }
 
@@ -1491,7 +1536,6 @@ async function savePortfolio() {
   }
 
   isSaving.value = true
-  errorMessage.value = ''
   try {
     if (editingPortfolioId.value)
       await updateResumePortfolio(resumeId, editingPortfolioId.value, payload, userStore.authHeader)
@@ -1504,6 +1548,7 @@ async function savePortfolio() {
   }
   catch (error) {
     errorMessage.value = error instanceof ApiRequestError ? error.message : '个人作品保存失败，请稍后重试。'
+    errorNoticeCount.value++
   }
   finally {
     isSaving.value = false
@@ -1565,6 +1610,7 @@ async function removeExtensionItem(kind: ExtensionSection, id: number) {
   }
   catch (error) {
     errorMessage.value = error instanceof ApiRequestError ? error.message : '删除失败，请稍后重试。'
+    errorNoticeCount.value++
     return false
   }
   finally {
