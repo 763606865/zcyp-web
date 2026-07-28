@@ -1,5 +1,6 @@
 import { appEnv } from '~/config/env'
 import { useUserStore } from '~/stores/user'
+import { buildClientHeaders } from '~/utils/client-headers'
 import { pushGlobalNotice } from '~/utils/notice'
 
 const HTTP_URL_RE = /^https?:\/\//
@@ -66,6 +67,7 @@ async function requestJson<T>(
   },
 ) {
   const headers: Record<string, string> = {
+    ...buildClientHeaders(),
     'Content-Type': 'application/json',
     'Accept': 'application/json',
     ...options?.headers,
@@ -146,7 +148,11 @@ export async function uploadFile<T>(
 
   const response = await fetch(createUrl(path), {
     method,
-    headers: { Accept: 'application/json', ...headers },
+    headers: {
+      ...buildClientHeaders(),
+      Accept: 'application/json',
+      ...headers,
+    },
     body: formData,
   })
 
