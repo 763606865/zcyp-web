@@ -139,6 +139,10 @@ onBeforeUnmount(() => {
           <NuxtLink :to="messageRoute">
             消息
           </NuxtLink>
+          <NuxtLink to="/recharge" class="portal-recharge-link">
+            <span class="i-carbon-wallet" />
+            <span>充值中心</span>
+          </NuxtLink>
           <button type="button" class="portal-user-dropdown-trigger" @click="toggleIdentityDropdown">
             <span>欢迎回来 {{ displayName }}</span>
             <span class="i-carbon-chevron-down text-[14px]" />
@@ -263,6 +267,24 @@ onBeforeUnmount(() => {
 }
 .portal-search-inner {
   grid-template-columns: fit-content(250px) minmax(0, 1fr) 145px;
+}
+.portal-recharge-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 26px;
+  padding: 0 9px;
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  font-weight: 600;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease;
+}
+.portal-recharge-link:hover {
+  border-color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.2);
 }
 @media (max-width: 1023px) {
   .portal-search-inner {

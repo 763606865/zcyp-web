@@ -8,6 +8,23 @@ interface ApiResponse<T> {
   data: T
 }
 
+export interface RcBizPlan {
+  id: number
+  plan_name: string
+  plan_code: string
+  price: string
+  duration: number
+  target_side: number
+  target_side_label: string
+  product_type: number
+  product_type_label: string
+  billing_cycle: number
+  billing_cycle_label: string
+  remark: string | null
+  quota_rules: Record<string, unknown> | unknown[] | null
+  extra: Record<string, unknown> | unknown[] | null
+}
+
 interface CmsMetaPayload {
   areas: RcAreaNode[]
   tags: CmsTagGroup[]
@@ -135,6 +152,15 @@ export interface CmsHomeBannersQuery {
 export async function getCmsAds(query: { code: string }) {
   const response = await getJson<ApiResponse<CmsAdsPayload>>('/cms/ads', query)
   return normalizeCmsAdsPayload(response.data)
+}
+
+export async function getRcBizPlans(authorization?: string) {
+  const response = await getJson<ApiResponse<RcBizPlan[]>>(
+    '/cms/rc/biz-plans',
+    undefined,
+    authorization ? { Authorization: authorization } : undefined,
+  )
+  return response.data
 }
 
 export async function getCmsHomeBanners(query: CmsHomeBannersQuery): Promise<CmsBannerItem[]> {
