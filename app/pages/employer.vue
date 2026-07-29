@@ -105,6 +105,8 @@ function handleGoCitySelect() {
   router.push('/city-select')
 }
 
+const isShellPage = computed(() => route.path === '/employer/newEnterprise')
+
 function handleClickOutside() {
   showSwitchPanel.value = false
 }
@@ -124,11 +126,11 @@ function handleClickOutside() {
             <span>{{ displayCity }}</span>
             <span>[切换城市]</span>
           </button> -->
-          <div type="button" class="portal-city-button text-[14px] text-[#222] font-medium flex gap-[4px] items-center relative z-[55]">
+          <div v-if="!isShellPage" type="button" class="portal-city-button text-[14px] text-[#222] font-medium flex gap-[4px] items-center relative z-[55]">
             <img class="h-[16px] w-[16px]" src="/assets/images/employer/enterprise-icon.png" :alt="currentOrgName || '企业logo'">
             <span>{{ currentOrgName || '' }}</span><span v-if="orgStatus === 2" class="text-[12px] text-[#ffffff] ml-[4px] px-[12px] py-[2px] rounded-[4px] bg-[#1890ff]">审核中</span>
           </div>
-          <div class="relative" @click.stop>
+          <div v-if="!isShellPage" class="relative" @click.stop>
             <button type="button" class="text-[12px] text-[#FFA500] px-[9px] rounded-[4px] bg-[#FFF6E6] flex gap-[4px] h-[24px] items-center" @click="showSwitchPanel = !showSwitchPanel">
               <img class="h-[16px] w-[16px]" src="/assets/images/employer/enterprise-select-icon.png" alt="切换企业">
               切换企业
@@ -148,8 +150,8 @@ function handleClickOutside() {
                 </div>
               </button>
               <div class="mt-1 pt-1 border-t border-[#f2e4c7]">
-                <NuxtLink to="/company/bind" class="text-[13px] text-[#8b6418] px-4 py-2.5 text-left no-underline w-full block transition hover:bg-[#fffaf0]" @click="showSwitchPanel = false">
-                  + 新增绑定
+                <NuxtLink to="/employer/newEnterprise" class="text-[13px] text-[#8b6418] px-4 py-2.5 text-left no-underline w-full block transition hover:bg-[#fffaf0]" @click="showSwitchPanel = false">
+                  + 新增企业
                 </NuxtLink>
               </div>
             </div>
@@ -158,7 +160,7 @@ function handleClickOutside() {
         <UserIdentityPanel variant="slate" class="shrink-0" />
       </div>
     </header>
-    <div class="flex flex-1" style="min-height: 0">
+    <div v-if="!isShellPage" class="flex flex-1" style="min-height: 0">
       <aside class="border-r border-[#f2e4c7] bg-white shrink-0 w-[208px] overflow-y-auto">
         <nav class="py-[16px]">
           <template v-for="item in navItems" :key="item.path">
@@ -186,6 +188,9 @@ function handleClickOutside() {
       <main class="p-[12px] flex-1 min-w-0 overflow-y-auto">
         <NuxtPage />
       </main>
+    </div>
+    <div v-else class="flex-1 min-h-0 overflow-y-auto">
+      <NuxtPage />
     </div>
   </div>
 </template>
