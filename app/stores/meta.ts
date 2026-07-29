@@ -72,7 +72,8 @@ export const useMetaStore = defineStore('meta', () => {
   const articleTags = ref<ArticleTagItem[]>([])
   const isLoading = ref(false)
   const loadError = ref('')
-  const normalizedAreas = computed(() => unwrapAreaRoot(areas.value))
+  // areas 在 _doLoadAreas / loadAllMeta 中已经过 unwrapAreaRoot 解包，直接使用即可
+  const normalizedAreas = computed(() => areas.value)
 
   let _areasLoadPromise: Promise<void> | null = null
 
@@ -509,6 +510,7 @@ export const useMetaStore = defineStore('meta', () => {
 
   return {
     areas,
+    normalizedAreas,
     industries,
     positions,
     tags,

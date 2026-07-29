@@ -177,11 +177,8 @@ const isBinding = ref(false)
 
 // ── 三级地区级联选项 ──
 const areaCascaderOptions = computed(() => {
-  const rawAreas = metaStore.areas
-  // 处理根节点
-  const areas = rawAreas.length === 1 && Number(rawAreas[0]!.level) === 0 && rawAreas[0]!.children?.length
-    ? rawAreas[0]!.children!
-    : rawAreas
+  // normalizedAreas 已经解包过根节点，直接就是省级列表
+  const areas = metaStore.normalizedAreas
   return areas
     .filter((a: RcAreaNode) => Number(a.level) === 1)
     .map((province: RcAreaNode) => ({
