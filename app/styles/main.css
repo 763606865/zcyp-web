@@ -1770,6 +1770,18 @@ body {
   background: #ffb11b;
 }
 
+.home-service-ecosystem-icon.has-glyph::before,
+.home-service-ecosystem-icon.has-glyph::after {
+  display: none;
+}
+
+.home-service-ecosystem-icon-glyph {
+  width: 23px;
+  height: 23px;
+  margin: auto;
+  color: #4c76e8;
+}
+
 .home-service-ecosystem-icon.is-product {
   width: 32px;
   height: 32px;
@@ -1797,6 +1809,17 @@ body {
   top: 18px;
   background: #16b7ff;
   box-shadow: 18px 0 0 #ff9f00;
+}
+
+.home-service-ecosystem-icon.has-glyph.is-product {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #fff5df 0%, #ffecce 100%);
+}
+
+.home-service-ecosystem-icon.is-product .home-service-ecosystem-icon-glyph {
+  color: #ee8b00;
 }
 
 .home-service-ecosystem-card strong {
