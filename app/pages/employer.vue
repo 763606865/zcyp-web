@@ -14,7 +14,6 @@ definePageMeta({
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
-const siteStore = useSiteStore()
 
 interface NavItem {
   label: string
@@ -88,8 +87,6 @@ async function switchOrganization(item: OrganizationItem) {
   finally { isSwitchingOrg.value = false }
 }
 
-const displayCity = computed(() => siteStore.currentCityName || '南昌站')
-
 const orgStatus = computed(() => {
   const info = userStore.currentIdentityInfo
   if (info && typeof info === 'object')
@@ -101,12 +98,15 @@ function isNavDisabled(path: string) {
   return orgStatus.value === 2 && DISABLED_PATHS_WHEN_PENDING.includes(path)
 }
 
+<<<<<<< Updated upstream
 function handleGoCitySelect() {
   router.push('/city-select')
 }
 
 const isShellPage = computed(() => route.path === '/employer/newEnterprise')
 
+=======
+>>>>>>> Stashed changes
 function handleClickOutside() {
   showSwitchPanel.value = false
 }
@@ -157,6 +157,13 @@ function handleClickOutside() {
             </div>
           </div>
         </div>
+        <NuxtLink
+          to="/recharge"
+          class="text-[13px] text-[#b56c00] mr-[16px] px-[14px] rounded-[6px] bg-[#fff6e6] no-underline flex shrink-0 gap-[6px] h-[32px] ring-1 ring-[#f3d69a] transition items-center hover:bg-[#ffedc7] hover:ring-[#e7bd65]"
+        >
+          <span class="i-carbon-wallet text-[16px]" />
+          <span>充值中心</span>
+        </NuxtLink>
         <UserIdentityPanel variant="slate" class="shrink-0" />
       </div>
     </header>
