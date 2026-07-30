@@ -43,26 +43,25 @@ const serviceEcosystemRows = [
     label: '中测在线',
     className: 'is-online',
     items: [
-      { label: '中测命题', to: '/assessment', icon: 'is-assessment' },
-      { label: '中测测评宝', to: '/assessment', icon: 'is-evaluation' },
-      { label: '中测阅卷', to: '/assessment', icon: 'is-exam' },
-      { label: '中测题库', to: '/profile/jobseeker', icon: 'is-resume' },
-      { label: 'AI面试', to: '/assessment', icon: 'is-learning' },
-      { label: '中测机考', to: '/assessment', icon: 'is-learning' },
-      { label: '中测无纸化面试评分系统', to: '/assessment', icon: 'is-learning' },
-      { label: '中测考试指挥系统（AI防作弊系统）', to: '/assessment', icon: 'is-learning' },
+      { label: '在线报名', to: 'https://zk.sun-hrm.com/index.php', icon: 'i-carbon-edit' },
+      { label: '心理测评', to: '/assessment', icon: 'i-carbon-user-profile' },
+      { label: '线上学习', to: '/career-space', icon: 'i-carbon-education' },
+      { label: '应试能力测评', to: 'https://gangwei.jxujob.com/#/', icon: 'i-carbon-exam-mode' },
+      { label: 'AI优化简历', to: '/assessment', icon: 'i-carbon-ai-generate' },
     ],
   },
   {
     label: '中测产品',
     className: 'is-product',
     items: [
-      { label: '在线报名', to: '/assessment', icon: 'is-product' },
-      { label: '在线笔试', to: '/assessment', icon: 'is-product' },
-      { label: '在线面试', to: '/assessment', icon: 'is-product' },
-      { label: '心理测评（岗位胜任力测评）', to: '/assessment', icon: 'is-product' },
-      { label: '面试能力测评', to: '/assessment', icon: 'is-product' },
-      { label: '在线网校', to: '/assessment', icon: 'is-product' },
+      { label: '中测命题', to: '/assessment', icon: 'i-carbon-document-add' },
+      { label: '中测阅卷', to: '/assessment', icon: 'i-carbon-document-view' },
+      { label: '题库系统', to: '/assessment', icon: 'i-carbon-catalog' },
+      { label: 'AI面试', to: '/assessment', icon: 'i-carbon-ai-agent-invocation' },
+      { label: '线上笔试', to: '/assessment', icon: 'i-carbon-document-tasks' },
+      { label: '线上面试', to: '/assessment', icon: 'i-carbon-video-chat' },
+      { label: '机考系统', to: '/assessment', icon: 'i-carbon-screen' },
+      { label: '无纸化面试评分系统', to: '/assessment', icon: 'i-carbon-task-approved' },
     ],
   },
 ]
@@ -235,7 +234,7 @@ onBeforeUnmount(() => {
           :key="row.label"
           class="home-service-ecosystem-row"
         >
-          <NuxtLink to="/assessment" class="home-service-ecosystem-badge" :class="row.className">
+          <NuxtLink to="/assessment" target="_blank" rel="noopener noreferrer" class="home-service-ecosystem-badge" :class="row.className">
             {{ row.label }}
           </NuxtLink>
 
@@ -252,10 +251,14 @@ onBeforeUnmount(() => {
                     v-for="item in row.items"
                     :key="`${copyIndex}-${item.label}`"
                     :to="item.to"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     :tabindex="copyIndex > 0 ? -1 : undefined"
                     class="home-service-ecosystem-card"
                   >
-                    <span class="home-service-ecosystem-icon" :class="item.icon" aria-hidden="true" />
+                    <span class="home-service-ecosystem-icon has-glyph" :class="row.className" aria-hidden="true">
+                      <span class="home-service-ecosystem-icon-glyph" :class="item.icon" />
+                    </span>
                     <strong>{{ item.label }}</strong>
                   </NuxtLink>
                 </div>

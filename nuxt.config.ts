@@ -56,7 +56,10 @@ export default defineNuxtConfig({
       cnzzKey: process.env.NUXT_PUBLIC_CNZZ_KEY || '',
     },
   },
-  buildDir: '.nuxt-build',
+  // Keep dev and production artifacts isolated. Reusing one directory lets
+  // `nuxt build` overwrite a running dev server's Nitro bundle and breaks
+  // Nuxt's internal package aliases (for example #internal/nuxt/paths).
+  buildDir: process.env.NODE_ENV === 'production' ? '.nuxt-build' : '.nuxt',
 
   devServer: {
     host: '127.0.0.1',

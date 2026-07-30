@@ -98,15 +98,8 @@ function isNavDisabled(path: string) {
   return orgStatus.value === 2 && DISABLED_PATHS_WHEN_PENDING.includes(path)
 }
 
-<<<<<<< Updated upstream
-function handleGoCitySelect() {
-  router.push('/city-select')
-}
-
 const isShellPage = computed(() => route.path === '/employer/newEnterprise')
 
-=======
->>>>>>> Stashed changes
 function handleClickOutside() {
   showSwitchPanel.value = false
 }
