@@ -93,6 +93,7 @@ if (import.meta.client) {
     }
   })
 }
+const perPage = ref(9)
 
 const hasFilter = computed(() => !!activeCityCode.value || activeScale.value !== '不限')
 
@@ -100,7 +101,7 @@ const { data: companies } = await useAsyncData(
   () => `company-directory-${activePage.value}-${activeCityCode.value}-${activeScale.value}`,
   () => {
     const params = {
-      per_page: 15,
+      per_page: perPage.value,
       page: activePage.value,
       ...(activeScale.value !== '不限' ? { scale_type: activeScale.value } : {}),
       ...(activeCityCode.value ? { city_code: activeCityCode.value } : {}),

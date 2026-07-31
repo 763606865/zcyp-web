@@ -1,13 +1,6 @@
 <script setup lang="ts">
-definePageMeta({
-  layout: 'default',
-  middleware: ['auth', 'identity-required'],
-})
-
 import type { CompanyApplication } from '~/features/campus/activities/types'
 import QRCode from 'qrcode'
-import { ApiRequestError } from '~/services/http'
-import { pushGlobalNotice } from '~/utils/notice'
 import {
   approveCompanyApplication,
   generateInviteCode,
@@ -17,17 +10,27 @@ import {
   lookupCompanyByName,
   rejectCompanyApplication,
 } from '~/features/campus/activities/services'
+import { ApiRequestError } from '~/services/http'
+import { pushGlobalNotice } from '~/utils/notice'
+
+definePageMeta({
+  layout: 'default',
+  middleware: ['auth', 'identity-required'],
+})
 
 const userStore = useUserStore()
 const route = useRoute()
-const router = useRouter()
 
 const activityId = Number(route.query.activityId)
 
 const applications = ref<CompanyApplication[]>([])
 const loading = ref(false)
+const total = ref(0)
+const page = ref(1)
+const perPage = 9
 const applyStatusFilter = ref<number | null>(null)
 const joinSourceFilter = ref<number | null>(null)
+const keyword = ref('')
 
 const inviteModalVisible = ref(false)
 const inviteStep = ref<'search' | 'invite-code'>('search')
@@ -74,12 +77,6 @@ const rejectTarget = ref<CompanyApplication | null>(null)
 const rejectForm = ref({ remark: null as string | null })
 const rejectSaving = ref(false)
 
-const applyStatusLabels: Record<number, { label: string, cls: string }> = {
-  0: { label: '待审核', cls: 'bg-amber-50 text-amber-700' },
-  1: { label: '通过', cls: 'bg-emerald-50 text-emerald-700' },
-  2: { label: '驳回', cls: 'bg-red-50 text-red-600' },
-}
-
 const joinSourceLabels: Record<number, string> = {
   0: '院校后台邀约',
   1: '企业申请',
@@ -100,21 +97,92 @@ const sourceFilterOptions = [
 
 let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
+// ===== Mock 开关：设为 true 使用 mock 数据，设为 false 调用真实接口 =====
+const USE_MOCK = true
+
+function getMockApplications(): CompanyApplication[] {
+  const companyNames = ['阿里巴巴集团', '腾讯科技', '字节跳动', '华为技术', '京东集团', '美团点评', '百度在线', '网易集团', '小米科技', '中国移动', '中国电信', '中国平安', '格力电器', '海尔集团', '比亚迪']
+  const statuses = [0, 0, 1, 1, 1, 2, 2, 0, 1, 0, 1, 1, 2, 1, 2]
+  const sources = [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1]
+  const statusLabels: Record<number, string> = { 0: '待审核', 1: '审核通过', 2: '已驳回' }
+  const sourceLabels: Record<number, string> = { 0: '院校后台邀约', 1: '企业申请' }
+
+  return Array.from({ length: 15 }, (_, i) => ({
+    id: i + 1,
+    activity_id: activityId,
+    company_id: i + 100,
+    activity_booth_id: i < 3 ? i + 1 : null,
+    join_source: sources[i],
+    join_source_label: sourceLabels[sources[i]],
+    apply_status: statuses[i],
+    apply_status_label: statusLabels[statuses[i]],
+    apply_at: '2026-07-20T10:00:00',
+    remark: null,
+    activity_jobs_count: Math.floor(Math.random() * 10) + 1,
+    company: {
+      id: i + 100,
+      name: companyNames[i],
+      credit_code: `91110000MA001${String(i).padStart(2, '0')}`,
+      legal_person: '张三',
+      contact_phone: '13800138000',
+      address: '北京市朝阳区',
+      status: 1,
+    },
+    activity_booth: i < 3
+      ? {
+          id: i + 1,
+          booth_no: `A${String(i + 1).padStart(2, '0')}`,
+          booth_area_name: 'A展区',
+          company_id: i + 100,
+          status: 1,
+        }
+      : null,
+  })) as CompanyApplication[]
+}
+
 async function loadApplications() {
-  if (!userStore.authHeader)
+  // mock 模式不需要 authHeader
+  if (!USE_MOCK && !userStore.authHeader)
     return
   loading.value = true
   try {
-    const params: Record<string, any> = {}
+    let allData: CompanyApplication[]
+
+    if (USE_MOCK) {
+      // 使用 mock 数据查看效果
+      allData = getMockApplications()
+    }
+    else {
+      const result = await getCompanyApplications(userStore.authHeader, activityId, {
+        page: page.value,
+        per_page: perPage,
+        ...(applyStatusFilter.value !== null ? { apply_status: applyStatusFilter.value } : {}),
+        ...(joinSourceFilter.value !== null ? { join_source: joinSourceFilter.value } : {}),
+        ...(keyword.value ? { keyword: keyword.value } : {}),
+      })
+      allData = result.data || []
+      total.value = result.total || 0
+      applications.value = allData
+      return
+    }
+
+    // 模拟筛选
+    let filtered = allData
     if (applyStatusFilter.value !== null)
-      params.apply_status = applyStatusFilter.value
+      filtered = filtered.filter(a => a.apply_status === applyStatusFilter.value)
     if (joinSourceFilter.value !== null)
-      params.join_source = joinSourceFilter.value
-    const result = await getCompanyApplications(userStore.authHeader, activityId, params)
-    applications.value = (result.data || []).filter(Boolean)
+      filtered = filtered.filter(a => a.join_source === joinSourceFilter.value)
+    if (keyword.value)
+      filtered = filtered.filter(a => a.company?.name?.includes(keyword.value))
+
+    total.value = filtered.length
+    // 模拟分页
+    const start = (page.value - 1) * perPage
+    applications.value = filtered.slice(start, start + perPage)
   }
   catch {
     applications.value = []
+    total.value = 0
   }
   finally { loading.value = false }
 }
@@ -252,11 +320,29 @@ function copyInviteCode() {
   pushGlobalNotice('邀请码已复制')
 }
 
-function goJobs(companyId: number) {
-  router.push(`/campus/activities/jobs/${activityId}?company_id=${companyId}`)
+const paginationThemeOverrides = {
+  itemSizeMedium: '32px',
+  itemBorderRadius: '2px',
+  itemColor: 'rgba(255, 255, 255, 1)',
+  itemColorHover: 'rgba(255, 250, 240, 1)',
+  itemColorActive: 'rgba(255, 165, 0, 1)',
+  itemColorActiveHover: 'rgba(255, 165, 0, 1)',
+  itemTextColor: 'rgba(0, 0, 0, 0.65)',
+  itemTextColorActive: 'rgba(255, 255, 255, 1)',
+  itemBorder: '1px solid rgba(216, 219, 226, 1)',
+  itemBorderActive: '1px solid rgba(255, 165, 0, 1)',
+  itemBorderHover: '1px solid rgba(255, 165, 0, 0.5)',
+  buttonBorder: '1px solid rgba(216, 219, 226, 1)',
+  buttonBorderHover: '1px solid rgba(255, 165, 0, 0.5)',
+  itemMargin: '0 4px',
 }
 
-watch([applyStatusFilter, joinSourceFilter], () => {
+watch([applyStatusFilter, joinSourceFilter, keyword], () => {
+  page.value = 1
+  loadApplications()
+})
+
+watch(page, () => {
   loadApplications()
 })
 
@@ -283,22 +369,23 @@ async function loadActivityDetail() {
 </script>
 
 <template>
-  <div>
-    <div class="mb-6 flex items-center justify-between">
-      <div>
-        <button class="mb-2 flex cursor-pointer items-center gap-1 border-none bg-transparent text-[13px] text-[#8a6b34] hover:text-[#d79a19]" @click="router.back()">
-          <span class="i-carbon-arrow-left" />
-          返回活动列表
-        </button>
-        <h1 class="text-[22px] text-[#24180c] font-semibold">
-          参加企业
-        </h1>
-        <p class="mt-1 text-[14px] text-[#6f6556]">
-          报名参加此活动的企业列表与审批管理
-        </p>
-      </div>
+  <div class="pl-[12px]">
+    <!-- Breadcrumb Navigation -->
+    <div class="mb-[12px] flex gap-[8px] items-center">
+      <NuxtLink
+        to="/campus/activities"
+        class="text-[14px] text-[#666666] cursor-pointer transition hover:text-[#FFA500]"
+      >
+        招聘活动
+      </NuxtLink>
+      <span class="text-[14px] text-[#999999]">/</span>
+      <span class="text-[14px] text-[#222222] font-bold">参与企业</span>
+    </div>
+
+    <!-- Header with Invite Button -->
+    <div class="mb-[12px] flex items-center justify-end">
       <button
-        class="h-[42px] flex cursor-pointer items-center gap-2 rounded-[14px] border-none bg-[linear-gradient(135deg,#ffbe3b_0%,#ffa500_60%,#ea9400_100%)] px-5 text-[14px] text-white font-semibold shadow-[0_8px_16px_rgba(255,165,0,0.15)] transition hover:brightness-105"
+        class="text-[14px] text-white leading-none px-[16px] py-[6px] rounded-[4px] border-none bg-[#FFA500] flex gap-[4px] cursor-pointer transition items-center hover:brightness-105"
         @click="openInvite"
       >
         <span class="i-carbon-add text-[16px]" />
@@ -306,247 +393,332 @@ async function loadActivityDetail() {
       </button>
     </div>
 
-    <div class="mb-5 space-y-3">
-      <table class="w-full">
-        <thead>
-          <tr>
-            <th class="pb-2 pr-4 text-left text-[13px] text-[#8a6b34] font-medium">
-              审核状态
-            </th>
-            <th class="pb-2 text-left text-[13px] text-[#8a6b34] font-medium">
-              来源
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td class="pr-4">
-              <div class="flex gap-2">
-                <label
-                  v-for="opt in statusFilterOptions" :key="opt.label"
-                  class="flex cursor-pointer items-center gap-1.5 border rounded-[12px] px-4 py-2.5 text-[13px] transition"
-                  :class="applyStatusFilter === opt.value
-                    ? 'border-[#ffa500] bg-[#fff7e6] text-[#8f6310] font-medium'
-                    : 'border-[#ecd8a9] bg-white text-[#6f5a31] hover:border-[#d8b96f]'"
-                >
-                  <input v-model="applyStatusFilter" type="radio" :value="opt.value" class="sr-only">
-                  {{ opt.label }}
-                </label>
-              </div>
-            </td>
-            <td>
-              <div class="flex gap-2">
-                <label
-                  v-for="opt in sourceFilterOptions" :key="opt.label"
-                  class="flex cursor-pointer items-center gap-1.5 border rounded-[12px] px-4 py-2.5 text-[13px] transition"
-                  :class="joinSourceFilter === opt.value
-                    ? 'border-[#ffa500] bg-[#fff7e6] text-[#8f6310] font-medium'
-                    : 'border-[#ecd8a9] bg-white text-[#6f5a31] hover:border-[#d8b96f]'"
-                >
-                  <input v-model="joinSourceFilter" type="radio" :value="opt.value" class="sr-only">
-                  {{ opt.label }}
-                </label>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+    <!-- Filter Card -->
+    <div class="mb-[21px] p-[24px_12px_24px] rounded-[4px] bg-white relative">
+      <!-- Search Box Top Right -->
+      <div class="h-[32px] w-[264px] right-[12px] top-[18px] absolute">
+        <div class="h-full relative">
+          <span class="i-carbon-search text-[14px] text-[#999] left-3 top-1/2 absolute -translate-y-1/2" />
+          <input v-model="keyword" type="text" placeholder="搜索企业" class="text-[13px] text-[#222] pl-9 pr-3 outline-none border border-[#ECECEC] rounded-[4px] bg-white h-[32px] w-full transition focus:border-[#FFA500]">
+        </div>
+      </div>
+
+      <!-- Filter Rows -->
+      <div class="pl-[18px] space-y-[24px]">
+        <div class="flex gap-[12px] items-center">
+          <div class="text-[14px] text-[#222] text-right shrink-0 w-[70px]">
+            审核状态：
+          </div>
+          <div class="flex gap-[12px]">
+            <button
+              v-for="opt in statusFilterOptions" :key="opt.label"
+              type="button"
+              class="text-[14px] leading-none py-[9px] text-center border border-[#ECECEC] rounded-[4px] w-[121px] cursor-pointer transition"
+              :class="applyStatusFilter === opt.value
+                ? 'bg-[rgba(255,165,0,0.10)] text-[#FFA500] font-semibold border-[#FFA500]'
+                : 'bg-white text-[#999] hover:border-[#FFA500]'"
+              @click="applyStatusFilter = opt.value"
+            >
+              {{ opt.label }}
+            </button>
+          </div>
+        </div>
+        <div class="flex gap-[12px] items-center">
+          <div class="text-[14px] text-[#222] text-right shrink-0 w-[70px]">
+            来源：
+          </div>
+          <div class="flex gap-[12px]">
+            <button
+              v-for="opt in sourceFilterOptions" :key="opt.label"
+              type="button"
+              class="text-[14px] leading-none py-[9px] text-center border border-[#ECECEC] rounded-[4px] w-[121px] cursor-pointer transition"
+              :class="joinSourceFilter === opt.value
+                ? 'bg-[rgba(255,165,0,0.10)] text-[#FFA500] font-semibold border-[#FFA500]'
+                : 'bg-white text-[#999] hover:border-[#FFA500]'"
+              @click="joinSourceFilter = opt.value"
+            >
+              {{ opt.label }}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <div v-if="loading" class="rounded-[18px] bg-white px-6 py-16 text-center text-[14px] text-slate-500 shadow-[0_8px_20px_rgba(148,92,0,0.04)] ring-1 ring-[#f1e4c6]">
+    <!-- Loading -->
+    <div v-if="loading" class="text-[14px] text-slate-500 px-6 py-16 text-center rounded-[4px] bg-white">
       加载中...
     </div>
 
-    <div v-else class="space-y-3">
-      <div v-for="app in applications" :key="app?.id" class="rounded-[18px] bg-white px-6 py-4 shadow-[0_8px_20px_rgba(148,92,0,0.04)] ring-1 ring-[#f1e4c6]">
-        <div class="flex items-center gap-4">
-          <div class="h-[40px] w-[40px] flex items-center justify-center rounded-[10px] bg-[#fef7e8] text-[14px] text-[#8a6b34] font-bold">
-            {{ app.company?.name?.charAt(0) || '企' }}
-          </div>
-          <div class="min-w-0 flex-1">
-            <div class="text-[15px] text-[#24180c] font-medium">
-              {{ app.company?.name || `企业 #${app.company_id}` }}
+    <!-- Company Cards Grid -->
+    <div v-else>
+      <div class="gap-[16px] grid grid-cols-3">
+        <div
+          v-for="app in applications" :key="app?.id"
+          class="border border-[#ECECEC] rounded-[4px] bg-white overflow-hidden"
+          style="height: 173px;"
+        >
+          <div class="p-[19px_24px_0] flex flex-col relative">
+            <!-- Source Tag (top right) -->
+            <div
+              class="text-[12px] rounded-[2px] flex h-[20px] w-[90px] items-center right-[0] top-[0] justify-center absolute"
+              :class="app.join_source === 1
+                ? 'bg-[#FFF5E3] text-[#FFA500]'
+                : 'bg-[#EBF4FF] text-[#3292FF]'"
+            >
+              {{ app.join_source_label || joinSourceLabels[app.join_source] || '未知' }}
             </div>
-            <div class="mt-0.5 flex items-center gap-3 text-[12px] text-[#8a6b34]">
-              <span>来源：{{ app.join_source_label || joinSourceLabels[app.join_source] || '未知' }}</span>
-              <span>申请时间：{{ app.apply_at?.slice(0, 16).replace('T', ' ') }}</span>
-              <span v-if="app.remark">备注：{{ app.remark }}</span>
-              <span v-if="app.activity_booth?.booth_no">展位：{{ app.activity_booth.booth_no }}</span>
-              <span v-if="app.activity_jobs_count != null">{{ app.activity_jobs_count }} 个职位</span>
+
+            <!-- Company Info -->
+            <div class="mb-[17px] flex gap-[9px] items-center">
+              <img v-if="app.company?.logo" :src="app.company.logo" :alt="app.company?.name" class="rounded-[4px] shrink-0 h-[56px] w-[56px] object-cover">
+              <div v-else class="text-[14px] text-[#8a6b34] font-bold rounded-[4px] bg-[#fef7e8] flex shrink-0 h-[56px] w-[56px] items-center justify-center">
+                {{ app.company?.name?.charAt(0) || '企' }}
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-[16px] text-[#222] font-bold truncate">
+                  {{ app.company?.name || `企业 #${app.company_id}` }}
+                </div>
+                <div class="mt-[6px] flex flex-wrap gap-[8px]">
+                  <span class="text-[12px] text-[#555] px-[8px] py-[4px] rounded-[2px] bg-[#F5F5F5]">已上市</span>
+                  <span class="text-[12px] text-[#555] px-[8px] py-[4px] rounded-[2px] bg-[#F5F5F5]">10000人以上</span>
+                  <span class="text-[12px] text-[#555] px-[8px] py-[4px] rounded-[2px] bg-[#F5F5F5]">互联网企业</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Description -->
+            <div class="text-[14px] text-[#555] leading-none mb-[20px] whitespace-nowrap text-ellipsis overflow-hidden">
+              团建聚餐，带薪年假，全勤奖、晋升通道明确、...
             </div>
           </div>
-          <span class="rounded-full px-2.5 py-0.5 text-[11px] font-medium" :class="applyStatusLabels[app.apply_status]?.cls">
-            {{ app.apply_status_label || applyStatusLabels[app.apply_status]?.label }}
-          </span>
-          <div class="flex shrink-0 items-center gap-2">
-            <button class="h-[32px] flex cursor-pointer items-center gap-1 border border-[#ecd8a9] rounded-[10px] bg-white px-3 text-[12px] text-[#8a6b34] transition hover:border-[#d79a19] hover:text-[#d79a19]" @click="goJobs(app.company_id)">
-              <span class="i-carbon-list-boxes text-[13px]" />
-              职位
-            </button>
+          <!-- Status / Actions -->
+          <div class="border-t border-[#ECECEC] flex h-[40px] items-center justify-center">
             <template v-if="app.apply_status === 0">
-              <button class="h-[32px] flex cursor-pointer items-center gap-1 border border-emerald-200 rounded-[10px] bg-white px-3 text-[12px] text-emerald-700 transition hover:border-emerald-400" @click="openApprove(app)">
-                通过
+              <button
+                class="text-[14px] text-[#FFA500] border-none bg-transparent flex-1 cursor-pointer transition hover:text-[#e69500]"
+                @click="openApprove(app)"
+              >
+                同意申请
               </button>
-              <button class="h-[32px] flex cursor-pointer items-center gap-1 border border-red-200 rounded-[10px] bg-white px-3 text-[12px] text-red-500 transition hover:border-red-400" @click="openReject(app)">
-                驳回
+              <span class="bg-[#ECECEC] h-[26px] w-[1px]" />
+              <button
+                class="text-[14px] text-[#FFA500] border-none bg-transparent flex-1 cursor-pointer transition hover:text-[#e69500]"
+                @click="openReject(app)"
+              >
+                驳回申请
               </button>
+            </template>
+            <template v-else-if="app.apply_status === 1">
+              <div class="text-[14px] text-[#25B270] flex gap-[4px] items-center">
+                <img src="/assets/images/campus/audit-pass.png" class="h-[16px] w-[16px]">
+                审核通过
+              </div>
+            </template>
+            <template v-else-if="app.apply_status === 2">
+              <div class="text-[14px] text-[#F16767] flex gap-[4px] items-center">
+                <img src="/assets/images/campus/audit-refuse.png" class="h-[16px] w-[16px]">
+                驳回申请
+              </div>
             </template>
           </div>
         </div>
       </div>
 
-      <div v-if="applications.length === 0" class="rounded-[18px] bg-white px-6 py-16 text-center text-[14px] text-[#8a6b34] shadow-[0_8px_20px_rgba(148,92,0,0.04)] ring-1 ring-[#f1e4c6]">
+      <!-- Empty State -->
+      <div v-if="applications.length === 0" class="text-[14px] text-[#999] px-6 py-16 text-center border border-[#ECECEC] rounded-[4px] bg-white">
         暂无企业报名
+      </div>
+
+      <!-- Pagination -->
+      <div v-if="total > perPage" class="mt-[16px] flex justify-end">
+        <NaiveClientPagination
+          :page="page"
+          :page-count="Math.ceil(total / perPage)"
+          :theme-overrides="paginationThemeOverrides"
+          @update:page="page = $event"
+        />
       </div>
     </div>
 
     <Teleport to="body">
-      <div v-if="inviteModalVisible" class="fixed inset-0 z-50 flex items-center justify-center bg-[#24180c]/40 px-4" @click.self="inviteModalVisible = false">
-        <div class="max-w-[520px] w-full rounded-[24px] bg-white p-6 shadow-[0_24px_64px_rgba(15,23,42,0.12)]">
-          <!-- step: search -->
-          <template v-if="inviteStep === 'search'">
-            <h3 class="text-[18px] text-[#24180c] font-semibold">
-              邀约企业
+      <div v-if="inviteModalVisible" class="px-4 bg-[#000]/40 flex items-center inset-0 justify-center fixed z-50" @click.self="inviteModalVisible = false">
+        <div class="rounded-[8px] bg-white max-w-[640px] w-full shadow-[0_8px_32px_rgba(0,0,0,0.15)]">
+          <!-- Modal Header -->
+          <div class="px-[24px] py-[20px] border-b border-[#ECECEC] flex items-center justify-between">
+            <h3 class="text-[16px] text-[#222] font-bold">
+              添加展区
             </h3>
-            <div class="mt-5 space-y-4">
-              <label class="block text-[13px] text-[#8a6b34] space-y-1.5">
-                <span>企业名称 <span class="text-red-400">*</span></span>
+            <button class="text-[18px] text-[#999] rounded-full border-none bg-transparent flex h-[24px] w-[24px] cursor-pointer items-center justify-center hover:bg-[#F5F5F5]" @click="inviteModalVisible = false">
+              <span class="i-carbon-close" />
+            </button>
+          </div>
+
+          <!-- Modal Body -->
+          <div class="px-[24px] py-[24px]">
+            <div class="space-y-[20px]">
+              <!-- 企业名称 -->
+              <div>
+                <div class="text-[14px] text-[#222] mb-[8px]">
+                  <span class="text-[#FF4D4F]">*</span>企业名称
+                </div>
                 <div class="relative">
                   <input
                     :value="companySearchKeyword"
                     type="text"
-                    placeholder="输入企业名称搜索…"
-                    class="h-[42px] w-full border border-[#ecd8a9] rounded-[12px] bg-white px-4 text-[13px] text-[#24180c] outline-none transition focus:border-[#d79a19]"
+                    placeholder="请输入"
+                    class="text-[14px] text-[#222] px-[12px] outline-none border border-[#ECECEC] rounded-[4px] bg-white h-[40px] w-full transition focus:border-[#FFA500]"
                     @input="onSearchInput(($event.target as HTMLInputElement).value)"
                     @focus="companySearchKeyword && searchCompany(companySearchKeyword)"
                   >
                   <div
                     v-if="companySearchKeyword && (companySearchResults.length || companySearching)"
-                    class="absolute left-0 right-0 top-full z-10 mt-1 max-h-[200px] overflow-auto border border-[#ecd8a9] rounded-[12px] bg-white shadow-lg"
+                    class="mt-1 border border-[#ECECEC] rounded-[4px] bg-white max-h-[200px] shadow-lg left-0 right-0 top-full absolute z-10 overflow-auto"
                   >
-                    <div v-if="companySearching" class="px-4 py-3 text-center text-[12px] text-slate-400">
+                    <div v-if="companySearching" class="text-[12px] text-slate-400 px-4 py-3 text-center">
                       搜索中...
                     </div>
                     <div
                       v-for="c in companySearchResults" :key="c.id"
-                      class="flex cursor-pointer items-center px-4 py-2.5 text-[13px] text-[#24180c] transition hover:bg-[#fef7e8]"
-                      :class="inviteForm.company_id === c.id ? 'bg-[#fef7e8] text-[#d79a19] font-medium' : ''"
+                      class="text-[13px] text-[#222] px-4 py-2.5 flex cursor-pointer transition items-center hover:bg-[#FFF7E5]"
+                      :class="inviteForm.company_id === c.id ? 'bg-[#FFF7E5] text-[#FFA500] font-medium' : ''"
                       @click="inviteForm.company_id = c.id; inviteForm.credit_code = c.credit_code; companySearchKeyword = c.name; companySearchResults = []"
                     >
                       {{ c.name }}
                     </div>
                   </div>
                 </div>
-              </label>
+              </div>
 
-              <label class="block text-[13px] text-[#8a6b34] space-y-1.5">
-                <span>统一社会信用代码</span>
-                <input v-model="inviteForm.credit_code" type="text" placeholder="18 位统一社会信用代码" maxlength="18" class="h-[42px] w-full border border-[#ecd8a9] rounded-[12px] bg-white px-4 text-[13px] text-[#24180c] outline-none transition focus:border-[#d79a19]">
-              </label>
+              <!-- 统一社会信用代码 -->
+              <div>
+                <div class="text-[14px] text-[#222] mb-[8px]">
+                  统一社会信用代码
+                </div>
+                <input v-model="inviteForm.credit_code" type="text" placeholder="请输入" maxlength="18" class="text-[14px] text-[#222] px-[12px] outline-none border border-[#ECECEC] rounded-[4px] bg-white h-[40px] w-full transition focus:border-[#FFA500]">
+              </div>
 
-              <label class="block text-[13px] text-[#8a6b34] space-y-1.5">
-                <span>展位号（可选）</span>
-                <div class="flex gap-2">
-                  <input :value="selectedBoothNo || inviteForm.activity_booth_id" type="text" placeholder="点击选择展位" readonly class="h-[42px] flex-1 cursor-pointer border border-[#ecd8a9] rounded-[12px] bg-white px-4 text-[13px] text-[#24180c] outline-none transition focus:border-[#d79a19]" @focus="boothPickerVisible = true">
-                  <button type="button" class="h-[42px] cursor-pointer border border-[#ecd8a9] rounded-[12px] bg-white px-4 text-[13px] text-[#8a6b34] transition hover:border-[#d79a19]" @click="boothPickerVisible = true">
+              <!-- 展位号 -->
+              <div>
+                <div class="text-[14px] text-[#222] mb-[8px]">
+                  展位号
+                </div>
+                <div class="flex gap-[8px]">
+                  <input :value="selectedBoothNo || inviteForm.activity_booth_id" type="text" placeholder="请选择" readonly class="text-[14px] text-[#222] px-[12px] outline-none border border-[#ECECEC] rounded-[4px] bg-white flex-1 h-[40px] cursor-pointer transition focus:border-[#FFA500]" @focus="boothPickerVisible = true">
+                  <button type="button" class="text-[14px] text-white leading-none px-[16px] py-[8px] rounded-[4px] border-none bg-[#FFA500] cursor-pointer transition hover:brightness-105" @click="boothPickerVisible = true">
                     选择展位
                   </button>
-                  <button v-if="inviteForm.activity_booth_id" type="button" class="h-[42px] cursor-pointer border border-red-200 rounded-[12px] bg-white px-3 text-[13px] text-red-500 transition hover:border-red-400" @click="inviteForm.activity_booth_id = null">
+                  <button v-if="inviteForm.activity_booth_id" type="button" class="text-[14px] text-[#999] leading-none px-[12px] py-[8px] border border-[#ECECEC] rounded-[4px] bg-white cursor-pointer transition hover:border-[#FFA500]" @click="inviteForm.activity_booth_id = null">
                     清除
                   </button>
                 </div>
-              </label>
+              </div>
 
-              <label class="block text-[13px] text-[#8a6b34] space-y-1.5">
-                <span>备注</span>
-                <textarea v-model="inviteForm.remark" placeholder="可选" maxlength="2000" rows="3" class="w-full resize-none border border-[#ecd8a9] rounded-[12px] bg-white px-4 py-2.5 text-[13px] text-[#24180c] outline-none transition focus:border-[#d79a19]" />
-              </label>
+              <!-- 备注 -->
+              <div>
+                <div class="text-[14px] text-[#222] mb-[8px]">
+                  备注
+                </div>
+                <textarea v-model="inviteForm.remark" placeholder="请输入" maxlength="2000" rows="4" class="text-[14px] text-[#222] px-[12px] py-[10px] outline-none border border-[#ECECEC] rounded-[4px] bg-white w-full resize-none transition focus:border-[#FFA500]" />
+              </div>
 
-              <div class="border-t border-[#f1e4c6] pt-3">
+              <!-- Invite Code Link -->
+              <div class="flex gap-[4px] items-center">
+                <span class="i-carbon-qr-code text-[16px] text-[#FFA500]" />
+                <span class="text-[13px] text-[#999]">企业在系统中搜索不到？通过</span>
                 <button
-                  class="flex cursor-pointer items-center gap-1 border-none bg-transparent text-[12px] text-[#b89243] hover:text-[#d79a19]"
+                  class="text-[13px] text-[#FFA500] border-none bg-transparent cursor-pointer hover:underline"
                   @click="switchToInviteCode"
                 >
-                  <span class="i-carbon-qr-code text-[14px]" />
-                  企业在系统中搜索不到？通过邀请码邀约
+                  邀请码邀约
                 </button>
               </div>
             </div>
-            <div class="mt-6 flex justify-end gap-3">
-              <button type="button" class="h-[42px] cursor-pointer border border-slate-200 rounded-[12px] bg-white px-5 text-[13px] text-slate-700 transition hover:bg-slate-50" @click="inviteModalVisible = false">
-                取消
-              </button>
-              <button class="h-[42px] cursor-pointer rounded-[12px] border-none bg-[linear-gradient(135deg,#ffbe3b_0%,#ffa500_60%,#ea9400_100%)] px-5 text-[13px] text-white font-semibold shadow-[0_8px_16px_rgba(255,165,0,0.15)] transition disabled:opacity-50 hover:brightness-105" :disabled="inviteSaving || !inviteForm.company_id" @click="saveInvite">
-                {{ inviteSaving ? '发送中...' : '发送邀请' }}
-              </button>
-            </div>
-          </template>
+          </div>
 
-          <!-- step: invite code -->
-          <template v-if="inviteStep === 'invite-code'">
-            <h3 class="text-[18px] text-[#24180c] font-semibold">
+          <!-- Modal Footer -->
+          <div class="px-[24px] py-[20px] border-t border-[#ECECEC] flex gap-[12px] justify-end">
+            <button type="button" class="text-[14px] leading-none px-[24px] py-[8px] border border-[#ECECEC] rounded-[4px] bg-white cursor-pointer transition hover:border-[#FFA500]" @click="inviteModalVisible = false">
+              取消
+            </button>
+            <button class="text-[14px] text-white leading-none px-[24px] py-[8px] rounded-[4px] border-none bg-[#FFA500] cursor-pointer transition disabled:opacity-50 hover:brightness-105" :disabled="inviteSaving || !inviteForm.company_id" @click="saveInvite">
+              {{ inviteSaving ? '添加中...' : '确定添加' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Invite Code Modal -->
+    <Teleport to="body">
+      <div v-if="inviteStep === 'invite-code'" class="px-4 bg-[#000]/40 flex items-center inset-0 justify-center fixed z-50" @click.self="inviteStep = 'search'">
+        <div class="rounded-[8px] bg-white max-w-[480px] w-full shadow-[0_8px_32px_rgba(0,0,0,0.15)]">
+          <div class="px-[24px] py-[20px] border-b border-[#ECECEC] flex items-center justify-between">
+            <h3 class="text-[16px] text-[#222] font-bold">
               邀请码邀约
             </h3>
-            <div class="mt-5 flex flex-col items-center gap-4">
-              <p class="text-center text-[13px] text-[#6f6556]">
-                企业不在系统中时，可向对方发送此二维码。
-                <br>对方扫码后填写企业信息即可完成注册并加入活动。
-              </p>
-              <div class="flex items-center justify-center border border-[#ecd8a9] rounded-[16px] bg-white p-4">
-                <img v-if="qrCodeDataUrl" :src="qrCodeDataUrl" alt="邀请二维码" class="h-[200px] w-[200px]">
-                <div v-else class="h-[200px] w-[200px] flex items-center justify-center text-[13px] text-slate-400">
-                  生成中...
-                </div>
-              </div>
-              <div class="flex items-center gap-2 rounded-[10px] bg-[#fefbf5] px-4 py-2.5">
-                <span class="text-[12px] text-[#8a6b34]">邀请码：</span>
-                <code class="text-[14px] text-[#d79a19] font-semibold font-mono">{{ inviteCode }}</code>
-                <button
-                  class="ml-1 cursor-pointer border-none bg-transparent text-[12px] text-[#b89243] hover:text-[#d79a19]"
-                  @click="copyInviteCode"
-                >
-                  复制
-                </button>
+            <button class="text-[18px] text-[#999] rounded-full border-none bg-transparent flex h-[24px] w-[24px] cursor-pointer items-center justify-center hover:bg-[#F5F5F5]" @click="inviteStep = 'search'">
+              <span class="i-carbon-close" />
+            </button>
+          </div>
+          <div class="px-[24px] py-[24px] flex flex-col gap-[16px] items-center">
+            <p class="text-[13px] text-[#999] text-center">
+              企业不在系统中时，可向对方发送此二维码。
+              <br>对方扫码后填写企业信息即可完成注册并加入活动。
+            </p>
+            <div class="p-4 border border-[#ECECEC] rounded-[8px] bg-white flex items-center justify-center">
+              <img v-if="qrCodeDataUrl" :src="qrCodeDataUrl" alt="邀请二维码" class="h-[200px] w-[200px]">
+              <div v-else class="text-[13px] text-slate-400 flex h-[200px] w-[200px] items-center justify-center">
+                生成中...
               </div>
             </div>
-            <div class="mt-6 flex justify-end gap-3">
-              <button type="button" class="h-[42px] cursor-pointer border border-slate-200 rounded-[12px] bg-white px-5 text-[13px] text-slate-700 transition hover:bg-slate-50" @click="openInvite">
-                返回搜索
-              </button>
-              <button type="button" class="h-[42px] cursor-pointer border border-slate-200 rounded-[12px] bg-white px-5 text-[13px] text-slate-700 transition hover:bg-slate-50" @click="inviteModalVisible = false">
-                关闭
+            <div class="px-[16px] py-[10px] rounded-[4px] bg-[#FFF7E5] flex gap-[8px] items-center">
+              <span class="text-[13px] text-[#999]">邀请码：</span>
+              <code class="text-[14px] text-[#FFA500] font-mono font-semibold">{{ inviteCode }}</code>
+              <button
+                class="text-[13px] text-[#FFA500] border-none bg-transparent cursor-pointer hover:underline"
+                @click="copyInviteCode"
+              >
+                复制
               </button>
             </div>
-          </template>
+          </div>
+          <div class="px-[24px] py-[20px] border-t border-[#ECECEC] flex gap-[12px] justify-end">
+            <button type="button" class="text-[14px] leading-none px-[24px] py-[8px] border border-[#ECECEC] rounded-[4px] bg-white cursor-pointer transition hover:border-[#FFA500]" @click="inviteStep = 'search'">
+              返回
+            </button>
+            <button type="button" class="text-[14px] leading-none px-[24px] py-[8px] border border-[#ECECEC] rounded-[4px] bg-white cursor-pointer transition hover:border-[#FFA500]" @click="inviteStep = 'search'; inviteModalVisible = false">
+              关闭
+            </button>
+          </div>
         </div>
       </div>
     </Teleport>
 
     <Teleport to="body">
-      <div v-if="boothPickerVisible" class="fixed inset-0 z-[60] flex items-center justify-center bg-[#24180c]/40 px-4" @click.self="boothPickerVisible = false">
-        <div class="max-h-[80vh] max-w-[640px] w-full flex flex-col rounded-[24px] bg-white shadow-[0_24px_64px_rgba(15,23,42,0.12)]">
-          <div class="flex shrink-0 items-center justify-between px-6 pb-4 pt-6">
-            <h3 class="text-[18px] text-[#24180c] font-semibold">
+      <div v-if="boothPickerVisible" class="px-4 bg-[#000]/40 flex items-center inset-0 justify-center fixed z-[60]" @click.self="boothPickerVisible = false">
+        <div class="rounded-[8px] bg-white flex flex-col max-h-[80vh] max-w-[640px] w-full shadow-[0_8px_32px_rgba(0,0,0,0.15)]">
+          <div class="px-[24px] py-[20px] border-b border-[#ECECEC] flex shrink-0 items-center justify-between">
+            <h3 class="text-[16px] text-[#222] font-bold">
               选择展位
             </h3>
-            <button class="h-8 w-8 flex cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-[18px] text-slate-400 hover:bg-slate-100" @click="boothPickerVisible = false">
+            <button class="text-[18px] text-[#999] rounded-full border-none bg-transparent flex h-[24px] w-[24px] cursor-pointer items-center justify-center hover:bg-[#F5F5F5]" @click="boothPickerVisible = false">
               <span class="i-carbon-close" />
             </button>
           </div>
 
-          <div class="overflow-y-auto px-6 pb-6">
-            <div v-if="!activityBooths.length" class="py-12 text-center text-[13px] text-slate-400">
+          <div class="px-[24px] pb-[24px] overflow-y-auto">
+            <div v-if="!activityBooths.length" class="text-[13px] text-slate-400 py-12 text-center">
               暂无展区数据
             </div>
 
             <!-- area tabs -->
-            <div v-if="boothAreaNames.length" class="mb-5 flex gap-2 border-b border-[#f1e4c6]">
+            <div v-if="boothAreaNames.length" class="mb-5 border-b border-[#ECECEC] flex gap-2">
               <button
                 v-for="(name, idx) in boothAreaNames" :key="name"
-                class="cursor-pointer border-b-2 px-4 py-2.5 text-[13px] font-medium transition"
+                class="text-[14px] font-medium px-4 py-2.5 border-b-2 cursor-pointer transition"
                 :class="boothPickerAreaIndex === idx
-                  ? 'border-[#d79a19] text-[#d79a19]'
-                  : 'border-transparent text-[#8a6b34] hover:text-[#d79a19]'"
+                  ? 'border-[#FFA500] text-[#FFA500]'
+                  : 'border-transparent text-[#666] hover:text-[#FFA500]'"
                 @click="boothPickerAreaIndex = idx"
               >
                 {{ name }}
@@ -555,18 +727,18 @@ async function loadActivityDetail() {
 
             <!-- booth grid -->
             <div v-if="boothAreaNames[boothPickerAreaIndex]">
-              <p class="mb-3 text-[12px] text-[#8a6b34]">
+              <p class="text-[13px] text-[#666] mb-3">
                 {{ boothAreaNames[boothPickerAreaIndex] }}
               </p>
-              <div class="grid grid-cols-8 gap-2">
+              <div class="gap-2 grid grid-cols-8">
                 <label
                   v-for="b in getBoothsInArea(boothAreaNames[boothPickerAreaIndex] || '')" :key="b.id"
-                  class="flex cursor-pointer items-center justify-center border rounded-[10px] px-2 py-3 text-[13px] transition"
+                  class="text-[13px] px-2 py-3 border rounded-[4px] flex cursor-pointer transition items-center justify-center"
                   :class="b.company_id
-                    ? 'border-slate-200 bg-slate-50 text-slate-300 cursor-not-allowed'
+                    ? 'border-[#ECECEC] bg-[#F5F5F5] text-[#CCC] cursor-not-allowed'
                     : b.id === inviteForm.activity_booth_id
-                      ? 'border-[#ffa500] bg-[#fff7e6] text-[#8f6310] font-medium'
-                      : 'border-[#ecd8a9] bg-white text-[#6f5a31] hover:border-[#d8b96f]'"
+                      ? 'border-[#FFA500] bg-[#FFF7E5] text-[#FFA500] font-medium'
+                      : 'border-[#ECECEC] bg-white text-[#222] hover:border-[#FFA500]'"
                 >
                   <input type="radio" :value="b.id" :disabled="!!b.company_id" class="sr-only" @change="selectBooth(b)">
                   <span>{{ b.booth_no }}</span>
@@ -575,11 +747,11 @@ async function loadActivityDetail() {
             </div>
           </div>
 
-          <div class="flex shrink-0 justify-end gap-3 border-t border-[#f1e4c6] px-6 py-4">
-            <button type="button" class="h-[42px] cursor-pointer border border-slate-200 rounded-[12px] bg-white px-5 text-[13px] text-slate-700 transition hover:bg-slate-50" @click="boothPickerVisible = false">
+          <div class="px-[24px] py-[20px] border-t border-[#ECECEC] flex shrink-0 gap-[12px] justify-end">
+            <button type="button" class="text-[14px] leading-none px-[24px] py-[8px] border border-[#ECECEC] rounded-[4px] bg-white cursor-pointer transition hover:border-[#FFA500]" @click="boothPickerVisible = false">
               取消
             </button>
-            <button type="button" class="h-[42px] cursor-pointer rounded-[12px] border-none bg-[linear-gradient(135deg,#ffbe3b_0%,#ffa500_60%,#ea9400_100%)] px-5 text-[13px] text-white font-semibold shadow-[0_8px_16px_rgba(255,165,0,0.15)] transition hover:brightness-105" @click="boothPickerVisible = false">
+            <button type="button" class="text-[14px] text-white leading-none px-[24px] py-[8px] rounded-[4px] border-none bg-[#FFA500] cursor-pointer transition hover:brightness-105" @click="boothPickerVisible = false">
               确定
             </button>
           </div>
@@ -588,29 +760,40 @@ async function loadActivityDetail() {
     </Teleport>
 
     <Teleport to="body">
-      <div v-if="approveModalVisible" class="fixed inset-0 z-50 flex items-center justify-center bg-[#24180c]/40 px-4" @click.self="approveModalVisible = false">
-        <div class="max-w-[480px] w-full rounded-[24px] bg-white p-6 shadow-[0_24px_64px_rgba(15,23,42,0.12)]">
-          <h3 class="text-[18px] text-[#24180c] font-semibold">
-            审批通过
-          </h3>
-          <p class="mt-2 text-[13px] text-[#8a6b34]">
-            企业：{{ approveTarget?.company?.name || `#${approveTarget?.company_id}` }}
-          </p>
-          <div class="mt-5 space-y-4">
-            <label class="block text-[13px] text-[#8a6b34] space-y-1.5">
-              <span>配置展位（可选）</span>
-              <input v-model.number="approveForm.activity_booth_id" type="number" placeholder="输入活动展位 ID" class="h-[42px] w-full border border-[#ecd8a9] rounded-[12px] bg-white px-4 text-[13px] text-[#24180c] outline-none transition focus:border-[#d79a19]">
-            </label>
-            <label class="block text-[13px] text-[#8a6b34] space-y-1.5">
-              <span>审核意见</span>
-              <textarea v-model="approveForm.remark" placeholder="可选" maxlength="2000" rows="3" class="w-full resize-none border border-[#ecd8a9] rounded-[12px] bg-white px-4 py-2.5 text-[13px] text-[#24180c] outline-none transition focus:border-[#d79a19]" />
-            </label>
+      <div v-if="approveModalVisible" class="px-4 bg-[#000]/40 flex items-center inset-0 justify-center fixed z-50" @click.self="approveModalVisible = false">
+        <div class="rounded-[8px] bg-white max-w-[480px] w-full shadow-[0_8px_32px_rgba(0,0,0,0.15)]">
+          <div class="px-[24px] py-[20px] border-b border-[#ECECEC] flex items-center justify-between">
+            <h3 class="text-[16px] text-[#222] font-bold">
+              审批通过
+            </h3>
+            <button class="text-[18px] text-[#999] rounded-full border-none bg-transparent flex h-[24px] w-[24px] cursor-pointer items-center justify-center hover:bg-[#F5F5F5]" @click="approveModalVisible = false">
+              <span class="i-carbon-close" />
+            </button>
           </div>
-          <div class="mt-6 flex justify-end gap-3">
-            <button type="button" class="h-[42px] cursor-pointer border border-slate-200 rounded-[12px] bg-white px-5 text-[13px] text-slate-700 transition hover:bg-slate-50" @click="approveModalVisible = false">
+          <div class="px-[24px] py-[24px]">
+            <p class="text-[14px] text-[#666] mb-[20px]">
+              企业：{{ approveTarget?.company?.name || `#${approveTarget?.company_id}` }}
+            </p>
+            <div class="space-y-[20px]">
+              <div>
+                <div class="text-[14px] text-[#222] mb-[8px]">
+                  配置展位（可选）
+                </div>
+                <input v-model.number="approveForm.activity_booth_id" type="number" placeholder="输入活动展位 ID" class="text-[14px] text-[#222] px-[12px] outline-none border border-[#ECECEC] rounded-[4px] bg-white h-[40px] w-full transition focus:border-[#FFA500]">
+              </div>
+              <div>
+                <div class="text-[14px] text-[#222] mb-[8px]">
+                  审核意见
+                </div>
+                <textarea v-model="approveForm.remark" placeholder="可选" maxlength="2000" rows="3" class="text-[14px] text-[#222] px-[12px] py-[10px] outline-none border border-[#ECECEC] rounded-[4px] bg-white w-full resize-none transition focus:border-[#FFA500]" />
+              </div>
+            </div>
+          </div>
+          <div class="px-[24px] py-[20px] border-t border-[#ECECEC] flex gap-[12px] justify-end">
+            <button type="button" class="text-[14px] leading-none px-[24px] py-[8px] border border-[#ECECEC] rounded-[4px] bg-white cursor-pointer transition hover:border-[#FFA500]" @click="approveModalVisible = false">
               取消
             </button>
-            <button class="h-[42px] cursor-pointer rounded-[12px] border-none bg-[linear-gradient(135deg,#ffbe3b_0%,#ffa500_60%,#ea9400_100%)] px-5 text-[13px] text-white font-semibold shadow-[0_8px_16px_rgba(255,165,0,0.15)] transition disabled:opacity-50 hover:brightness-105" :disabled="approveSaving" @click="saveApprove">
+            <button class="text-[14px] text-white leading-none px-[24px] py-[8px] rounded-[4px] border-none bg-[#FFA500] cursor-pointer transition disabled:opacity-50 hover:brightness-105" :disabled="approveSaving" @click="saveApprove">
               {{ approveSaving ? '保存中...' : '确认通过' }}
             </button>
           </div>
@@ -619,25 +802,32 @@ async function loadActivityDetail() {
     </Teleport>
 
     <Teleport to="body">
-      <div v-if="rejectModalVisible" class="fixed inset-0 z-50 flex items-center justify-center bg-[#24180c]/40 px-4" @click.self="rejectModalVisible = false">
-        <div class="max-w-[480px] w-full rounded-[24px] bg-white p-6 shadow-[0_24px_64px_rgba(15,23,42,0.12)]">
-          <h3 class="text-[18px] text-[#24180c] font-semibold">
-            驳回申请
-          </h3>
-          <p class="mt-2 text-[13px] text-[#8a6b34]">
-            企业：{{ rejectTarget?.company?.name || `#${rejectTarget?.company_id}` }}
-          </p>
-          <div class="mt-5 space-y-4">
-            <label class="block text-[13px] text-[#8a6b34] space-y-1.5">
-              <span>驳回原因</span>
-              <textarea v-model="rejectForm.remark" placeholder="输入驳回原因" maxlength="2000" rows="3" class="w-full resize-none border border-[#ecd8a9] rounded-[12px] bg-white px-4 py-2.5 text-[13px] text-[#24180c] outline-none transition focus:border-[#d79a19]" />
-            </label>
+      <div v-if="rejectModalVisible" class="px-4 bg-[#000]/40 flex items-center inset-0 justify-center fixed z-50" @click.self="rejectModalVisible = false">
+        <div class="rounded-[8px] bg-white max-w-[480px] w-full shadow-[0_8px_32px_rgba(0,0,0,0.15)]">
+          <div class="px-[24px] py-[20px] border-b border-[#ECECEC] flex items-center justify-between">
+            <h3 class="text-[16px] text-[#222] font-bold">
+              驳回申请
+            </h3>
+            <button class="text-[18px] text-[#999] rounded-full border-none bg-transparent flex h-[24px] w-[24px] cursor-pointer items-center justify-center hover:bg-[#F5F5F5]" @click="rejectModalVisible = false">
+              <span class="i-carbon-close" />
+            </button>
           </div>
-          <div class="mt-6 flex justify-end gap-3">
-            <button type="button" class="h-[42px] cursor-pointer border border-slate-200 rounded-[12px] bg-white px-5 text-[13px] text-slate-700 transition hover:bg-slate-50" @click="rejectModalVisible = false">
+          <div class="px-[24px] py-[24px]">
+            <p class="text-[14px] text-[#666] mb-[20px]">
+              企业：{{ rejectTarget?.company?.name || `#${rejectTarget?.company_id}` }}
+            </p>
+            <div>
+              <div class="text-[14px] text-[#222] mb-[8px]">
+                驳回原因
+              </div>
+              <textarea v-model="rejectForm.remark" placeholder="输入驳回原因" maxlength="2000" rows="3" class="text-[14px] text-[#222] px-[12px] py-[10px] outline-none border border-[#ECECEC] rounded-[4px] bg-white w-full resize-none transition focus:border-[#FFA500]" />
+            </div>
+          </div>
+          <div class="px-[24px] py-[20px] border-t border-[#ECECEC] flex gap-[12px] justify-end">
+            <button type="button" class="text-[14px] leading-none px-[24px] py-[8px] border border-[#ECECEC] rounded-[4px] bg-white cursor-pointer transition hover:border-[#FFA500]" @click="rejectModalVisible = false">
               取消
             </button>
-            <button class="h-[42px] cursor-pointer rounded-[12px] border-none bg-[linear-gradient(135deg,#ffbe3b_0%,#ffa500_60%,#ea9400_100%)] px-5 text-[13px] text-white font-semibold shadow-[0_8px_16px_rgba(255,165,0,0.15)] transition disabled:opacity-50 hover:brightness-105" :disabled="rejectSaving" @click="saveReject">
+            <button class="text-[14px] text-white leading-none px-[24px] py-[8px] rounded-[4px] border-none bg-[#FFA500] cursor-pointer transition disabled:opacity-50 hover:brightness-105" :disabled="rejectSaving" @click="saveReject">
               {{ rejectSaving ? '保存中...' : '确认驳回' }}
             </button>
           </div>

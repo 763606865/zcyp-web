@@ -359,7 +359,7 @@ async function handleEnd(id: number) {
 }
 
 function goCompanies(activityId: number) {
-  router.push(`/campus/activities/companies/?activityId=${activityId}`)
+  router.push(`/campus/activities/companies?activityId=${activityId}`)
 }
 
 function getParticipatedStatusClass(item: SchoolParticipatedActivityItem) {

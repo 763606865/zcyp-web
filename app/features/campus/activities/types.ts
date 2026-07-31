@@ -96,6 +96,7 @@ export interface CompanyApplication {
   company: {
     id: number
     name: string
+    logo: string | null
     credit_code: string | null
     legal_person: string | null
     contact_phone: string | null
@@ -147,6 +148,7 @@ export interface ActivityJob {
   company?: {
     id: number
     name: string
+    logo: string | null
     credit_code: string | null
     legal_person: string | null
     contact_phone: string | null
