@@ -173,13 +173,6 @@ function tsToStr(ts: number | null): string | null {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`
 }
 
-function strToTs(s: string | null): number | null {
-  if (!s)
-    return null
-  const d = new Date(s)
-  return Number.isNaN(d.getTime()) ? null : d.getTime()
-}
-
 function formatDate(d: string | null) {
   if (!d)
     return '—'
@@ -295,34 +288,7 @@ function openCreate() {
 }
 
 function openEdit(id: number) {
-  editingId.value = id
-  editing.value = true
-  const item = activities.value.find(a => a.id === id)
-  if (!item) {
-    pushGlobalNotice('活动不存在', 'error')
-    return
-  }
-  form.value = {
-    type: item.type,
-    title: item.title,
-    description: item.description,
-    register_start_date: strToTs(item.register_start_date),
-    register_end_date: strToTs(item.register_end_date),
-    start_time: strToTs(item.start_time),
-    end_time: strToTs(item.end_time),
-    booth_id: item.booth_id,
-    cover_image: item.cover_image,
-    display_cover_image: item.display_cover_image,
-    link: item.link,
-    contact_name: item.contact_name,
-    contact_phone: item.contact_phone,
-    province_code: item.province_code,
-    city_code: item.city_code,
-    district_code: item.district_code,
-    address: item.address,
-    files: (item.files || []).map(f => f.path),
-  }
-  modalVisible.value = true
+  router.push(`/campus/activities/edit/${id}`)
 }
 
 async function saveActivity() {
@@ -364,19 +330,6 @@ async function saveActivity() {
     pushGlobalNotice(e instanceof ApiRequestError ? e.message : '保存失败', 'error')
   }
   finally { saving.value = false }
-}
-
-async function removeActivity(id: number) {
-  if (!userStore.authHeader)
-    return
-  try {
-    await deleteActivity(userStore.authHeader, id)
-    pushGlobalNotice('活动已删除')
-    await loadActivities()
-  }
-  catch (e) {
-    pushGlobalNotice(e instanceof ApiRequestError ? e.message : '删除失败', 'error')
-  }
 }
 
 async function handlePublish(id: number) {
