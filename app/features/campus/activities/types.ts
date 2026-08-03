@@ -1,3 +1,5 @@
+import type { CompanyProfile } from '~/types/company'
+
 export interface SchoolActivity {
   id: number
   type: number
@@ -104,6 +106,7 @@ export interface CompanyApplication {
     status: number
     created_at?: string
     updated_at?: string
+    profile?: CompanyProfile | null
   } | null
   activity_booth?: {
     id: number

@@ -97,88 +97,20 @@ const sourceFilterOptions = [
 
 let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
-// ===== Mock 开关：设为 true 使用 mock 数据，设为 false 调用真实接口 =====
-const USE_MOCK = true
-
-function getMockApplications(): CompanyApplication[] {
-  const companyNames = ['阿里巴巴集团', '腾讯科技', '字节跳动', '华为技术', '京东集团', '美团点评', '百度在线', '网易集团', '小米科技', '中国移动', '中国电信', '中国平安', '格力电器', '海尔集团', '比亚迪']
-  const statuses = [0, 0, 1, 1, 1, 2, 2, 0, 1, 0, 1, 1, 2, 1, 2]
-  const sources = [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1]
-  const statusLabels: Record<number, string> = { 0: '待审核', 1: '审核通过', 2: '已驳回' }
-  const sourceLabels: Record<number, string> = { 0: '院校后台邀约', 1: '企业申请' }
-
-  return Array.from({ length: 15 }, (_, i) => ({
-    id: i + 1,
-    activity_id: activityId,
-    company_id: i + 100,
-    activity_booth_id: i < 3 ? i + 1 : null,
-    join_source: sources[i],
-    join_source_label: sourceLabels[sources[i]],
-    apply_status: statuses[i],
-    apply_status_label: statusLabels[statuses[i]],
-    apply_at: '2026-07-20T10:00:00',
-    remark: null,
-    activity_jobs_count: Math.floor(Math.random() * 10) + 1,
-    company: {
-      id: i + 100,
-      name: companyNames[i],
-      credit_code: `91110000MA001${String(i).padStart(2, '0')}`,
-      legal_person: '张三',
-      contact_phone: '13800138000',
-      address: '北京市朝阳区',
-      status: 1,
-    },
-    activity_booth: i < 3
-      ? {
-          id: i + 1,
-          booth_no: `A${String(i + 1).padStart(2, '0')}`,
-          booth_area_name: 'A展区',
-          company_id: i + 100,
-          status: 1,
-        }
-      : null,
-  })) as CompanyApplication[]
-}
-
 async function loadApplications() {
-  // mock 模式不需要 authHeader
-  if (!USE_MOCK && !userStore.authHeader)
+  if (!userStore.authHeader)
     return
   loading.value = true
   try {
-    let allData: CompanyApplication[]
-
-    if (USE_MOCK) {
-      // 使用 mock 数据查看效果
-      allData = getMockApplications()
-    }
-    else {
-      const result = await getCompanyApplications(userStore.authHeader, activityId, {
-        page: page.value,
-        per_page: perPage,
-        ...(applyStatusFilter.value !== null ? { apply_status: applyStatusFilter.value } : {}),
-        ...(joinSourceFilter.value !== null ? { join_source: joinSourceFilter.value } : {}),
-        ...(keyword.value ? { keyword: keyword.value } : {}),
-      })
-      allData = result.data || []
-      total.value = result.total || 0
-      applications.value = allData
-      return
-    }
-
-    // 模拟筛选
-    let filtered = allData
-    if (applyStatusFilter.value !== null)
-      filtered = filtered.filter(a => a.apply_status === applyStatusFilter.value)
-    if (joinSourceFilter.value !== null)
-      filtered = filtered.filter(a => a.join_source === joinSourceFilter.value)
-    if (keyword.value)
-      filtered = filtered.filter(a => a.company?.name?.includes(keyword.value))
-
-    total.value = filtered.length
-    // 模拟分页
-    const start = (page.value - 1) * perPage
-    applications.value = filtered.slice(start, start + perPage)
+    const result = await getCompanyApplications(userStore.authHeader, activityId, {
+      page: page.value,
+      per_page: perPage,
+      ...(applyStatusFilter.value !== null ? { apply_status: applyStatusFilter.value } : {}),
+      ...(joinSourceFilter.value !== null ? { join_source: joinSourceFilter.value } : {}),
+      ...(keyword.value ? { keyword: keyword.value } : {}),
+    })
+    applications.value = result.data || []
+    total.value = result.total || 0
   }
   catch {
     applications.value = []
@@ -470,7 +402,7 @@ async function loadActivityDetail() {
 
             <!-- Company Info -->
             <div class="mb-[17px] flex gap-[9px] items-center">
-              <img v-if="app.company?.logo" :src="app.company.logo" :alt="app.company?.name" class="rounded-[4px] shrink-0 h-[56px] w-[56px] object-cover">
+              <img v-if="app.company?.profile?.display_logo || app.company?.logo" :src="app.company.profile?.display_logo || app.company.logo" :alt="app.company?.name" class="rounded-[4px] shrink-0 h-[56px] w-[56px] object-cover">
               <div v-else class="text-[14px] text-[#8a6b34] font-bold rounded-[4px] bg-[#fef7e8] flex shrink-0 h-[56px] w-[56px] items-center justify-center">
                 {{ app.company?.name?.charAt(0) || '企' }}
               </div>
@@ -478,17 +410,21 @@ async function loadActivityDetail() {
                 <div class="text-[16px] text-[#222] font-bold truncate">
                   {{ app.company?.name || `企业 #${app.company_id}` }}
                 </div>
-                <div class="mt-[6px] flex flex-wrap gap-[8px]">
-                  <span class="text-[12px] text-[#555] px-[8px] py-[4px] rounded-[2px] bg-[#F5F5F5]">已上市</span>
-                  <span class="text-[12px] text-[#555] px-[8px] py-[4px] rounded-[2px] bg-[#F5F5F5]">10000人以上</span>
-                  <span class="text-[12px] text-[#555] px-[8px] py-[4px] rounded-[2px] bg-[#F5F5F5]">互联网企业</span>
+                <div class="mt-[6px] flex flex-wrap gap-[8px] min-h-[24px]">
+                  <template v-if="app.company?.profile">
+                    <span v-if="app.company.profile.funding_stage_label" class="text-[12px] text-[#555] px-[8px] py-[4px] rounded-[2px] bg-[#F5F5F5]">{{ app.company.profile.funding_stage_label }}</span>
+                    <span v-if="app.company.profile.scale_type_label" class="text-[12px] text-[#555] px-[8px] py-[4px] rounded-[2px] bg-[#F5F5F5]">{{ app.company.profile.scale_type_label }}</span>
+                    <span v-if="app.company.profile.industry_labels?.length" class="text-[12px] text-[#555] px-[8px] py-[4px] rounded-[2px] bg-[#F5F5F5]">{{ app.company.profile.industry_labels[0] }}</span>
+                  </template>
                 </div>
               </div>
             </div>
 
             <!-- Description -->
-            <div class="text-[14px] text-[#555] leading-none mb-[20px] whitespace-nowrap text-ellipsis overflow-hidden">
-              团建聚餐，带薪年假，全勤奖、晋升通道明确、...
+            <div class="text-[14px] text-[#555] leading-none mb-[20px] min-h-[20px] whitespace-nowrap text-ellipsis overflow-hidden">
+              <template v-if="app.company?.profile?.benefit_tag_labels?.length">
+                {{ app.company.profile.benefit_tag_labels.join('、') }}
+              </template>
             </div>
           </div>
           <!-- Status / Actions -->

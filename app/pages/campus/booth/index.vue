@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Booth, BoothArea } from '~/features/campus/booth/types'
-import { getBoothList } from '~/features/campus/booth/services'
+import { deleteBooth, getAreaList, getBoothList, updateBooth } from '~/features/campus/booth/services'
 import { ApiRequestError } from '~/services/http'
 import { pushGlobalNotice } from '~/utils/notice'
 
@@ -11,9 +11,6 @@ definePageMeta({
 
 const userStore = useUserStore()
 const router = useRouter()
-
-// Mock data switch - set to false to use real API
-const USE_MOCK = true
 
 const booths = ref<Booth[]>([])
 const total = ref(0)
@@ -26,81 +23,19 @@ const expandedBoothId = ref<number | null>(null)
 const areaLoading = ref(false)
 const areas = ref<Record<number, BoothArea[]>>({})
 
-// Mock data generator
-function generateMockBooths(): Booth[] {
-  return Array.from({ length: 6 }, (_, i) => ({
-    id: i + 1,
-    school_code: 'SCH001',
-    name: '学生活动中心展位',
-    province_code: '360000',
-    city_code: '360100',
-    district_code: '360112',
-    address: '南昌红谷滩区绿地中心i期-A座13',
-    image: null,
-    display_image: null,
-    area_size: 4000,
-    max_people: 4000,
-    total_booth_count: 120,
-    description: '为进一步促进高校毕业生就业，中测易聘联合全国50余所高校，将于今年9月启动秋季校园双选会。本次双选会将采用线上线下结合的模式，涵盖互联网、金融、制造业等多个行业领域。',
-    rule: null,
-    status: i === 2 ? 0 : 1,
-    status_label: i === 2 ? '禁用' : '启用',
-    areas_count: 6,
-    areas: [],
-  }))
-}
-
-function generateMockAreas(boothId: number): BoothArea[] {
-  const zones = ['A', 'B', 'C', 'D', 'E', 'F']
-  return zones.map((zone, i) => ({
-    id: boothId * 100 + i + 1,
-    booth_id: boothId,
-    code: zone,
-    name: `${zone}区`,
-    area_size: 800,
-    max_people: 800,
-    start_no: 1,
-    end_no: 20,
-    total_booth_count: 20,
-    max_company_count: 1,
-    map_image: null,
-    display_map_image: null,
-    sort: i,
-  }))
-}
-
 async function loadBooths() {
   if (!userStore.authHeader)
     return
   loading.value = true
   try {
-    if (USE_MOCK) {
-      // Use mock data
-      await new Promise(resolve => setTimeout(resolve, 300))
-      let mockData = generateMockBooths()
-
-      // Apply filters
-      if (keyword.value) {
-        mockData = mockData.filter(b => b.name.includes(keyword.value))
-      }
-      if (statusFilter.value !== null) {
-        mockData = mockData.filter(b => b.status === statusFilter.value)
-      }
-
-      booths.value = mockData
-      total.value = mockData.length
-    }
-    else {
-      // Real API call
-      const params: Record<string, any> = { per_page: pageSize.value, page: page.value }
-      if (keyword.value)
-        params.keyword = keyword.value
-      if (statusFilter.value !== null)
-        params.status = statusFilter.value
-      const result = await getBoothList(userStore.authHeader, params)
-      booths.value = result.data
-      total.value = result.total
-    }
+    const params: Record<string, any> = { per_page: pageSize.value, page: page.value }
+    if (keyword.value)
+      params.keyword = keyword.value
+    if (statusFilter.value !== null)
+      params.status = statusFilter.value
+    const result = await getBoothList(userStore.authHeader, params)
+    booths.value = result.data
+    total.value = result.total
   }
   catch (e) {
     pushGlobalNotice(e instanceof ApiRequestError ? e.message : '加载失败', 'error')
@@ -120,15 +55,7 @@ async function toggleExpandBooth(booth: Booth) {
     return
   areaLoading.value = true
   try {
-    if (USE_MOCK) {
-      await new Promise(resolve => setTimeout(resolve, 200))
-      areas.value[booth.id] = generateMockAreas(booth.id)
-    }
-    else {
-      // Real API call would go here
-      // const result = await getAreaList(userStore.authHeader, booth.id)
-      // areas.value[booth.id] = result
-    }
+    areas.value[booth.id] = await getAreaList(userStore.authHeader, booth.id)
   }
   catch (e) {
     pushGlobalNotice(e instanceof ApiRequestError ? e.message : '加载展区失败', 'error')
@@ -148,42 +75,30 @@ function goToCreate() {
   router.push('/campus/booth/add')
 }
 
-function toggleBoothStatus(booth: Booth) {
+async function toggleBoothStatus(booth: Booth) {
   if (!userStore.authHeader)
     return
-
-  if (USE_MOCK) {
-    booth.status = booth.status === 1 ? 0 : 1
-    booth.status_label = booth.status === 1 ? '启用' : '禁用'
-    pushGlobalNotice(booth.status === 1 ? '展位已启用' : '展位已禁用')
+  try {
+    const newStatus = booth.status === 1 ? 0 : 1
+    await updateBooth(userStore.authHeader, booth.id, { status: newStatus })
+    pushGlobalNotice(newStatus === 1 ? '展位已启用' : '展位已禁用')
+    await loadBooths()
   }
-  else {
-    // Real API call would go here
-    // updateBooth(userStore.authHeader, booth.id, { status: booth.status === 1 ? 0 : 1 })
-    //   .then(() => {
-    //     pushGlobalNotice(booth.status === 1 ? '展位已禁用' : '展位已启用')
-    //     loadBooths()
-    //   })
-    //   .catch((e: any) => {
-    //     pushGlobalNotice(e instanceof ApiRequestError ? e.message : '操作失败', 'error')
-    //   })
+  catch (e) {
+    pushGlobalNotice(e instanceof ApiRequestError ? e.message : '操作失败', 'error')
   }
 }
 
 async function removeBooth(id: number) {
   if (!userStore.authHeader)
     return
-
-  if (USE_MOCK) {
-    booths.value = booths.value.filter(b => b.id !== id)
-    total.value = booths.value.length
+  try {
+    await deleteBooth(userStore.authHeader, id)
     pushGlobalNotice('展位已删除')
+    await loadBooths()
   }
-  else {
-    // Real API call would go here
-    // await deleteBooth(userStore.authHeader, id)
-    // pushGlobalNotice('展位已删除')
-    // await loadBooths()
+  catch (e) {
+    pushGlobalNotice(e instanceof ApiRequestError ? e.message : '删除失败', 'error')
   }
 }
 

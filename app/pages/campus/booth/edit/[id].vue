@@ -14,9 +14,6 @@ const router = useRouter()
 const route = useRoute()
 const siteStore = useSiteStore()
 
-// Mock data switch
-const USE_MOCK = true
-
 const boothId = computed(() => Number(route.params.id))
 
 const form = ref({
@@ -31,64 +28,19 @@ const form = ref({
 const loading = ref(false)
 const submitting = ref(false)
 
-// Mock data
-function getMockBooth(id: number): Booth | null {
-  const booths = Array.from({ length: 6 }, (_, i) => ({
-    id: i + 1,
-    school_code: 'SCH001',
-    name: '学生活动中心展位',
-    province_code: '360000',
-    city_code: '360100',
-    district_code: '360112',
-    address: '南昌红谷滩区绿地中心i期-A座13',
-    image: null,
-    display_image: null,
-    area_size: 4000,
-    max_people: 4000,
-    total_booth_count: 120,
-    description: '为进一步促进高校毕业生就业，中测易聘联合全国50余所高校，将于今年9月启动秋季校园双选会。',
-    rule: null,
-    status: 1,
-    status_label: '启用',
-    areas_count: 6,
-    areas: [],
-  }))
-  return booths.find(b => b.id === id) || null
-}
-
 async function loadBooth() {
   if (!userStore.authHeader)
     return
   loading.value = true
   try {
-    if (USE_MOCK) {
-      await new Promise(resolve => setTimeout(resolve, 300))
-      const booth = getMockBooth(boothId.value)
-      if (booth) {
-        form.value = {
-          name: booth.name || '',
-          province_code: booth.province_code || '',
-          city_code: booth.city_code || '',
-          address: booth.address || '',
-          area_size: booth.area_size,
-          max_people: booth.max_people,
-        }
-      }
-      else {
-        pushGlobalNotice('展位不存在', 'error')
-        router.push('/campus/booth')
-      }
-    }
-    else {
-      const booth = await getBoothDetail(userStore.authHeader, boothId.value)
-      form.value = {
-        name: booth.name || '',
-        province_code: booth.province_code || '',
-        city_code: booth.city_code || '',
-        address: booth.address || '',
-        area_size: booth.area_size,
-        max_people: booth.max_people,
-      }
+    const booth = await getBoothDetail(userStore.authHeader, boothId.value)
+    form.value = {
+      name: booth.name || '',
+      province_code: booth.province_code || '',
+      city_code: booth.city_code || '',
+      address: booth.address || '',
+      area_size: booth.area_size,
+      max_people: booth.max_people,
     }
   }
   catch (e) {
@@ -125,24 +77,17 @@ async function handleSubmit() {
     return
   submitting.value = true
   try {
-    if (USE_MOCK) {
-      await new Promise(resolve => setTimeout(resolve, 500))
-      pushGlobalNotice('展位已更新')
-      router.push('/campus/booth')
+    const payload: Record<string, any> = {
+      name: form.value.name,
+      province_code: form.value.province_code || null,
+      city_code: form.value.city_code || null,
+      address: form.value.address || null,
+      area_size: form.value.area_size,
+      max_people: form.value.max_people,
     }
-    else {
-      const payload: Record<string, any> = {
-        name: form.value.name,
-        province_code: form.value.province_code || null,
-        city_code: form.value.city_code || null,
-        address: form.value.address || null,
-        area_size: form.value.area_size,
-        max_people: form.value.max_people,
-      }
-      await updateBooth(userStore.authHeader, boothId.value, payload)
-      pushGlobalNotice('展位已更新')
-      router.push('/campus/booth')
-    }
+    await updateBooth(userStore.authHeader, boothId.value, payload)
+    pushGlobalNotice('展位已更新')
+    router.push('/campus/booth')
   }
   catch (e) {
     pushGlobalNotice(e instanceof ApiRequestError ? e.message : '操作失败', 'error')

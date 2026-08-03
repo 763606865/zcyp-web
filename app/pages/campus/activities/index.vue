@@ -201,56 +201,6 @@ async function loadActivities() {
   finally { loading.value = false }
 }
 
-function getMockActivities(): SchoolActivity[] {
-  const typeLabels = ['招聘会', '宣讲会', '双选会']
-  const statusLabels = [
-    { status: 0, status_label: '草稿' },
-    { status: 1, status_label: '已发布' },
-    { status: 2, status_label: '已结束' },
-  ]
-  const addresses = [
-    '江西省南昌市红谷滩区绿地中心一期-A座13',
-    '北京市海淀区中关村科技园B栋',
-    '上海市浦东新区陆家嘴金融中心',
-    '广州市天河区珠江新城',
-    '深圳市南山区科技园',
-  ]
-  const contacts = ['张三', '李四', '王五', '赵六', '孙七']
-  const phones = ['12345678901', '13800138000', '13900139000', '13700137000', '13600136000']
-
-  return Array.from({ length: 15 }, (_, i) => {
-    const typeIdx = i % 3
-    const statusIdx = i % 3
-    const addrIdx = i % 5
-    const contactIdx = i % 5
-    return {
-      id: i + 1,
-      type: typeIdx,
-      type_label: typeLabels[typeIdx],
-      title: `2026～2027届应届毕业生2026年秋${typeLabels[typeIdx]}第${i + 1}场`,
-      description: null,
-      register_start_date: '2026-06-24T09:00:00',
-      register_end_date: '2026-07-28T18:00:00',
-      start_time: '2026-06-24T09:00:00',
-      end_time: '2026-07-28T18:00:00',
-      booth_id: null,
-      cover_image: null,
-      display_cover_image: null,
-      link: null,
-      contact_name: contacts[contactIdx],
-      contact_phone: phones[contactIdx],
-      province_code: null,
-      city_code: null,
-      district_code: null,
-      address: addresses[addrIdx],
-      files: [],
-      status: statusLabels[statusIdx].status,
-      status_label: statusLabels[statusIdx].status_label,
-      company_applications_count: Math.floor(Math.random() * 50) + 10,
-    } as SchoolActivity
-  })
-}
-
 async function loadParticipatedActivities() {
   if (!userStore.authHeader)
     return
@@ -471,81 +421,11 @@ watch([keyword, typeFilter, statusFilter, applyStatusFilter], () => {
   else loadParticipatedActivities()
 })
 
-function getMockParticipatedActivities(): SchoolParticipatedActivityItem[] {
-  const typeLabels = ['招聘会', '宣讲会', '双选会']
-  const statusLabels = [
-    { status: 0, status_label: '草稿' },
-    { status: 1, status_label: '已发布' },
-    { status: 2, status_label: '已结束' },
-  ]
-  const addresses = [
-    '江西省南昌市红谷滩区绿地中心一期-A座13',
-    '北京市海淀区中关村科技园B栋',
-    '上海市浦东新区陆家嘴金融中心',
-    '广州市天河区珠江新城',
-    '深圳市南山区科技园',
-  ]
-  const contacts = ['张三', '李四', '王五', '赵六', '孙七']
-  const phones = ['12345678901', '13800138000', '13900139000', '13700137000', '13600136000']
-
-  return Array.from({ length: 15 }, (_, i) => {
-    const typeIdx = i % 3
-    const statusIdx = i % 3
-    const addrIdx = i % 5
-    const contactIdx = i % 5
-    return {
-      activity: {
-        id: i + 1,
-        type: typeIdx,
-        type_label: typeLabels[typeIdx],
-        title: `2026～2027届应届毕业生2026年秋${typeLabels[typeIdx]}第${i + 1}场`,
-        description: null,
-        register_start_date: '2026-06-24T09:00:00',
-        register_end_date: '2026-07-28T18:00:00',
-        start_time: '2026-06-24T09:00:00',
-        end_time: '2026-07-28T18:00:00',
-        booth_id: null,
-        cover_image: null,
-        display_cover_image: null,
-        link: null,
-        contact_name: contacts[contactIdx],
-        contact_phone: phones[contactIdx],
-        province_code: null,
-        city_code: null,
-        district_code: null,
-        address: addresses[addrIdx],
-        files: [],
-        status: statusLabels[statusIdx].status,
-        status_label: statusLabels[statusIdx].status_label,
-        company_applications_count: Math.floor(Math.random() * 50) + 10,
-        organizer_type: null,
-        organizer_type_label: null,
-        organizer_id: null,
-        business_status_label: null,
-      },
-      school_application: {
-        id: i + 1,
-        activity_id: i + 1,
-        school_id: 1,
-        apply_status: i % 3,
-        apply_status_label: ['待审核', '已通过', '已拒绝'][i % 3],
-        apply_at: '2026-06-20T10:00:00',
-        remark: null,
-      },
-      is_organizer: false,
-    } as SchoolParticipatedActivityItem
-  })
-}
-
 onMounted(() => {
-  // 使用mock数据查看效果
-  activities.value = getMockActivities()
-  participatedActivities.value = getMockParticipatedActivities()
-  total.value = 15
-  participatedTotal.value = 15
   if (siteStore.areas.length === 0)
     siteStore.loadAreas()
   loadBooths()
+  loadActivities()
 })
 </script>
 
@@ -699,27 +579,22 @@ onMounted(() => {
               </div>
               <!-- Details Row -->
               <div class="flex items-center" style="padding: 20px 36px 18px 28px;">
-                <div class="flex-1 grid grid-cols-3" style="gap: 30px;">
-                  <div class="flex flex-col" style="gap: 23px;">
-                    <div class="text-[14px]">
-                      <span class="text-[#999]">报名时间：</span><span class="text-[#222]">{{ formatDate(act.register_start_date) }}至{{ formatDate(act.register_end_date) }}</span>
-                    </div>
-                    <div class="text-[14px]">
-                      <span class="text-[#999]">活动地点：</span><span class="text-[#222]">{{ act.address || '—' }}</span>
-                    </div>
+                <div class="flex-1" style="display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, auto); column-gap: 30px; row-gap: 23px;">
+                  <div class="text-[14px]">
+                    <span class="text-[#999]">报名时间：</span><span class="text-[#222]">{{ formatDate(act.register_start_date) }}至{{ formatDate(act.register_end_date) }}</span>
                   </div>
-                  <div class="flex flex-col" style="gap: 23px;">
-                    <div class="text-[14px]">
-                      <span class="text-[#999]">活动时间：</span><span class="text-[#222]">{{ formatDate(act.start_time) }}至{{ formatDate(act.end_time) }}</span>
-                    </div>
-                    <div class="text-[14px]">
-                      <span class="text-[#999]">联系人：</span><span class="text-[#222]">{{ act.contact_name || '—' }}</span>
-                    </div>
+                  <div class="text-[14px]">
+                    <span class="text-[#999]">活动时间：</span><span class="text-[#222]">{{ formatDate(act.start_time) }}至{{ formatDate(act.end_time) }}</span>
                   </div>
-                  <div class="flex flex-col justify-end" style="gap: 23px;">
-                    <div class="text-[14px]">
-                      <span class="text-[#999]">联系方式：</span><span class="text-[#222]">{{ act.contact_phone || '—' }}</span>
-                    </div>
+                  <div />
+                  <div class="text-[14px]">
+                    <span class="text-[#999]">活动地点：</span><span class="text-[#222]">{{ act.address || '—' }}</span>
+                  </div>
+                  <div class="text-[14px]">
+                    <span class="text-[#999]">联系人：</span><span class="text-[#222]">{{ act.contact_name || '—' }}</span>
+                  </div>
+                  <div class="text-[14px]">
+                    <span class="text-[#999]">联系方式：</span><span class="text-[#222]">{{ act.contact_phone || '—' }}</span>
                   </div>
                 </div>
                 <div class="bg-[#ECECEC] w-[1px]" style="align-self: stretch;" />

@@ -13,9 +13,6 @@ const userStore = useUserStore()
 const router = useRouter()
 const siteStore = useSiteStore()
 
-// Mock data switch
-const USE_MOCK = true
-
 const form = ref({
   name: '',
   province_code: '',
@@ -55,25 +52,18 @@ async function handleSubmit() {
     return
   submitting.value = true
   try {
-    if (USE_MOCK) {
-      await new Promise(resolve => setTimeout(resolve, 500))
-      pushGlobalNotice('展位已创建')
-      router.push('/campus/booth')
+    const payload: Record<string, any> = {
+      name: form.value.name,
+      province_code: form.value.province_code || null,
+      city_code: form.value.city_code || null,
+      address: form.value.address || null,
+      area_size: form.value.area_size,
+      max_people: form.value.max_people,
+      status: 1,
     }
-    else {
-      const payload: Record<string, any> = {
-        name: form.value.name,
-        province_code: form.value.province_code || null,
-        city_code: form.value.city_code || null,
-        address: form.value.address || null,
-        area_size: form.value.area_size,
-        max_people: form.value.max_people,
-        status: 1,
-      }
-      await createBooth(userStore.authHeader, payload)
-      pushGlobalNotice('展位已创建')
-      router.push('/campus/booth')
-    }
+    await createBooth(userStore.authHeader, payload)
+    pushGlobalNotice('展位已创建')
+    router.push('/campus/booth')
   }
   catch (e) {
     pushGlobalNotice(e instanceof ApiRequestError ? e.message : '操作失败', 'error')

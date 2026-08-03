@@ -13,9 +13,6 @@ definePageMeta({
 const userStore = useUserStore()
 const route = useRoute()
 
-// Mock data switch
-const USE_MOCK = true
-
 const boothId = computed(() => Number(route.params.id))
 
 // Booth data
@@ -56,74 +53,12 @@ const previewBooths = computed(() => {
   })
 })
 
-// Mock data generators
-function getMockBooth(id: number): Booth | null {
-  return {
-    id,
-    school_code: 'SCH001',
-    name: '学生活动中心展位',
-    province_code: '360000',
-    city_code: '360100',
-    district_code: '360112',
-    address: '南昌红谷滩区绿地中心i期-A座13',
-    image: null,
-    display_image: null,
-    area_size: 4000,
-    max_people: 4000,
-    total_booth_count: 120,
-    description: '为进一步促进高校毕业生就业，中测易聘联合全国50余所高校，将于今年9月启动秋季校园双选会。本次双选会将采用线上线下结合的模式，涵盖互联网、金融、制造业等多个行业领域。',
-    rule: null,
-    status: 1,
-    status_label: '启用',
-    areas_count: 6,
-    areas: [],
-  }
-}
-
-function getMockAreas(): BoothArea[] {
-  const zones = [
-    { code: 'A', name: 'A区-互联网科技', start: 1, end: 30 },
-    { code: 'B', name: 'B区-金融保险', start: 1, end: 25 },
-    { code: 'C', name: 'C区-制造业', start: 1, end: 28 },
-    { code: 'D', name: 'D区-教育培训', start: 1, end: 22 },
-    { code: 'E', name: 'E区-医疗健康', start: 1, end: 26 },
-    { code: 'F', name: 'F区-文化传媒', start: 1, end: 20 },
-    { code: 'G', name: 'G区-建筑工程', start: 1, end: 24 },
-    { code: 'H', name: 'H区-物流运输', start: 1, end: 18 },
-    { code: 'I', name: 'I区-农林牧渔', start: 1, end: 20 },
-    { code: 'J', name: 'J区-法律服务', start: 1, end: 16 },
-    { code: 'K', name: 'K区-新能源', start: 1, end: 22 },
-    { code: 'L', name: 'L区-电子商务', start: 1, end: 30 },
-  ]
-  return zones.map((zone, i) => ({
-    id: boothId.value * 100 + i + 1,
-    booth_id: boothId.value,
-    code: zone.code,
-    name: zone.name,
-    area_size: 800 + i * 50,
-    max_people: 800 + i * 50,
-    start_no: zone.start,
-    end_no: zone.end,
-    total_booth_count: zone.end - zone.start + 1,
-    max_company_count: 1,
-    map_image: null,
-    display_map_image: null,
-    sort: i,
-  }))
-}
-
 async function loadBooth() {
   if (!userStore.authHeader)
     return
   loading.value = true
   try {
-    if (USE_MOCK) {
-      await new Promise(resolve => setTimeout(resolve, 300))
-      booth.value = getMockBooth(boothId.value)
-    }
-    else {
-      booth.value = await getBoothDetail(userStore.authHeader, boothId.value)
-    }
+    booth.value = await getBoothDetail(userStore.authHeader, boothId.value)
   }
   catch (e) {
     pushGlobalNotice(e instanceof ApiRequestError ? e.message : '加载失败', 'error')
@@ -136,18 +71,9 @@ async function loadAreas() {
     return
   areaLoading.value = true
   try {
-    if (USE_MOCK) {
-      await new Promise(resolve => setTimeout(resolve, 200))
-      areas.value = getMockAreas()
-      if (areas.value.length > 0 && !selectedAreaId.value) {
-        selectedAreaId.value = areas.value[0]?.id ?? null
-      }
-    }
-    else {
-      areas.value = await getAreaList(userStore.authHeader, boothId.value)
-      if (areas.value.length > 0 && !selectedAreaId.value) {
-        selectedAreaId.value = areas.value[0]?.id ?? null
-      }
+    areas.value = await getAreaList(userStore.authHeader, boothId.value)
+    if (areas.value.length > 0 && !selectedAreaId.value) {
+      selectedAreaId.value = areas.value[0]?.id ?? null
     }
   }
   catch (e) {
@@ -264,19 +190,13 @@ async function saveArea() {
       payload.map_image = mapImagePath
     }
 
-    if (USE_MOCK) {
-      await new Promise(resolve => setTimeout(resolve, 500))
-      pushGlobalNotice(areaEditing.value ? '展区已更新' : '展区已创建')
+    if (areaEditing.value && editingAreaId.value) {
+      await updateArea(userStore.authHeader, boothId.value, editingAreaId.value, payload)
+      pushGlobalNotice('展区已更新')
     }
     else {
-      if (areaEditing.value && editingAreaId.value) {
-        await updateArea(userStore.authHeader, boothId.value, editingAreaId.value, payload)
-        pushGlobalNotice('展区已更新')
-      }
-      else {
-        await createArea(userStore.authHeader, boothId.value, payload)
-        pushGlobalNotice('展区已创建')
-      }
+      await createArea(userStore.authHeader, boothId.value, payload)
+      pushGlobalNotice('展区已创建')
     }
 
     areaModalVisible.value = false
@@ -291,23 +211,13 @@ async function saveArea() {
 async function removeArea(area: BoothArea) {
   if (!userStore.authHeader)
     return
-
-  if (USE_MOCK) {
-    areas.value = areas.value.filter(a => a.id !== area.id)
-    if (selectedAreaId.value === area.id) {
-      selectedAreaId.value = areas.value.length > 0 ? (areas.value[0]?.id ?? null) : null
-    }
+  try {
+    await deleteArea(userStore.authHeader, boothId.value, area.id)
     pushGlobalNotice('展区已删除')
+    await loadAreas()
   }
-  else {
-    try {
-      await deleteArea(userStore.authHeader, boothId.value, area.id)
-      pushGlobalNotice('展区已删除')
-      await loadAreas()
-    }
-    catch (e) {
-      pushGlobalNotice(e instanceof ApiRequestError ? e.message : '删除失败', 'error')
-    }
+  catch (e) {
+    pushGlobalNotice(e instanceof ApiRequestError ? e.message : '删除失败', 'error')
   }
 }
 
