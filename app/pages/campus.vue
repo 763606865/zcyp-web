@@ -17,7 +17,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: '数据看板', path: '/campus/dashboard', icon: 'dashboard-icon' },
-  { label: '校企对接', path: '/campus/cooperation', icon: 'school-menu1-icon' },
+  // { label: '校企对接', path: '/campus/cooperation', icon: 'school-menu1-icon' },
   { label: '招聘活动', path: '/campus/activities', icon: 'school-menu2-icon' },
   { label: '校园资讯', path: '/campus/news', icon: 'school-menu3-icon' },
   { label: '展位设置', path: '/campus/booth', icon: 'school-menu4-icon' },

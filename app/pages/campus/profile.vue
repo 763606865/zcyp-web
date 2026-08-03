@@ -530,13 +530,13 @@ const locationDisplay = computed(() => {
         <!-- 院校名称 -->
         <label class="text-[14px] text-[#333] space-y-2">
           <span>院校名称</span>
-          <NInput v-model:value="editForm.short_name" placeholder="请输入院校名称" :maxlength="100" />
+          <NInput :value="editForm.short_name" placeholder="院校名称" :maxlength="100" disabled />
         </label>
 
         <!-- 学校代码 -->
         <label class="text-[14px] text-[#333] space-y-2">
           <span>学校代码</span>
-          <NInput v-model:value="editForm.school_code" placeholder="请输入学校代码" :maxlength="20" />
+          <NInput :value="editForm.school_code" placeholder="学校代码" :maxlength="20" disabled />
         </label>
 
         <!-- 学校logo -->
@@ -563,7 +563,7 @@ const locationDisplay = computed(() => {
         <!-- 主管部门 -->
         <label class="text-[14px] text-[#333] space-y-2">
           <span>主管部门</span>
-          <NInput v-model:value="editForm.competent_dept" placeholder="请输入主管部门" :maxlength="50" />
+          <NInput :value="editForm.competent_dept" placeholder="主管部门" :maxlength="50" disabled />
         </label>
 
         <!-- 办学层次 -->
@@ -606,10 +606,10 @@ const locationDisplay = computed(() => {
         </label>
 
         <!-- 院校简介 -->
-        <label class="text-[14px] text-[#333] col-span-2 space-y-2">
-          <span>院校简介</span>
-          <NInput v-model:value="editForm.intro" type="textarea" placeholder="请输入简介" :autosize="{ minRows: 4, maxRows: 8 }" />
-        </label>
+        <div class="col-span-2 space-y-2">
+          <span class="text-[14px] text-[#333]">院校简介</span>
+          <TiptapEditor v-model="editForm.intro" placeholder="请输入院校简介..." />
+        </div>
       </div>
 
       <template #footer>
