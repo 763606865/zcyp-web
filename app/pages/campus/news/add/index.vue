@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ArticleForm } from '~/features/campus/news/services'
 import { NImage, NSelect } from 'naive-ui'
+import { createArticle, publishArticle } from '~/features/campus/news/services'
 import { ApiRequestError } from '~/services/http'
 import { upload } from '~/services/upload'
 import { pushGlobalNotice } from '~/utils/notice'
@@ -12,9 +13,10 @@ definePageMeta({
 
 const router = useRouter()
 const siteStore = useSiteStore()
-
-// --- Mock data switch ---
-const USE_MOCK = true
+const userStore = useUserStore()
+const metaStore = useMetaStore()
+const categoryOptions = computed(() => metaStore.articleCategories.map(item => ({ label: item.name, value: item.id })))
+const tagOptions = computed(() => metaStore.articleTags.map(item => ({ label: item.name, value: item.id })))
 
 // --- Form state ---
 const form = ref<ArticleForm>({
@@ -92,47 +94,47 @@ async function handleSubmit(isPublish: boolean) {
     return
   }
 
-  if (USE_MOCK) {
-    submitting.value = true
-    try {
-      // 模拟上传延迟
-      await new Promise(resolve => setTimeout(resolve, 800))
-      pushGlobalNotice(isPublish ? '资讯已发布' : '资讯已存为草稿')
-      router.push('/campus/news/')
+  if (!userStore.authHeader || submitting.value)
+    return
+  submitting.value = true
+  try {
+    let coverPath = form.value.cover || ''
+    if (coverFile.value) {
+      uploadingCover.value = true
+      const coverRes = await upload(coverFile.value, 'file', userStore.authHeader)
+      coverPath = coverRes.path
     }
-    finally {
-      submitting.value = false
+    const payload: ArticleForm = {
+      title: form.value.title?.trim(),
+      sub_title: form.value.sub_title?.trim() || null,
+      category_id: form.value.category_id || null,
+      city_code: form.value.city_code || null,
+      author: form.value.author?.trim() || null,
+      source_name: form.value.source_name?.trim() || null,
+      source_url: form.value.source_url?.trim() || null,
+      tag_ids: form.value.tag_ids || [],
+      cover: coverPath || null,
+      summary: form.value.summary?.trim() || null,
+      content: form.value.content || null,
+      content_type: form.value.content_type || 1,
+      is_top: Boolean(form.value.is_top),
+      is_recommend: Boolean(form.value.is_recommend),
+      seo_keywords: form.value.seo_keywords?.trim() || null,
+      seo_description: form.value.seo_description?.trim() || null,
     }
+    const article = await createArticle(userStore.authHeader, payload)
+    if (isPublish)
+      await publishArticle(userStore.authHeader, article.id)
+    pushGlobalNotice(isPublish ? '资讯已发布' : '资讯已存为草稿')
+    router.push('/campus/news/')
   }
-
-  // TODO: API 对接
-  // if (!userStore.authHeader || submitting.value) return
-  // submitting.value = true
-  // try {
-  //   // 1. 上传封面图
-  //   let coverPath = form.value.cover || ''
-  //   if (coverFile.value) {
-  //     const coverRes = await upload(coverFile.value, 'file', userStore.authHeader)
-  //     coverPath = coverRes.path
-  //   }
-  //   // 2. 构建 payload
-  //   const payload: ArticleForm = {
-  //     ...form.value,
-  //     cover: coverPath || null,
-  //   }
-  //   // 3. 创建草稿
-  //   const article = await createArticle(userStore.authHeader, payload)
-  //   // 4. 如果要发布，调用发布接口
-  //   if (isPublish) {
-  //     await publishArticle(userStore.authHeader, article.id)
-  //   }
-  //   pushGlobalNotice(isPublish ? '资讯已发布' : '资讯已存为草稿')
-  //   router.push('/campus/news/')
-  // }
-  // catch (e) {
-  //   pushGlobalNotice(e instanceof ApiRequestError ? e.message : '操作失败', 'error')
-  // }
-  // finally { submitting.value = false }
+  catch (error) {
+    pushGlobalNotice(error instanceof ApiRequestError ? error.message : '操作失败', 'error')
+  }
+  finally {
+    uploadingCover.value = false
+    submitting.value = false
+  }
 }
 
 function handleCancel() {
@@ -142,6 +144,7 @@ function handleCancel() {
 onMounted(() => {
   if (siteStore.areas.length === 0)
     siteStore.loadAreas()
+  metaStore.ensureArticleMetaLoaded()
 })
 
 onBeforeUnmount(() => {
@@ -210,7 +213,7 @@ onBeforeUnmount(() => {
               <ClientOnly>
                 <NSelect
                   v-model:value="form.category_id"
-                  :options="[]"
+                  :options="categoryOptions"
                   placeholder="请选择资讯分类"
                   clearable
                   filterable
@@ -282,7 +285,7 @@ onBeforeUnmount(() => {
             <ClientOnly>
               <NSelect
                 v-model:value="form.tag_ids"
-                :options="[]"
+                :options="tagOptions"
                 placeholder="请选择标签"
                 multiple
                 filterable

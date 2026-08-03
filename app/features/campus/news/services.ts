@@ -21,6 +21,7 @@ export interface ArticleItem {
   content_type: number
   category_id: number | null
   category_name: string | null
+  category?: { id: number, name: string } | null
   city_code: string | null
   author: string | null
   source_name: string | null
@@ -33,6 +34,7 @@ export interface ArticleItem {
   seo_description: string | null
   school_code: string | null
   published_at: string | null
+  view_count?: number
   created_at: string
   updated_at: string
   tag_ids: number[]
@@ -76,7 +78,10 @@ export async function getArticleList(authorization: string, params?: ArticleList
     params as Record<string, string | number | undefined>,
     createAuthHeaders(authorization),
   )
-  return response.data
+  return {
+    ...response.data,
+    data: response.data.data.map(normalizeArticle),
+  }
 }
 
 export async function getArticleDetail(authorization: string, id: number) {
@@ -85,25 +90,25 @@ export async function getArticleDetail(authorization: string, id: number) {
     undefined,
     createAuthHeaders(authorization),
   )
-  return response.data.article
+  return normalizeArticle(response.data.article)
 }
 
 export async function createArticle(authorization: string, payload: ArticleForm) {
-  const response = await postJson<ApiResponse<ArticleItem>>(
+  const response = await postJson<ApiResponse<ArticleItem | { article: ArticleItem }>>(
     '/rc/schools/articles',
     payload,
     createAuthHeaders(authorization),
   )
-  return response.data
+  return normalizeArticle(unwrapArticle(response.data))
 }
 
 export async function updateArticle(authorization: string, id: number, payload: ArticleForm) {
-  const response = await putJson<ApiResponse<ArticleItem>>(
+  const response = await putJson<ApiResponse<ArticleItem | { article: ArticleItem }>>(
     `/rc/schools/articles/${id}`,
     payload,
     createAuthHeaders(authorization),
   )
-  return response.data
+  return normalizeArticle(unwrapArticle(response.data))
 }
 
 export async function deleteArticle(authorization: string, id: number) {
@@ -115,19 +120,34 @@ export async function deleteArticle(authorization: string, id: number) {
 }
 
 export async function publishArticle(authorization: string, id: number) {
-  const response = await postJson<ApiResponse<ArticleItem>>(
+  const response = await postJson<ApiResponse<ArticleItem | { article: ArticleItem }>>(
     `/rc/schools/articles/${id}/publish`,
     undefined,
     createAuthHeaders(authorization),
   )
-  return response.data
+  return normalizeArticle(unwrapArticle(response.data))
 }
 
 export async function offlineArticle(authorization: string, id: number) {
-  const response = await postJson<ApiResponse<ArticleItem>>(
+  const response = await postJson<ApiResponse<ArticleItem | { article: ArticleItem }>>(
     `/rc/schools/articles/${id}/offline`,
     undefined,
     createAuthHeaders(authorization),
   )
-  return response.data
+  return normalizeArticle(unwrapArticle(response.data))
+}
+
+function unwrapArticle(data: ArticleItem | { article: ArticleItem }) {
+  return 'article' in data ? data.article : data
+}
+
+function normalizeArticle(article: ArticleItem): ArticleItem {
+  const statusLabels: Record<number, string> = { 1: '草稿', 2: '已发布', 3: '已下线' }
+  return {
+    ...article,
+    category_name: article.category_name || article.category?.name || null,
+    status_label: article.status_label || statusLabels[article.status] || '未知',
+    tag_ids: article.tag_ids || article.tags?.map(tag => tag.id) || [],
+    tags: article.tags || [],
+  }
 }

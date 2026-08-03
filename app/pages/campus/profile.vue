@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { UploadCustomRequestOptions, UploadFileInfo } from 'naive-ui'
 import type { SchoolProfile } from '~/services/school'
-import { NButton, NInput, NModal, NSelect, NSwitch, NUpload } from 'naive-ui'
+import { NButton, NInput, NModal, NSelect, NTooltip, NUpload } from 'naive-ui'
 import { ApiRequestError } from '~/services/http'
 import { getSchoolProfile, updateSchoolProfile } from '~/services/school'
 import { upload } from '~/services/upload'
@@ -457,6 +457,18 @@ const locationDisplay = computed(() => {
               <template v-if="profile && profile.status !== 1">
                 <img src="/assets/images/campus/school-review.png" alt="" class="ml-[16px] h-[16px] w-[16px]">
                 <span class="text-[14px] text-[#555] ml-[6px]">{{ profile.status_label || '审核中' }}</span>
+                <NTooltip placement="top" trigger="hover">
+                  <template #trigger>
+                    <button
+                      type="button"
+                      class="campus-review-help"
+                      aria-label="审核信息填写提示"
+                    >
+                      ?
+                    </button>
+                  </template>
+                  待填写logo、联系方式、校园简介等重要信息。
+                </NTooltip>
               </template>
             </div>
             <div v-if="profile?.education_level_labels?.length" class="text-[14px] text-[#555] mt-[10px] flex items-center">
@@ -618,6 +630,31 @@ const locationDisplay = computed(() => {
 </template>
 
 <style scoped>
+.campus-review-help {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  margin-left: 6px;
+  padding: 0;
+  border: 1px solid #ffa500;
+  border-radius: 50%;
+  background: #fff8e8;
+  color: #e89500;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: help;
+}
+
+.campus-review-help:hover,
+.campus-review-help:focus-visible {
+  background: #ffa500;
+  color: #fff;
+  outline: none;
+}
+
 :deep(.n-button) {
   border-radius: 4px;
 }

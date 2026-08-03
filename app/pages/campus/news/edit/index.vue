@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ArticleForm, ArticleItem } from '~/features/campus/news/services'
 import { NImage, NSelect } from 'naive-ui'
+import { getArticleDetail, publishArticle, updateArticle } from '~/features/campus/news/services'
 import { ApiRequestError } from '~/services/http'
 import { upload } from '~/services/upload'
 import { pushGlobalNotice } from '~/utils/notice'
@@ -13,9 +14,10 @@ definePageMeta({
 const route = useRoute()
 const router = useRouter()
 const siteStore = useSiteStore()
-
-// --- Mock data switch ---
-const USE_MOCK = true
+const userStore = useUserStore()
+const metaStore = useMetaStore()
+const categoryOptions = computed(() => metaStore.articleCategories.map(item => ({ label: item.name, value: item.id })))
+const tagOptions = computed(() => metaStore.articleTags.map(item => ({ label: item.name, value: item.id })))
 
 // --- Article ID from query ---
 const articleId = Number(route.query.id)
@@ -86,57 +88,29 @@ function removeCover() {
   }
 }
 
-// --- Mock data generator ---
-function generateMockArticle(id: number): ArticleItem {
-  const categoryLabels = ['校园招聘', '新闻时事', '就业动态', '通知公告', '学术活动']
-  const tagNames = ['文字标签', '校园招聘', '就业指导', '双选会', '宣讲会']
-  const statusLabels: Record<number, string> = { 1: '草稿', 2: '已发布', 3: '已下线' }
-  const status = (id % 3) + 1
-
-  return {
-    id,
-    title: '2026年秋季校园双选会即将启动，覆盖全国50+高校',
-    sub_title: '促进高校毕业生就业，中测易聘联合全国50余所高校',
-    slug: null,
-    cover: '/mock/cover/path.jpg',
-    display_cover: null,
-    summary: '为进一步促进高校毕业生就业，中测易聘联合全国50余所高校，将于今年9月启动秋季校园双选会。本次双选会将采用线上线下结合的模式，涵盖互联网、金融、制造业等多个行业领域。',
-    content: '<p>根据工作需要，中国XXXXXXXX有限公司2026年面向社会公开招聘工作人员5名。现将有关事项公告如下。</p><p>一、招聘单位基本情况</p><p>中国XXXXXXX有限公司于2018年12月完成改制，由中国XXXXX（成立于1950年1月，其前身是青年出版社与开明书店）和中国青年杂志社（创刊于1923年10月）合并组成，直属共青团中央领导。</p><p>二、应聘人员基本资格条件</p><p>1. 具有中华人民共和国国籍。</p><p>2. 政治立场坚定，拥护中国共产党领导和社会主义制度。</p><p>3. 遵守中华人民共和国宪法和法律，品行端正，遵纪守法。</p>',
-    content_type: 1,
-    category_id: (id % 5) + 1,
-    category_name: categoryLabels[id % 5],
-    city_code: null,
-    author: '张三',
-    source_name: null,
-    source_url: null,
-    is_top: id % 5 === 0,
-    is_recommend: id % 7 === 0,
-    status,
-    status_label: statusLabels[status],
-    seo_keywords: '校园招聘,双选会,就业',
-    seo_description: '2026年秋季校园双选会',
-    school_code: null,
-    published_at: status === 2 ? '2026-07-29T14:23:00' : null,
-    created_at: '2026-07-29T14:23:00',
-    updated_at: '2026-07-29T14:23:00',
-    tag_ids: [1, 2, 3, 4],
-    tags: tagNames.slice(0, 4).map((name, idx) => ({ id: idx + 1, name })),
-  }
-}
-
 // --- Load article data ---
 async function loadArticle() {
-  if (USE_MOCK) {
-    await new Promise(resolve => setTimeout(resolve, 500))
-    const article = generateMockArticle(articleId || 1)
+  if (!articleId) {
+    pushGlobalNotice('资讯参数无效', 'error')
+    router.replace('/campus/news/')
+    return
+  }
+  try {
+    const article = await getArticleDetail(userStore.authHeader, articleId)
+    if (article.status === 2) {
+      pushGlobalNotice('已发布资讯请先下线后再编辑', 'error')
+      router.replace(`/campus/news/preview?id=${articleId}`)
+      return
+    }
     fillForm(article)
   }
-  else {
-    // TODO: API 对接
-    // const article = await getArticleDetail(userStore.authHeader, articleId)
-    // fillForm(article)
+  catch (error) {
+    pushGlobalNotice(error instanceof ApiRequestError ? error.message : '资讯加载失败', 'error')
+    router.replace('/campus/news/')
   }
-  loading.value = false
+  finally {
+    loading.value = false
+  }
 }
 
 function fillForm(article: ArticleItem) {
@@ -192,49 +166,49 @@ async function handleSubmit(isPublish: boolean) {
     return
   }
 
-  if (USE_MOCK) {
-    submitting.value = true
-    try {
-      await new Promise(resolve => setTimeout(resolve, 800))
-      pushGlobalNotice(isPublish ? '资讯已发布' : '资讯已保存')
-      router.push('/campus/news/')
+  if (!userStore.authHeader || submitting.value)
+    return
+  submitting.value = true
+  try {
+    let coverPath = originalCoverPath.value
+    if (coverFile.value) {
+      uploadingCover.value = true
+      const coverRes = await upload(coverFile.value, 'file', userStore.authHeader)
+      coverPath = coverRes.path
     }
-    finally {
-      submitting.value = false
+    if (coverRemoved.value)
+      coverPath = ''
+    const payload: ArticleForm = {
+      title: form.value.title?.trim(),
+      sub_title: form.value.sub_title?.trim() || null,
+      category_id: form.value.category_id || null,
+      city_code: form.value.city_code || null,
+      author: form.value.author?.trim() || null,
+      source_name: form.value.source_name?.trim() || null,
+      source_url: form.value.source_url?.trim() || null,
+      tag_ids: form.value.tag_ids || [],
+      cover: coverPath || null,
+      summary: form.value.summary?.trim() || null,
+      content: form.value.content || null,
+      content_type: form.value.content_type || 1,
+      is_top: Boolean(form.value.is_top),
+      is_recommend: Boolean(form.value.is_recommend),
+      seo_keywords: form.value.seo_keywords?.trim() || null,
+      seo_description: form.value.seo_description?.trim() || null,
     }
+    await updateArticle(userStore.authHeader, articleId, payload)
+    if (isPublish)
+      await publishArticle(userStore.authHeader, articleId)
+    pushGlobalNotice(isPublish ? '资讯已发布' : '资讯已保存')
+    router.push('/campus/news/')
   }
-
-  // TODO: API 对接
-  // if (!userStore.authHeader || submitting.value) return
-  // submitting.value = true
-  // try {
-  //   // 1. 上传封面图（仅当用户更换了图片时）
-  //   let coverPath = originalCoverPath.value
-  //   if (coverFile.value) {
-  //     const coverRes = await upload(coverFile.value, 'file', userStore.authHeader)
-  //     coverPath = coverRes.path
-  //   }
-  //   if (coverRemoved.value) {
-  //     coverPath = ''
-  //   }
-  //   // 2. 构建 payload
-  //   const payload: ArticleForm = {
-  //     ...form.value,
-  //     cover: coverPath || null,
-  //   }
-  //   // 3. 更新文章
-  //   await updateArticle(userStore.authHeader, articleId, payload)
-  //   // 4. 如果要发布，调用发布接口
-  //   if (isPublish) {
-  //     await publishArticle(userStore.authHeader, articleId)
-  //   }
-  //   pushGlobalNotice(isPublish ? '资讯已发布' : '资讯已保存')
-  //   router.push('/campus/news/')
-  // }
-  // catch (e) {
-  //   pushGlobalNotice(e instanceof ApiRequestError ? e.message : '操作失败', 'error')
-  // }
-  // finally { submitting.value = false }
+  catch (error) {
+    pushGlobalNotice(error instanceof ApiRequestError ? error.message : '操作失败', 'error')
+  }
+  finally {
+    uploadingCover.value = false
+    submitting.value = false
+  }
 }
 
 function handleCancel() {
@@ -244,6 +218,7 @@ function handleCancel() {
 onMounted(() => {
   if (siteStore.areas.length === 0)
     siteStore.loadAreas()
+  metaStore.ensureArticleMetaLoaded()
   loadArticle()
 })
 
@@ -319,7 +294,7 @@ onBeforeUnmount(() => {
               <ClientOnly>
                 <NSelect
                   v-model:value="form.category_id"
-                  :options="[]"
+                  :options="categoryOptions"
                   placeholder="请选择资讯分类"
                   clearable
                   filterable
@@ -391,7 +366,7 @@ onBeforeUnmount(() => {
             <ClientOnly>
               <NSelect
                 v-model:value="form.tag_ids"
-                :options="[]"
+                :options="tagOptions"
                 placeholder="请选择标签"
                 multiple
                 filterable
