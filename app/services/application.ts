@@ -192,7 +192,9 @@ export async function checkApplication(
     query,
     createAuthHeaders(authorization),
   )
-  return response.data
+  const application = response.data
+  const applicationId = Number(application?.id)
+  return Number.isInteger(applicationId) && applicationId > 0 ? application : null
 }
 
 export async function createApplication(payload: ApplicationCreatePayload, authorization: string) {

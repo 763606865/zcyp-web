@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import type { ApplicationItem } from '~/services/application'
 import type { ImBusinessCardResponse, ImBusinessCardType, ImConversation, ImHistoryMessage, ImInteractionCard, ImInteractionRequestAction, ImInteractionResponse, ImParticipant, ImQuickPhrase } from '~/services/im'
+import type { TalentResumeDetailResponse } from '~/services/talent'
 import type { AuthIdentityCode } from '~/types/auth'
 import { appEnv } from '~/config/env'
 import { checkApplication, createApplication, inviteInterview, rejectApplication, sendOffer } from '~/services/application'
 import { getCompanyProfile } from '~/services/company'
-import { resolveAssetUrl } from '~/services/http'
+import { ApiRequestError, resolveAssetUrl } from '~/services/http'
 import { createImInteractionRequest, createImQuickPhrase, deleteImQuickPhrase, getImConversationMessages, getImConversations, getImQuickPhrases, refreshImToken, respondImInteractionRequest, sendImBusinessCard, updateImQuickPhrase } from '~/services/im'
-import { favoriteTalentResume, unfavoriteTalentResume } from '~/services/talent'
+import { favoriteTalentResume, getTalentResumeDetail, unfavoriteTalentResume } from '~/services/talent'
 import { favoriteTalentJob, unfavoriteTalentJob } from '~/services/talent-jobs'
 import { upload } from '~/services/upload'
 import { pushGlobalNotice } from '~/utils/notice'
@@ -135,6 +136,10 @@ const messages = ref<MessageItem[]>([])
 const unreadConversationNos = ref<string[]>([])
 const employerActionApplication = ref<ApplicationItem | null>(null)
 const employerActionType = ref<'interview' | 'offer' | 'reject' | null>(null)
+const showResumeModal = ref(false)
+const resumeModalLoading = ref(false)
+const resumeModalError = ref('')
+const resumeModalData = ref<TalentResumeDetailResponse | null>(null)
 const interviewActionForm = ref({
   interview_at: '',
   mode: 1,
@@ -592,6 +597,47 @@ async function resolveConversationResumeId(conversation: ImConversation) {
   return application?.resume_id || null
 }
 
+function closeResumeModal() {
+  showResumeModal.value = false
+  resumeModalError.value = ''
+  resumeModalData.value = null
+}
+
+async function openConversationResume() {
+  const conversation = activeConversation.value
+  if (props.audience !== 'employer' || !conversation || conversation.scene === 'system' || resumeModalLoading.value)
+    return
+
+  showResumeModal.value = true
+  resumeModalLoading.value = true
+  resumeModalError.value = ''
+  resumeModalData.value = null
+  try {
+    const resumeId = await resolveConversationResumeId(conversation)
+    if (!resumeId) {
+      resumeModalError.value = '该用户暂无可查看的简历'
+      return
+    }
+    resumeModalData.value = await getTalentResumeDetail(resumeId, userStore.authHeader)
+  }
+  catch (error) {
+    resumeModalError.value = error instanceof Error ? error.message : '简历加载失败，请稍后重试'
+  }
+  finally {
+    resumeModalLoading.value = false
+  }
+}
+
+function formatResumeDateRange(start?: string | null, end?: string | null, isCurrent?: number) {
+  const format = (value?: string | null) => value ? value.slice(0, 7) : '未填写'
+  return `${format(start)} - ${isCurrent === 1 ? '至今' : format(end)}`
+}
+
+function getResumeEducationLabel(level?: number | null) {
+  const labels: Record<number, string> = { 1: '高中/中专', 2: '专科', 3: '本科', 4: '硕士', 5: '博士', 6: '其他' }
+  return level ? labels[level] || '学历未填写' : '学历未填写'
+}
+
 async function toggleConversationJobFavorite() {
   const conversation = activeConversation.value
   const jobId = getConversationJobId(conversation)
@@ -676,8 +722,9 @@ async function prepareEmployerApplicationAction(action: 'interview' | 'offer' | 
       job_id: jobId,
       candidate_user_id: candidateUserId,
     }, userStore.authHeader)
-    if (!application) {
-      pushGlobalNotice('当前用户尚未投递', 'warning')
+    const applicationId = Number(application?.id)
+    if (!application || !Number.isInteger(applicationId) || applicationId <= 0) {
+      pushGlobalNotice('该用户尚未投递意向', 'warning')
       return
     }
 
@@ -701,7 +748,10 @@ async function prepareEmployerApplicationAction(action: 'interview' | 'offer' | 
     }
   }
   catch (error) {
-    pushGlobalNotice(error instanceof Error ? error.message : '查询投递记录失败', 'error')
+    if ((action === 'interview' || action === 'offer') && error instanceof ApiRequestError && error.code === 404)
+      pushGlobalNotice('该用户尚未投递意向', 'warning')
+    else
+      pushGlobalNotice(error instanceof Error ? error.message : '查询投递记录失败', 'error')
   }
   finally {
     isBusinessActionOperating.value = false
@@ -2345,12 +2395,29 @@ onBeforeUnmount(() => {
       <section class="chat-panel">
         <header class="chat-header">
           <div class="chat-user">
-            <span v-if="activeConversation" class="chat-user-avatar">
+            <button
+              v-if="activeConversation"
+              type="button"
+              class="chat-user-avatar"
+              :class="{ 'is-clickable': audience === 'employer' && activeConversation.scene !== 'system' }"
+              :disabled="audience !== 'employer' || activeConversation.scene === 'system'"
+              title="查看求职者简历"
+              @click="openConversationResume"
+            >
               <img v-if="getConversationAvatar(activeConversation)" :src="getConversationAvatar(activeConversation)" :alt="getConversationTitle(activeConversation)">
               <span v-else>{{ getConversationInitial(activeConversation) }}</span>
-            </span>
+            </button>
             <div>
-              <h2>{{ getConversationTitle(activeConversation) }}</h2>
+              <button
+                type="button"
+                class="chat-user-name"
+                :class="{ 'is-clickable': audience === 'employer' && activeConversation?.scene !== 'system' }"
+                :disabled="audience !== 'employer' || !activeConversation || activeConversation.scene === 'system'"
+                title="查看求职者简历"
+                @click="openConversationResume"
+              >
+                {{ getConversationTitle(activeConversation) }}
+              </button>
               <p v-if="audience === 'jobseeker' && getConversationCompanyName(activeConversation)">
                 <NuxtLink
                   v-if="getConversationCompanyId(activeConversation)"
@@ -2627,6 +2694,91 @@ onBeforeUnmount(() => {
         </footer>
       </section>
     </section>
+
+    <Teleport to="body">
+      <div v-if="showResumeModal" class="resume-modal-overlay" @click.self="closeResumeModal">
+        <section class="resume-modal" role="dialog" aria-modal="true" aria-label="求职者简历">
+          <header>
+            <div>
+              <h3>求职者简历</h3>
+              <p v-if="resumeModalData">
+                {{ resumeModalData.title || resumeModalData.full_name || '个人简历' }}
+              </p>
+            </div>
+            <button type="button" aria-label="关闭" @click="closeResumeModal">
+              <span class="i-carbon-close" />
+            </button>
+          </header>
+
+          <div v-if="resumeModalLoading" class="resume-modal-state">
+            简历加载中...
+          </div>
+          <div v-else-if="resumeModalError" class="resume-modal-state is-error">
+            {{ resumeModalError }}
+          </div>
+          <div v-else-if="resumeModalData" class="resume-modal-body">
+            <section class="resume-profile-card">
+              <img v-if="resumeModalData.display_avatar || resumeModalData.avatar" :src="resumeModalData.display_avatar || resolveAssetUrl(resumeModalData.avatar)" :alt="resumeModalData.full_name">
+              <span v-else class="resume-profile-avatar">{{ (resumeModalData.full_name || '求').slice(0, 1) }}</span>
+              <div>
+                <h4>{{ resumeModalData.full_name || '匿名求职者' }}</h4>
+                <p>
+                  {{ resumeModalData.age ? `${resumeModalData.age}岁` : '年龄未知' }} ·
+                  {{ resumeModalData.work_years !== null ? `${resumeModalData.work_years}年经验` : '经验不限' }} ·
+                  {{ getResumeEducationLabel(resumeModalData.highest_education_level) }}
+                </p>
+                <p>{{ resumeModalData.phone || '电话暂未公开' }} · {{ resumeModalData.email || '邮箱暂未公开' }}</p>
+              </div>
+            </section>
+
+            <section v-if="resumeModalData.intentions?.length" class="resume-detail-section">
+              <h4>求职意向</h4>
+              <div v-for="item in resumeModalData.intentions" :key="item.id" class="resume-detail-item">
+                <strong>{{ item.expected_position_code || '期望职位未填写' }}</strong>
+                <p>期望薪资：{{ item.salary_min ?? resumeModalData.expected_salary_min ?? '-' }} - {{ item.salary_max ?? resumeModalData.expected_salary_max ?? '-' }}</p>
+              </div>
+            </section>
+
+            <section v-if="resumeModalData.works?.length" class="resume-detail-section">
+              <h4>工作经历</h4>
+              <div v-for="item in resumeModalData.works" :key="item.id" class="resume-detail-item">
+                <strong>{{ item.company_name || '公司未填写' }} · {{ item.position || '职位未填写' }}</strong>
+                <time>{{ formatResumeDateRange(item.start_date, item.end_date, item.is_current) }}</time>
+                <p v-if="item.description">
+                  {{ item.description }}
+                </p>
+              </div>
+            </section>
+
+            <section v-if="resumeModalData.educations?.length" class="resume-detail-section">
+              <h4>教育经历</h4>
+              <div v-for="item in resumeModalData.educations" :key="item.id" class="resume-detail-item">
+                <strong>{{ item.school_name || '学校未填写' }} · {{ item.major || '专业未填写' }}</strong>
+                <time>{{ formatResumeDateRange(item.start_date, item.end_date, item.is_current) }}</time>
+                <p>{{ getResumeEducationLabel(item.degree) }}</p>
+              </div>
+            </section>
+
+            <section v-if="resumeModalData.projects?.length" class="resume-detail-section">
+              <h4>项目经历</h4>
+              <div v-for="item in resumeModalData.projects" :key="item.id" class="resume-detail-item">
+                <strong>{{ item.project_name || '项目名称未填写' }} · {{ item.role || '角色未填写' }}</strong>
+                <time>{{ formatResumeDateRange(item.start_date, item.end_date, item.is_current) }}</time>
+                <p v-if="item.description || item.achievement">
+                  {{ item.description || item.achievement }}
+                </p>
+              </div>
+            </section>
+
+            <footer>
+              <NuxtLink :to="`/employer/talent/resume/${resumeModalData.id}`">
+                查看完整简历
+              </NuxtLink>
+            </footer>
+          </div>
+        </section>
+      </div>
+    </Teleport>
 
     <Teleport to="body">
       <div v-if="employerActionType" class="em-action-overlay" @click.self="closeEmployerActionModal">
@@ -3201,8 +3353,19 @@ onBeforeUnmount(() => {
   overflow: hidden;
   border-radius: 50%;
   background: linear-gradient(135deg, #ffbd4a, #ff8a00);
+  border: 0;
   color: #fff;
   font-weight: 700;
+  padding: 0;
+}
+
+.chat-user-avatar.is-clickable,
+.chat-user-name.is-clickable {
+  cursor: pointer;
+}
+
+.chat-user-avatar.is-clickable:hover {
+  box-shadow: 0 0 0 3px rgba(255, 159, 0, 0.18);
 }
 
 .chat-user-avatar img {
@@ -3211,11 +3374,19 @@ onBeforeUnmount(() => {
   object-fit: cover;
 }
 
-.chat-header h2 {
+.chat-header h2,
+.chat-user-name {
   margin: 0;
+  border: 0;
+  background: transparent;
   color: #222;
   font-size: 18px;
   font-weight: 700;
+  padding: 0;
+}
+
+.chat-user-name.is-clickable:hover {
+  color: #ff9f00;
 }
 
 .chat-header p {
@@ -4080,6 +4251,178 @@ onBeforeUnmount(() => {
   justify-content: center;
   background: rgba(15, 23, 42, 0.48);
   padding: 20px;
+}
+
+.resume-modal-overlay {
+  position: fixed;
+  z-index: 1120;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.48);
+  padding: 20px;
+}
+
+.resume-modal {
+  width: min(760px, 100%);
+  max-height: min(820px, calc(100vh - 40px));
+  overflow: hidden;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
+}
+
+.resume-modal > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  border-bottom: 1px solid #edf0f5;
+  padding: 20px 24px 16px;
+}
+
+.resume-modal > header h3,
+.resume-modal > header p {
+  margin: 0;
+}
+
+.resume-modal > header h3 {
+  color: #1e293b;
+  font-size: 18px;
+}
+
+.resume-modal > header p {
+  margin-top: 5px;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.resume-modal > header button {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 19px;
+}
+
+.resume-modal-state {
+  padding: 80px 24px;
+  color: #94a3b8;
+  text-align: center;
+}
+
+.resume-modal-state.is-error {
+  color: #ef4444;
+}
+
+.resume-modal-body {
+  max-height: calc(100vh - 150px);
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.resume-profile-card {
+  display: flex;
+  align-items: center;
+  border-radius: 10px;
+  background: #f8fafc;
+  padding: 18px;
+  gap: 16px;
+}
+
+.resume-profile-card img,
+.resume-profile-avatar {
+  display: inline-flex;
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ffbd4a, #ff8a00);
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+  object-fit: cover;
+}
+
+.resume-profile-card h4,
+.resume-profile-card p {
+  margin: 0;
+}
+
+.resume-profile-card h4 {
+  margin-bottom: 8px;
+  color: #1e293b;
+  font-size: 18px;
+}
+
+.resume-profile-card p {
+  margin-top: 5px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.resume-detail-section {
+  margin-top: 22px;
+}
+
+.resume-detail-section > h4 {
+  margin: 0 0 12px;
+  border-left: 3px solid #ff9f00;
+  color: #1e293b;
+  font-size: 16px;
+  padding-left: 9px;
+}
+
+.resume-detail-item {
+  position: relative;
+  border-bottom: 1px solid #f1f5f9;
+  padding: 12px 0;
+}
+
+.resume-detail-item strong {
+  display: block;
+  padding-right: 150px;
+  color: #334155;
+  font-size: 14px;
+}
+
+.resume-detail-item time {
+  position: absolute;
+  right: 0;
+  top: 12px;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.resume-detail-item p {
+  margin: 8px 0 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.resume-modal-body > footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 22px;
+}
+
+.resume-modal-body > footer a {
+  border-radius: 7px;
+  background: #ff9f00;
+  color: #fff;
+  font-size: 14px;
+  padding: 9px 18px;
+  text-decoration: none;
 }
 
 .em-action-modal {
