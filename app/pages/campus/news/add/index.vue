@@ -371,7 +371,9 @@ onBeforeUnmount(() => {
             <div class="text-[14px] text-[#222] mb-[8px]">
               <span class="text-[#FF4D4F]">*</span>正文内容
             </div>
-            <TiptapEditor v-model="form.content" placeholder="请输入正文内容..." />
+            <ClientOnly>
+              <TiptapEditor v-model="form.content" placeholder="请输入正文内容..." />
+            </ClientOnly>
           </div>
 
           <!-- 置顶 & 推荐 -->
