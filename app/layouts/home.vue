@@ -13,8 +13,8 @@ const searchPlaceholder = computed(() => route.meta.searchPlaceholder as string 
 const searchPath = computed(() => route.meta.searchPath as string | undefined)
 let disposeGlobalNotify: (() => void) | null = null
 
-await callOnce(async () => {
-  await siteStore.loadAreas()
+callOnce(() => {
+  siteStore.loadAreas()
 })
 
 onMounted(() => {
@@ -43,7 +43,9 @@ onBeforeUnmount(() => {
   <NConfigProvider :theme-overrides="naiveThemeOverrides" :locale="zhCN" :date-locale="dateZhCN">
     <main class="portal-home-layout min-h-screen">
       <PortalHeader :active-nav="activeNav" :hide-search-row="hidePortalSearchRow" :search-placeholder="searchPlaceholder" :search-path="searchPath" />
-      <slot />
+      <div class="portal-home-slot-anchor">
+        <slot />
+      </div>
       <PortalFooter />
     </main>
   </NConfigProvider>

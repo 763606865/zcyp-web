@@ -1135,6 +1135,24 @@ body {
   margin-inline: auto;
 }
 
+.portal-home-layout {
+  display: flex;
+  flex-direction: column;
+}
+
+.portal-home-layout > .portal-header {
+  order: 1;
+}
+
+.portal-home-slot-anchor {
+  order: 2;
+  flex: 1 0 auto;
+}
+
+.portal-home-layout > .portal-footer {
+  order: 3;
+}
+
 .portal-home-layout,
 .portal-page {
   min-height: 100vh;
