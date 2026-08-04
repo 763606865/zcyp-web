@@ -125,7 +125,7 @@ async function fetchRecentDynamics() {
 
 // 快捷入口 mock
 const quickEntries = [
-  { icon: '/assets/images/campus/dashbord-enter1.png', title1: '校企合作', title2: '共建共赢', path: '/campus/cooperation' },
+  { icon: '/assets/images/campus/dashbord-enter1.png', title1: '校企合作', title2: '共建共赢', path: '/campus/cooperation', disabled: true },
   { icon: '/assets/images/campus/dashbord-enter2.png', title1: '招聘活动', title2: '优岗速递', path: '/campus/activities' },
   { icon: '/assets/images/campus/dashbord-enter3.png', title1: '校园资讯', title2: '新鲜事快速览', path: '/campus/news' },
   { icon: '/assets/images/campus/dashbord-enter4.png', title1: '院校信息', title2: '编辑、查看信息', path: '/campus/profile' },
@@ -218,9 +218,11 @@ const typeIconMap: Record<string, string> = {
           </div>
 
           <div class="mt-[18px] gap-[17px] grid grid-cols-2">
-            <NuxtLink
-              v-for="entry in quickEntries" :key="entry.title1" :to="entry.path"
-              class="rounded-[8px] no-underline aspect-[1.15] block relative overflow-hidden"
+            <div
+              v-for="entry in quickEntries" :key="entry.title1"
+              class="rounded-[8px] aspect-[1.15] block relative overflow-hidden"
+              :class="entry.disabled ? 'cursor-not-allowed' : 'cursor-pointer'"
+              @click="entry.disabled ? pushGlobalNotice('功能暂未开放', 'info') : navigateTo(entry.path)"
             >
               <img class="h-full w-full inset-0 absolute object-cover" :src="entry.icon" :alt="entry.title1">
               <div class="p-[16px] relative z-10">
@@ -231,7 +233,7 @@ const typeIconMap: Record<string, string> = {
                   {{ entry.title2 }}
                 </div>
               </div>
-            </NuxtLink>
+            </div>
           </div>
         </div>
       </div>
