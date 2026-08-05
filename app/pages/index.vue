@@ -40,17 +40,6 @@ const showJobseekerCard = computed(() => userStore.isLoggedIn && userStore.curre
 const serviceEcosystemLoopCopies = [0, 1]
 const serviceEcosystemRows = [
   {
-    label: '线上服务',
-    className: 'is-online',
-    items: [
-      { label: '网上报名', to: 'https://zk.sun-hrm.com/index.php', icon: 'i-carbon-edit' },
-      { label: '心理测评（岗位胜任力测评）', to: 'https://zcyp-landing-hub.jxhrm.com/', icon: 'i-carbon-user-profile' },
-      { label: '应试能力测评', to: 'https://gangwei.jxujob.com/#/', icon: 'i-carbon-exam-mode' },
-	  { label: '在线学习', to: '/career-space', icon: 'i-carbon-education' },
-      { label: 'AI简历优化诊断', to: 'https://zcyp-landing-hub.jxhrm.com/', icon: 'i-carbon-ai-generate' },
-    ],
-  },
-  {
     label: '产品与服务',
     className: 'is-product',
     items: [
@@ -65,6 +54,17 @@ const serviceEcosystemRows = [
       { label: '在线面试系统', to: 'https://zcyp-landing-hub.jxhrm.com/', icon: 'i-carbon-task-approved' },
       { label: 'AI面试系统', to: 'https://zcyp-landing-hub.jxhrm.com/', icon: 'i-carbon-task-approved' },
       { label: '牛派HRS（人力资源数字资产管理平台）', to: 'https://zcyp-landing-hub.jxhrm.com/', icon: 'i-carbon-task-approved' },
+    ],
+  },
+  {
+    label: '线上服务',
+    className: 'is-online',
+    items: [
+      { label: '网上报名', to: 'https://zk.sun-hrm.com/index.php', icon: 'i-carbon-edit' },
+      { label: '心理测评（岗位胜任力测评）', to: 'https://zcyp-landing-hub.jxhrm.com/', icon: 'i-carbon-user-profile' },
+      { label: '应试能力测评', to: 'https://gangwei.jxujob.com/#/', icon: 'i-carbon-exam-mode' },
+	  { label: '在线学习', to: '/career-space', icon: 'i-carbon-education' },
+      { label: 'AI简历优化诊断', to: 'https://zcyp-landing-hub.jxhrm.com/', icon: 'i-carbon-ai-generate' },
     ],
   },
 ]
