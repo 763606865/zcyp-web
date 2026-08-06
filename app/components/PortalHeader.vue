@@ -218,7 +218,7 @@ onBeforeUnmount(() => {
             </button>
           </div>
           <a
-            class="source-link" href="https://www.jxhrm.com/" target="_blank"
+            class="source-link" href="https://www.easyzp.com/" target="_blank"
             rel="noopener noreferrer"
           >
             <img src="/assets/images/home-head-link.png" alt="中测企业站">
