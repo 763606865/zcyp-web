@@ -330,7 +330,7 @@ onBeforeUnmount(() => {
   min-height: 100vh;
   overflow: hidden;
   background-color: rgba(233, 248, 255, 1);
-  background-image: url('/assets/images/login/background.png');
+  background-image: url('https://newpr-develop.oss-cn-hangzhou.aliyuncs.com/GPT_Image%202%20%E5%AE%98%E8%BD%AC_1783062513133_0%201.png');
   background-position: center;
   background-repeat: no-repeat;
   background-size: cover;
