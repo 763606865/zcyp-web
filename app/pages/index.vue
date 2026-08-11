@@ -44,7 +44,7 @@ const serviceEcosystemRows = [
     className: 'is-product',
     items: [
       { label: '考试命题服务', to: 'https://zcyp-landing-hub.jxhrm.com/aiproposition', icon: 'i-carbon-document-add' },
-      { label: '阅卷服务与产品', to: 'https://zcyp-landing-hub.jxhrm.com/', icon: 'i-carbon-document-view' },
+      { label: '阅卷服务与产品', to: 'https://zcyp-landing-hub.jxhrm.com/marking', icon: 'i-carbon-document-view' },
       { label: '保密制卷/押运', to: 'https://zcyp-landing-hub.jxhrm.com/', icon: 'i-carbon-catalog' },
       { label: '机考服务与产品', to: 'https://zcyp-landing-hub.jxhrm.com/', icon: 'i-carbon-ai-agent-invocation' },
       { label: '题库系统', to: 'https://zcyp-landing-hub.jxhrm.com/', icon: 'i-carbon-document-tasks' },
@@ -63,7 +63,7 @@ const serviceEcosystemRows = [
       { label: '网上报名', to: 'https://zk.sun-hrm.com/index.php', icon: 'i-carbon-edit' },
       { label: '心理测评（岗位胜任力测评）', to: 'https://zcyp-landing-hub.jxhrm.com/', icon: 'i-carbon-user-profile' },
       { label: '应试能力测评', to: 'https://gangwei.jxujob.com/#/', icon: 'i-carbon-exam-mode' },
-	  { label: '在线学习', to: '/career-space', icon: 'i-carbon-education' },
+      { label: '在线学习', to: '/career-space', icon: 'i-carbon-education' },
       { label: 'AI简历优化诊断', to: 'https://zcyp-landing-hub.jxhrm.com/', icon: 'i-carbon-ai-generate' },
     ],
   },
