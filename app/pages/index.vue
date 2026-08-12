@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import type { HomePageData } from '~/types/recruitment'
+import { createDiscreteApi } from 'naive-ui'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { mockCompanies, mockJobs, mockPositionTree } from '~/mock/recruitment'
 import { resolveAssetUrl } from '~/services/http'
+
+const { message } = createDiscreteApi(['message'])
 
 definePageMeta({
   layout: 'home',
@@ -41,7 +44,6 @@ const {
 const goldSlotRow1 = computed(() => homeData.value.adSlots.find(s => s.code === 'index.gold.row-1'))
 const goldSlotRow2 = computed(() => homeData.value.adSlots.find(s => s.code === 'index.gold.row-2'))
 const showJobseekerCard = computed(() => userStore.isLoggedIn && userStore.currentIdentity === 'jobseeker')
-const serviceEcosystemLoopCopies = [0, 1]
 const serviceEcosystemRows = [
   {
     label: '产品与服务',
@@ -166,25 +168,32 @@ function nextSlide() {
   activeSlideIndex.value = (activeSlideIndex.value + 1) % bannerSlides.value.length
 }
 
-function scrollServiceEcosystemRow(event: MouseEvent) {
+const serviceEcosystemScrolling = new WeakSet<HTMLElement>()
+
+function scrollServiceEcosystemRow(event: MouseEvent, direction: 1 | -1) {
   const row = (event.currentTarget as HTMLElement).closest('.home-service-ecosystem-row')
   const scroller = row?.querySelector<HTMLElement>('.home-service-ecosystem-scroll')
-  if (!scroller)
+  if (!scroller || serviceEcosystemScrolling.has(scroller))
     return
 
-  normalizeServiceEcosystemScroll(scroller)
-  scroller.scrollBy({ left: scroller.clientWidth - 80, behavior: 'smooth' })
-  window.setTimeout(normalizeServiceEcosystemScroll, 520, scroller)
-}
+  const { scrollLeft, scrollWidth, clientWidth } = scroller
+  const atStart = scrollLeft <= 1
+  const atEnd = scrollLeft + clientWidth >= scrollWidth - 1
 
-function loopServiceEcosystemScroll(event: Event) {
-  normalizeServiceEcosystemScroll(event.currentTarget as HTMLElement)
-}
+  if (direction === 1 && atEnd) {
+    message.warning('已经是最后一个了')
+    return
+  }
+  if (direction === -1 && atStart) {
+    message.warning('已经是第一个了')
+    return
+  }
 
-function normalizeServiceEcosystemScroll(scroller: HTMLElement) {
-  const loopWidth = scroller.querySelector<HTMLElement>('.home-service-ecosystem-loop')?.offsetWidth || 0
-  if (loopWidth > 0 && scroller.scrollLeft >= loopWidth)
-    scroller.scrollLeft -= loopWidth
+  serviceEcosystemScrolling.add(scroller)
+  scroller.scrollBy({ left: direction * 200, behavior: 'smooth' })
+  window.setTimeout(() => {
+    serviceEcosystemScrolling.delete(scroller)
+  }, 520)
 }
 
 function setupDynamicReveal() {
@@ -284,21 +293,15 @@ onBeforeUnmount(() => {
           </NuxtLink>
 
           <div class="home-service-ecosystem-track">
-            <div class="home-service-ecosystem-scroll" @scroll.passive="loopServiceEcosystemScroll">
-              <div class="home-service-ecosystem-grid">
-                <div
-                  v-for="copyIndex in serviceEcosystemLoopCopies"
-                  :key="copyIndex"
-                  class="home-service-ecosystem-loop"
-                  :aria-hidden="copyIndex > 0 ? 'true' : undefined"
-                >
+            <div class="home-service-ecosystem-scroll-wrapper">
+              <div class="home-service-ecosystem-scroll">
+                <div class="home-service-ecosystem-grid">
                   <NuxtLink
                     v-for="item in row.items"
-                    :key="`${copyIndex}-${item.label}`"
+                    :key="item.label"
                     :to="item.to"
                     target="_blank"
                     rel="noopener noreferrer"
-                    :tabindex="copyIndex > 0 ? -1 : undefined"
                     class="home-service-ecosystem-card"
                   >
                     <span class="home-service-ecosystem-icon has-glyph" :class="row.className" aria-hidden="true">
@@ -308,10 +311,13 @@ onBeforeUnmount(() => {
                   </NuxtLink>
                 </div>
               </div>
+              <button type="button" class="home-service-ecosystem-arrow is-left" :aria-label="`查看上一个${row.label}服务`" @click="scrollServiceEcosystemRow($event, -1)">
+                <span class="i-carbon-chevron-left" aria-hidden="true" />
+              </button>
+              <button type="button" class="home-service-ecosystem-arrow is-right" :aria-label="`查看更多${row.label}服务`" @click="scrollServiceEcosystemRow($event, 1)">
+                <span class="i-carbon-chevron-right" aria-hidden="true" />
+              </button>
             </div>
-            <button type="button" class="home-service-ecosystem-arrow" :aria-label="`查看更多${row.label}服务`" @click="scrollServiceEcosystemRow">
-              <span class="i-carbon-chevron-right" aria-hidden="true" />
-            </button>
           </div>
         </div>
       </div>

@@ -1682,24 +1682,36 @@ body {
 }
 
 .home-service-ecosystem-track {
-  position: relative;
   min-width: 0;
-  overflow: hidden;
-  padding-right: 42px;
 }
 
-.home-service-ecosystem-track::after {
+.home-service-ecosystem-scroll-wrapper {
+  position: relative;
+  padding: 0 22px;
+}
+
+.home-service-ecosystem-scroll-wrapper::before,
+.home-service-ecosystem-scroll-wrapper::after {
   content: '';
   position: absolute;
   top: 0;
-  right: 42px;
   bottom: 0;
-  width: 44px;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 250, 244, 0.92));
+  width: 36px;
   pointer-events: none;
+  z-index: 1;
+}
+
+.home-service-ecosystem-scroll-wrapper::before {
+  left: 22px;
+}
+
+.home-service-ecosystem-scroll-wrapper::after {
+  right: 22px;
 }
 
 .home-service-ecosystem-scroll {
+  width: 993px;
+  max-width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
   overscroll-behavior-x: contain;
@@ -1717,19 +1729,17 @@ body {
   width: max-content;
   min-width: 100%;
   flex-wrap: nowrap;
-}
-
-.home-service-ecosystem-loop {
-  display: flex;
-  flex: 0 0 auto;
   gap: 12px;
-  padding-right: 12px;
+  align-items: center;
+  background: transparent;
+  padding: 0 5px;
+  height: 52px;
 }
 
 .home-service-ecosystem-card {
   display: flex;
-  width: 188px;
-  flex: 0 0 188px;
+  width: 187px;
+  flex: 0 0 187px;
   align-items: center;
   height: 48px;
   min-width: 0;
@@ -1852,22 +1862,29 @@ body {
 
 .home-service-ecosystem-arrow {
   position: absolute;
-  right: 0;
   top: 50%;
   z-index: 2;
   display: inline-flex;
-  width: 34px;
-  height: 34px;
+  width: 16px;
+  height: 16px;
   align-items: center;
   justify-content: center;
   border: 0;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 8px 18px rgba(255, 165, 0, 0.16);
+  box-shadow: 0 2px 6px rgba(255, 165, 0, 0.16);
   color: rgba(186, 193, 203, 1);
   cursor: pointer;
-  font-size: 22px;
+  font-size: 14px;
   transform: translateY(-50%);
+}
+
+.home-service-ecosystem-arrow.is-left {
+  left: 0;
+}
+
+.home-service-ecosystem-arrow.is-right {
+  right: 0;
 }
 
 .home-service-ecosystem-arrow:hover {
