@@ -2,7 +2,7 @@
 import type { RcTalentAnnouncementItem, RcTalentAnnouncementListResponse, RcTalentAnnouncementQuery } from '~/services/talent-announcements'
 import type { TalentJobItem, TalentJobListResponse, TalentJobQuery } from '~/services/talent-jobs'
 import type { CmsAdSlot } from '~/types/recruitment'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { createApplication } from '~/services/application'
 import { ApiRequestError } from '~/services/http'
 import { getResumeList } from '~/services/resume'
@@ -37,6 +37,7 @@ const userStore = useUserStore()
 const siteStore = useSiteStore()
 const route = useRoute()
 const router = useRouter()
+const runtimeConfig = useRuntimeConfig()
 const { startSingleConversation } = useImConversationStarter()
 
 const activeTab = ref<DiscoveryTab>('atlas')
@@ -63,6 +64,9 @@ const cityDisplayLimit = ref(11)
 const officialLoadError = ref('')
 const atlasLoadError = ref('')
 const officialAdSlots = ref<CmsAdSlot[]>([])
+const discoveryPageRef = ref<HTMLElement | null>(null)
+const dynamicRenderEnabled = computed(() => String(runtimeConfig.public.dynamicRender).toLowerCase() === 'true')
+let dynamicRevealObserver: IntersectionObserver | undefined
 
 const cityCode = computed(() => siteStore.currentCityCode === '000000' ? undefined : siteStore.currentCityCode)
 const officialAuthHeader = computed(() => userStore.authHeader || '')
@@ -392,14 +396,47 @@ function updateCityDisplayLimit() {
     cityDisplayLimit.value = 3
 }
 
+function setupDynamicReveal() {
+  dynamicRevealObserver?.disconnect()
+  dynamicRevealObserver = undefined
+
+  if (!import.meta.client || !dynamicRenderEnabled.value || !discoveryPageRef.value)
+    return
+
+  const elements = discoveryPageRef.value.querySelectorAll<HTMLElement>('[data-dynamic-reveal]')
+  elements.forEach(element => element.classList.remove('is-dynamic-visible'))
+
+  if (!('IntersectionObserver' in window)) {
+    elements.forEach(element => element.classList.add('is-dynamic-visible'))
+    return
+  }
+
+  dynamicRevealObserver = new IntersectionObserver((entries, observer) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting)
+        return
+
+      entry.target.classList.add('is-dynamic-visible')
+      observer.unobserve(entry.target)
+    })
+  }, {
+    rootMargin: '0px 0px -6% 0px',
+    threshold: 0.1,
+  })
+
+  elements.forEach(element => dynamicRevealObserver?.observe(element))
+}
+
 onMounted(() => {
   updateCityDisplayLimit()
   window.addEventListener('resize', updateCityDisplayLimit)
+  nextTick(setupDynamicReveal)
 })
 
 onBeforeUnmount(() => {
   if (import.meta.client)
     window.removeEventListener('resize', updateCityDisplayLimit)
+  dynamicRevealObserver?.disconnect()
 })
 
 async function loadAtlasAnnouncements() {
@@ -472,6 +509,10 @@ const rightSideSlotAds = computed(() => {
   const slot = officialAdSlots.value.find(item => item.code === RIGHT_SIDE_AD_SLOT_CODE)
   return slot?.ads || []
 })
+
+watch([officialJobs, atlasAnnouncements, activeTab, loadingOfficial, loadingAtlas], () => {
+  nextTick(setupDynamicReveal)
+}, { flush: 'post' })
 
 watch(officialJobsData, (value) => {
   if (value?.current_page)
@@ -803,7 +844,7 @@ async function handleCommunicate(job: TalentJobItem) {
 </script>
 
 <template>
-  <div class="discovery-page">
+  <div ref="discoveryPageRef" class="discovery-page" :class="{ 'is-dynamic-render': dynamicRenderEnabled }">
     <section class="filter-panel">
       <div class="filter-tabs">
         <button type="button" class="filter-tab" :class="{ 'is-active': activeTab === 'atlas' }" @click="setActiveTab('atlas')">
@@ -914,6 +955,9 @@ async function handleCommunicate(job: TalentJobItem) {
             :applied="isJobApplied(job)"
             :applying="applyingJobId === job.id"
             :favoriting="favoritingJobIds.includes(job.id)"
+            class="discovery-reveal-card"
+            :class="`discovery-delay-${index % 5}`"
+            data-dynamic-reveal
             @favorite="handleFavorite"
             @apply="handleApply"
             @communicate="handleCommunicate"
@@ -931,7 +975,7 @@ async function handleCommunicate(job: TalentJobItem) {
         </div>
       </div>
 
-      <CmsAdSlotStack class="ad-column" :ads="rightSideSlotAds" :fallback-ads="fallbackRightSideAds" />
+      <CmsAdSlotStack class="ad-column discovery-ad-motion" :ads="rightSideSlotAds" :fallback-ads="fallbackRightSideAds" />
     </section>
 
     <section v-else class="atlas-results">
@@ -945,7 +989,13 @@ async function handleCommunicate(job: TalentJobItem) {
         暂无分站招聘公告。
       </div>
       <template v-else>
-        <article v-for="item in atlasAnnouncements" :key="item.id" class="atlas-card">
+        <article
+          v-for="(item, index) in atlasAnnouncements"
+          :key="item.id"
+          class="atlas-card discovery-reveal-card"
+          :class="`discovery-delay-${index % 5}`"
+          data-dynamic-reveal
+        >
           <div class="atlas-content">
             <NuxtLink
               class="atlas-title"
@@ -1331,6 +1381,254 @@ async function handleCommunicate(job: TalentJobItem) {
 .pager-row button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
+}
+
+.discovery-page.is-dynamic-render .filter-panel {
+  animation: discovery-filter-enter 0.7s cubic-bezier(0.2, 0.75, 0.2, 1) both;
+}
+
+.discovery-page.is-dynamic-render .filter-tab.is-active::after {
+  transform-origin: center;
+  animation: discovery-tab-line 0.42s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
+.discovery-page.is-dynamic-render .filter-option,
+.discovery-page.is-dynamic-render :deep(.filter-option),
+.discovery-page.is-dynamic-render :deep(.filter-dropdown) {
+  transition:
+    color 0.22s ease,
+    border-color 0.22s ease,
+    background-color 0.22s ease,
+    box-shadow 0.22s ease,
+    transform 0.22s ease;
+}
+
+.discovery-page.is-dynamic-render .filter-option:hover,
+.discovery-page.is-dynamic-render :deep(.filter-option:hover),
+.discovery-page.is-dynamic-render :deep(.filter-dropdown:hover) {
+  background: #fff8ee;
+  color: #ff9700;
+  transform: translateY(-2px);
+}
+
+.discovery-page.is-dynamic-render .filter-option.is-selected,
+.discovery-page.is-dynamic-render :deep(.filter-option.is-selected) {
+  box-shadow: 0 4px 12px rgba(255, 151, 0, 0.16);
+  animation: discovery-filter-selected 0.38s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
+.discovery-page.is-dynamic-render .discovery-reveal-card {
+  opacity: 0;
+  transform: translateY(28px) scale(0.975);
+}
+
+.discovery-page.is-dynamic-render .discovery-reveal-card.is-dynamic-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  transition:
+    opacity 0.56s ease,
+    transform 0.56s cubic-bezier(0.2, 0.75, 0.2, 1);
+}
+
+.discovery-page.is-dynamic-render .discovery-delay-1.is-dynamic-visible {
+  transition-delay: 70ms;
+}
+.discovery-page.is-dynamic-render .discovery-delay-2.is-dynamic-visible {
+  transition-delay: 140ms;
+}
+.discovery-page.is-dynamic-render .discovery-delay-3.is-dynamic-visible {
+  transition-delay: 210ms;
+}
+.discovery-page.is-dynamic-render .discovery-delay-4.is-dynamic-visible {
+  transition-delay: 280ms;
+}
+
+.discovery-page.is-dynamic-render :deep(.job-card) {
+  overflow: hidden;
+  transition:
+    border-color 0.28s ease,
+    box-shadow 0.28s ease,
+    transform 0.28s ease;
+}
+
+.discovery-page.is-dynamic-render :deep(.job-card::after) {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(112deg, transparent 34%, rgba(255, 185, 73, 0.1) 49%, transparent 64%);
+  content: '';
+  pointer-events: none;
+  transform: translateX(-105%);
+}
+
+.discovery-page.is-dynamic-render :deep(.job-card:hover) {
+  z-index: 1;
+  border-color: rgba(255, 151, 0, 0.38);
+  box-shadow: 0 16px 34px rgba(45, 55, 72, 0.12);
+  transform: translateY(-5px);
+}
+
+.discovery-page.is-dynamic-render :deep(.job-card:hover::after) {
+  transform: translateX(105%);
+  transition: transform 0.8s ease;
+}
+
+.discovery-page.is-dynamic-render :deep(.job-salary) {
+  background: linear-gradient(90deg, #ff7a00 5%, #ffc44d 48%, #ff7a00 90%);
+  background-size: 220% 100%;
+  color: transparent;
+  background-clip: text;
+  -webkit-background-clip: text;
+  animation: discovery-salary-flow 2.8s linear infinite;
+}
+
+.discovery-page.is-dynamic-render :deep(.job-card:hover .company-logo) {
+  animation: discovery-logo-pop 0.55s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
+.discovery-page.is-dynamic-render :deep(.apply-button),
+.discovery-page.is-dynamic-render :deep(.chat-button),
+.discovery-page.is-dynamic-render .copy-button {
+  transition:
+    color 0.22s ease,
+    background-color 0.22s ease,
+    box-shadow 0.22s ease,
+    transform 0.22s ease;
+}
+
+.discovery-page.is-dynamic-render :deep(.apply-button:not(:disabled):hover),
+.discovery-page.is-dynamic-render :deep(.chat-button:hover),
+.discovery-page.is-dynamic-render .copy-button:hover {
+  box-shadow: 0 7px 17px rgba(255, 151, 0, 0.24);
+  transform: translateY(-2px) scale(1.03);
+}
+
+.discovery-page.is-dynamic-render .atlas-card {
+  overflow: hidden;
+  border: 1px solid transparent;
+  transition:
+    opacity 0.56s ease,
+    transform 0.56s cubic-bezier(0.2, 0.75, 0.2, 1),
+    border-color 0.28s ease,
+    box-shadow 0.28s ease;
+}
+
+.discovery-page.is-dynamic-render .atlas-card::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 4px;
+  background: linear-gradient(180deg, #ffb02e, #ff7a00);
+  content: '';
+  transform: scaleY(0);
+  transform-origin: center;
+  transition: transform 0.32s ease;
+}
+
+.discovery-page.is-dynamic-render .atlas-card:hover {
+  border-color: rgba(255, 151, 0, 0.28);
+  box-shadow: 0 15px 32px rgba(45, 55, 72, 0.1);
+  transform: translateY(-5px);
+}
+
+.discovery-page.is-dynamic-render .atlas-card:hover::before {
+  transform: scaleY(1);
+}
+.discovery-page.is-dynamic-render .atlas-card:hover .atlas-title {
+  color: #ff8a00;
+}
+.discovery-page.is-dynamic-render .atlas-title {
+  transition: color 0.22s ease;
+}
+.discovery-page.is-dynamic-render .atlas-status.is-open {
+  animation: discovery-status-pulse 1.9s ease-in-out infinite;
+}
+
+.discovery-page.is-dynamic-render :deep(.discovery-ad-motion .cms-ad-card) {
+  border-radius: 7px;
+  transition:
+    box-shadow 0.3s ease,
+    transform 0.3s ease;
+}
+
+.discovery-page.is-dynamic-render :deep(.discovery-ad-motion .cms-ad-card img) {
+  transition:
+    filter 0.45s ease,
+    transform 0.55s ease;
+}
+.discovery-page.is-dynamic-render :deep(.discovery-ad-motion .cms-ad-card:hover) {
+  box-shadow: 0 14px 28px rgba(45, 55, 72, 0.16);
+  transform: translateY(-4px) rotate(0.4deg);
+}
+.discovery-page.is-dynamic-render :deep(.discovery-ad-motion .cms-ad-card:hover img) {
+  filter: saturate(1.14);
+  transform: scale(1.055);
+}
+
+@keyframes discovery-filter-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes discovery-tab-line {
+  from {
+    opacity: 0;
+    transform: scaleX(0);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes discovery-filter-selected {
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+@keyframes discovery-salary-flow {
+  to {
+    background-position: -220% 0;
+  }
+}
+
+@keyframes discovery-logo-pop {
+  50% {
+    transform: translateY(-3px) rotate(-5deg) scale(1.12);
+  }
+}
+
+@keyframes discovery-status-pulse {
+  0%,
+  100% {
+    opacity: 0.72;
+    text-shadow: none;
+  }
+  50% {
+    opacity: 1;
+    text-shadow: 0 0 10px rgba(17, 181, 108, 0.32);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .discovery-page.is-dynamic-render *,
+  .discovery-page.is-dynamic-render *::before,
+  .discovery-page.is-dynamic-render *::after {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .discovery-page.is-dynamic-render .discovery-reveal-card {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 @media (max-width: 1024px) {

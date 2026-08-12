@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { HomePageData } from '~/types/recruitment'
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { mockCompanies, mockJobs, mockPositionTree } from '~/mock/recruitment'
 import { resolveAssetUrl } from '~/services/http'
 
@@ -12,6 +12,7 @@ const router = useRouter()
 const userStore = useUserStore()
 const siteStore = useSiteStore()
 const pageDataStore = usePageDataStore()
+const runtimeConfig = useRuntimeConfig()
 
 const homeData = computed<HomePageData>(() => pageDataStore.homeData || fallbackHomeData)
 const allJobs = computed(() => pageDataStore.allJobs.length ? pageDataStore.allJobs : mockJobs)
@@ -21,7 +22,10 @@ const positionTree = computed(() => pageDataStore.positionTree.length ? pageData
 const activeCategoryId = ref<number | null>(null)
 const activeSlideIndex = ref(0)
 const isCategoryPanelVisible = ref(false)
+const portalPageRef = ref<HTMLElement | null>(null)
+const dynamicRenderEnabled = computed(() => String(runtimeConfig.public.dynamicRender).toLowerCase() === 'true')
 let slideTimer: ReturnType<typeof setInterval> | undefined
+let dynamicRevealObserver: IntersectionObserver | undefined
 const {
   categoryNavs,
   activeCategory,
@@ -183,6 +187,35 @@ function normalizeServiceEcosystemScroll(scroller: HTMLElement) {
     scroller.scrollLeft -= loopWidth
 }
 
+function setupDynamicReveal() {
+  dynamicRevealObserver?.disconnect()
+  dynamicRevealObserver = undefined
+
+  if (!import.meta.client || !dynamicRenderEnabled.value || !portalPageRef.value)
+    return
+
+  const elements = portalPageRef.value.querySelectorAll<HTMLElement>('[data-dynamic-reveal]')
+  if (!('IntersectionObserver' in window)) {
+    elements.forEach(element => element.classList.add('is-dynamic-visible'))
+    return
+  }
+
+  dynamicRevealObserver = new IntersectionObserver((entries, observer) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting)
+        return
+
+      entry.target.classList.add('is-dynamic-visible')
+      observer.unobserve(entry.target)
+    })
+  }, {
+    rootMargin: '0px 0px -8% 0px',
+    threshold: 0.12,
+  })
+
+  elements.forEach(element => dynamicRevealObserver?.observe(element))
+}
+
 await useAsyncData(
   'home-page-bootstrap',
   async () => {
@@ -214,14 +247,23 @@ watch(bannerSlides, (value) => {
     slideTimer = setInterval(nextSlide, 4200)
 }, { immediate: true })
 
+watch([urgentJobs, famousCompanies], () => {
+  nextTick(setupDynamicReveal)
+}, { flush: 'post' })
+
+onMounted(() => {
+  nextTick(setupDynamicReveal)
+})
+
 onBeforeUnmount(() => {
   if (slideTimer)
     clearInterval(slideTimer)
+  dynamicRevealObserver?.disconnect()
 })
 </script>
 
 <template>
-  <div class="portal-page">
+  <div ref="portalPageRef" class="portal-page" :class="{ 'is-dynamic-render': dynamicRenderEnabled }">
     <section class="portal-container home-service-ecosystem" aria-labelledby="home-service-ecosystem-title">
       <div class="home-service-ecosystem-title">
         <span aria-hidden="true" />
@@ -313,6 +355,7 @@ onBeforeUnmount(() => {
       <div class="home-main-hero">
         <component
           :is="currentSlide.linkUrl ? 'a' : 'div'"
+          :key="currentSlide.id"
           :href="currentSlide.linkUrl ? resolvePortalLinkUrl(currentSlide.linkUrl) : undefined"
           :target="currentSlide.linkUrl ? resolvePortalLinkTarget(currentSlide.target) : undefined"
           rel="noopener noreferrer"
@@ -378,7 +421,7 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <section class="portal-container home-panel">
+    <section class="portal-container home-panel home-urgent-panel">
       <h2 class="home-section-title is-urgent">
         紧急招聘
       </h2>
@@ -387,7 +430,9 @@ onBeforeUnmount(() => {
           v-for="(item, index) in urgentJobs"
           :key="isRealUrgentData() ? `urgent-${item.id}` : `urgent-mock-${index}`"
           :to="isRealUrgentData() && item.job ? `/jobs/${item.job.id}` : `/jobs/${(item as any).id}`"
-          class="home-job-card"
+          class="home-job-card dynamic-reveal-card"
+          :class="`dynamic-delay-${index % 6}`"
+          data-dynamic-reveal
         >
           <div class="home-job-title">
             <strong>{{ isRealUrgentData() ? (item.title || item.job?.title || '') : (item as any).title }}</strong>
@@ -431,7 +476,9 @@ onBeforeUnmount(() => {
           v-for="(item, index) in famousCompanies"
           :key="isRealCompanyData() ? `company-${item.id}` : `company-mock-${index}`"
           :to="resolveFamousCompanyTo(item)"
-          class="home-company-card"
+          class="home-company-card dynamic-reveal-card"
+          :class="`dynamic-delay-${index % 6}`"
+          data-dynamic-reveal
         >
           <div v-if="isRealCompanyData() && item.company" class="home-company-card-body">
             <div class="home-company-card-cover">

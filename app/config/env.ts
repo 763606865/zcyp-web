@@ -1,3 +1,5 @@
+import process from 'node:process'
+
 const DEFAULT_SITE_NAME = '中测易招'
 
 const DEFAULT_API_BASE_URL_BY_MODE: Record<string, string> = {
@@ -10,7 +12,7 @@ function parseBoolean(value?: string) {
   return value === 'true'
 }
 
-function readPublicConfig(key: 'siteName' | 'apiBaseUrl' | 'imBaseUrl' | 'useMock' | 'amapKey' | 'cnzzKey') {
+function readPublicConfig(key: 'siteName' | 'apiBaseUrl' | 'imBaseUrl' | 'useMock' | 'amapKey' | 'cnzzKey' | 'dynamicRender') {
   try {
     return useRuntimeConfig().public[key]
   }
@@ -49,5 +51,8 @@ export const appEnv = {
   },
   get cnzzKey() {
     return String(readPublicConfig('cnzzKey') || process.env.NUXT_PUBLIC_CNZZ_KEY || '')
+  },
+  get dynamicRender() {
+    return parseBoolean(String(readPublicConfig('dynamicRender') ?? process.env.NUXT_DYNAMIC_RENDER ?? 'false'))
   },
 }

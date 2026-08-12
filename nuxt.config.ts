@@ -54,6 +54,7 @@ export default defineNuxtConfig({
       useMock: process.env.NUXT_PUBLIC_USE_MOCK || 'true',
       amapKey: process.env.NUXT_PUBLIC_AMAP_KEY || '',
       cnzzKey: process.env.NUXT_PUBLIC_CNZZ_KEY || '',
+      dynamicRender: process.env.NUXT_DYNAMIC_RENDER || 'false',
     },
   },
   // Keep dev and production artifacts isolated. Reusing one directory lets
