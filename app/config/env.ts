@@ -1,4 +1,4 @@
-import process from 'node:process'
+import nodeProcess from 'node:process'
 
 const DEFAULT_SITE_NAME = '中测易招'
 
@@ -22,7 +22,7 @@ function readPublicConfig(key: 'siteName' | 'apiBaseUrl' | 'imBaseUrl' | 'useMoc
 }
 
 function getMode() {
-  return process.env.NODE_ENV || 'development'
+  return nodeProcess.env.NODE_ENV || 'development'
 }
 
 function getDefaultApiBaseUrl(mode: string) {
@@ -34,25 +34,25 @@ export const appEnv = {
     return getMode()
   },
   get siteName() {
-    return String(readPublicConfig('siteName') || process.env.NUXT_PUBLIC_SITE_NAME || DEFAULT_SITE_NAME)
+    return String(readPublicConfig('siteName') || nodeProcess.env.NUXT_PUBLIC_SITE_NAME || DEFAULT_SITE_NAME)
   },
   get apiBaseUrl() {
-    return String(readPublicConfig('apiBaseUrl') || process.env.NUXT_PUBLIC_API_BASE_URL || getDefaultApiBaseUrl(getMode()))
+    return String(readPublicConfig('apiBaseUrl') || nodeProcess.env.NUXT_PUBLIC_API_BASE_URL || getDefaultApiBaseUrl(getMode()))
   },
   get imBaseUrl() {
-    return String(readPublicConfig('imBaseUrl') || process.env.NUXT_IM_BASE_URL || process.env.NUXT_PUBLIC_IM_BASE_URL || '')
+    return String(readPublicConfig('imBaseUrl') || nodeProcess.env.NUXT_IM_BASE_URL || nodeProcess.env.NUXT_PUBLIC_IM_BASE_URL || '')
   },
   get useMock() {
-    const value = readPublicConfig('useMock') ?? process.env.NUXT_PUBLIC_USE_MOCK
+    const value = readPublicConfig('useMock') ?? nodeProcess.env.NUXT_PUBLIC_USE_MOCK
     return value == null ? true : parseBoolean(String(value))
   },
   get amapKey() {
-    return String(readPublicConfig('amapKey') || process.env.NUXT_PUBLIC_AMAP_KEY || '')
+    return String(readPublicConfig('amapKey') || nodeProcess.env.NUXT_PUBLIC_AMAP_KEY || '')
   },
   get cnzzKey() {
-    return String(readPublicConfig('cnzzKey') || process.env.NUXT_PUBLIC_CNZZ_KEY || '')
+    return String(readPublicConfig('cnzzKey') || nodeProcess.env.NUXT_PUBLIC_CNZZ_KEY || '')
   },
   get dynamicRender() {
-    return parseBoolean(String(readPublicConfig('dynamicRender') ?? process.env.NUXT_DYNAMIC_RENDER ?? 'false'))
+    return parseBoolean(String(readPublicConfig('dynamicRender') ?? nodeProcess.env.NUXT_DYNAMIC_RENDER ?? 'false'))
   },
 }
