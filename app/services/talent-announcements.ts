@@ -27,6 +27,7 @@ export interface RcTalentAnnouncementItem {
   cover: string | null
   display_cover: string | null
   summary: string | null
+  content?: string | null
   link_url: string | null
   employment_types: number[]
   employment_type_labels: string[]
@@ -138,6 +139,13 @@ export async function searchTalentAnnouncements(query: RcTalentAnnouncementQuery
     '/rc/talent/announcements',
     normalizeQuery(query),
     createAuthHeaders(authorization),
+  )
+  return response.data
+}
+
+export async function getTalentAnnouncementDetail(id: number | string) {
+  const response = await getJson<ApiResponse<RcTalentAnnouncementItem>>(
+    `/rc/talent/announcements/${id}`,
   )
   return response.data
 }

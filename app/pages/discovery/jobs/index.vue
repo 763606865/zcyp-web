@@ -139,6 +139,9 @@ const fallbackRightSideAds = [
   { id: -2, title: '中测简历优化', image: '/assets/images/discovery-jobs-resume-ad.png', link_url: null },
 ]
 
+if (route.query.tab === 'official' || route.query.tab === 'atlas')
+  activeTab.value = route.query.tab
+
 const fallbackOfficialJobs: TalentJobItem[] = [
   createFallbackJob('高级UI设计师', '北京气质云知识产权代理有限公司', '李思思 · 总经理', false),
   createFallbackJob('总经理', '北京气质云有限公司', '王女士 人事专员', true, ['2年及以上', '本科', '五险一金', '补充公积金和奖金']),
@@ -512,6 +515,7 @@ function createFallbackJob(title: string, companyName: string, recruiter: string
 
 function setActiveTab(tab: DiscoveryTab) {
   activeTab.value = tab
+  router.replace({ query: { ...route.query, tab } })
 }
 
 async function goCitySelect() {
@@ -598,18 +602,6 @@ function resolveJobDetailTo(job: TalentJobItem) {
   return job.id > 0 ? `/jobs/${job.id}` : `/jobs?keyword=${encodeURIComponent(job.title)}`
 }
 
-function getRecruiter(job: TalentJobItem, index: number) {
-  if (job.creator) {
-    const jobTitle = job.creator.job_title ? ` · ${job.creator.job_title}` : ''
-    return `${job.creator.mask_name}${jobTitle}`
-  }
-
-  if (job.benefit)
-    return job.benefit
-
-  return index === 1 ? '王女士 人事专员' : '李思思 · 总经理'
-}
-
 function isJobApplied(job: TalentJobItem) {
   return Boolean(job.is_applied) || appliedJobs.value.includes(job.id)
 }
@@ -676,8 +668,8 @@ function getAtlasPublisherName(item: RcTalentAnnouncementItem) {
   return item.publisher_name || item.source_name || '易聘大全'
 }
 
-function getAtlasLink(item: RcTalentAnnouncementItem) {
-  return item.link_url || item.source_url || ''
+function getAtlasDetailTo(item: RcTalentAnnouncementItem) {
+  return `/discovery/jobs/announcements/${item.id}`
 }
 
 function goOfficialPage(page: number) {
@@ -955,15 +947,12 @@ async function handleCommunicate(job: TalentJobItem) {
       <template v-else>
         <article v-for="item in atlasAnnouncements" :key="item.id" class="atlas-card">
           <div class="atlas-content">
-            <component
-              :is="getAtlasLink(item) ? 'a' : 'span'"
+            <NuxtLink
               class="atlas-title"
-              :href="getAtlasLink(item) ? resolvePortalLinkUrl(getAtlasLink(item)) : undefined"
-              target="_blank"
-              rel="noopener noreferrer"
+              :to="getAtlasDetailTo(item)"
             >
               {{ item.title }}
-            </component>
+            </NuxtLink>
             <div class="atlas-info-row">
               <span class="i-carbon-building atlas-org-icon" />
               <span>{{ getAtlasPublisherName(item) }}</span>
@@ -983,18 +972,12 @@ async function handleCommunicate(job: TalentJobItem) {
               </div>
             </div>
           </div>
-          <a
-            v-if="getAtlasLink(item)"
+          <NuxtLink
             class="copy-button"
-            :href="resolvePortalLinkUrl(getAtlasLink(item))"
-            target="_blank"
-            rel="noopener noreferrer"
+            :to="getAtlasDetailTo(item)"
           >
             查看详情
-          </a>
-          <span v-else class="copy-button is-disabled">
-            暂无链接
-          </span>
+          </NuxtLink>
         </article>
       </template>
 

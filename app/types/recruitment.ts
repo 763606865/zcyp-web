@@ -56,6 +56,15 @@ export interface AnnouncementSummary {
 }
 
 export interface AnnouncementDetail extends AnnouncementSummary {
+  announcement_type_label?: string | null
+  registration_url?: string | null
+  recruitment_count?: number | null
+  display_fields?: Record<string, unknown> | Array<{
+    key?: string | null
+    label?: string | null
+    name?: string | null
+    value?: unknown
+  }> | null
   source_url: string | null
   summary: string | null
   content: string
