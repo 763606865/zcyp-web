@@ -51,7 +51,7 @@ const serviceEcosystemRows = [
     items: [
       { label: '考试命题服务', to: 'https://zcyp-landing-hub.jxhrm.com/aiproposition', icon: 'i-carbon-document-add' },
       { label: '阅卷服务与产品', to: 'https://zcyp-landing-hub.jxhrm.com/marking', icon: 'i-carbon-document-view' },
-      { label: '保密制卷/押运', to: 'https://zcyp-landing-hub.jxhrm.com/', icon: 'i-carbon-catalog' },
+      { label: '保密制卷/押运', to: 'https://zcyp-landing-hub.jxhrm.com/escort', icon: 'i-carbon-catalog' },
       { label: '机考服务与产品', to: 'https://zcyp-landing-hub.jxhrm.com/', icon: 'i-carbon-ai-agent-invocation' },
       { label: '题库系统', to: 'https://zcyp-landing-hub.jxhrm.com/', icon: 'i-carbon-document-tasks' },
       { label: '面试管理系统', to: 'https://zcyp-landing-hub.jxhrm.com/', icon: 'i-carbon-video-chat' },
