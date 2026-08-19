@@ -59,7 +59,7 @@ const serviceEcosystemRows = [
       { label: '在线考试系统', to: 'https://zcyp-landing-hub.jxhrm.com/', icon: 'i-carbon-task-approved' },
       { label: '在线面试系统', to: 'https://zcyp-landing-hub.jxhrm.com/', icon: 'i-carbon-task-approved' },
       { label: 'AI面试系统', to: 'https://zcyp-landing-hub.jxhrm.com/', icon: 'i-carbon-task-approved' },
-      { label: '牛派HRS（人力资源数字资产管理平台）', to: 'https://zcyp-landing-hub.jxhrm.com/', icon: 'i-carbon-task-approved' },
+      { label: '牛派HRS（人力资源数字资产管理平台）', to: 'https://zcyp-landing-hub.jxhrm.com/niupai', icon: 'i-carbon-task-approved' },
     ],
   },
   {
