@@ -139,10 +139,10 @@ onBeforeUnmount(() => {
           <NuxtLink :to="messageRoute">
             消息
           </NuxtLink>
-          <NuxtLink to="/recharge" class="portal-recharge-link">
+          <!-- <NuxtLink to="/recharge" class="portal-recharge-link">
             <span class="i-carbon-wallet" />
             <span>充值中心</span>
-          </NuxtLink>
+          </NuxtLink> -->
           <button type="button" class="portal-user-dropdown-trigger" @click="toggleIdentityDropdown">
             <span>欢迎回来 {{ displayName }}</span>
             <span class="i-carbon-chevron-down text-[14px]" />

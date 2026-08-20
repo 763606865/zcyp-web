@@ -150,13 +150,13 @@ function handleClickOutside() {
             </div>
           </div>
         </div>
-        <NuxtLink
+        <!-- <NuxtLink
           to="/recharge"
           class="text-[13px] text-[#b56c00] mr-[16px] px-[14px] rounded-[6px] bg-[#fff6e6] no-underline flex shrink-0 gap-[6px] h-[32px] ring-1 ring-[#f3d69a] transition items-center hover:bg-[#ffedc7] hover:ring-[#e7bd65]"
         >
           <span class="i-carbon-wallet text-[16px]" />
           <span>充值中心</span>
-        </NuxtLink>
+        </NuxtLink> -->
         <UserIdentityPanel variant="slate" class="shrink-0" />
       </div>
     </header>
