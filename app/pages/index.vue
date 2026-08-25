@@ -55,7 +55,7 @@ const serviceEcosystemRows = [
       { label: '机考服务与产品', to: 'https://zcyp-landing-hub.jxhrm.com/', icon: 'i-carbon-ai-agent-invocation' },
       { label: '题库系统', to: 'https://zcyp-landing-hub.jxhrm.com/question', icon: 'i-carbon-document-tasks' },
       { label: '面试管理系统', to: 'https://zcyp-landing-hub.jxhrm.com/', icon: 'i-carbon-video-chat' },
-      { label: '考试指挥系统', to: 'https://zcyp-landing-hub.jxhrm.com/', icon: 'i-carbon-screen' },
+      { label: 'AI考务智能体', to: 'https://zcyp-landing-hub.jxhrm.com/', icon: 'i-carbon-screen' },
       { label: '在线考试系统', to: 'https://zcyp-landing-hub.jxhrm.com/', icon: 'i-carbon-task-approved' },
       { label: '在线面试系统', to: 'https://zcyp-landing-hub.jxhrm.com/', icon: 'i-carbon-task-approved' },
       { label: 'AI面试系统', to: 'https://zcyp-landing-hub.jxhrm.com/', icon: 'i-carbon-task-approved' },
