@@ -4,6 +4,8 @@ export interface PortalNavItem {
   label: string
   to: string
   target: number
+  code?: string | null
+  linkType?: number
   isEmptyLink?: boolean
 }
 
@@ -27,6 +29,8 @@ export function usePortalNavigation(menus: Ref<CmsMenuItem[]>, activeNav?: Ref<s
           label: menu.name,
           to: rawUrl || '/',
           target: menu.target,
+          code: menu.code,
+          linkType: menu.link_type,
           isEmptyLink: !rawUrl || undefined,
         })),
     ]

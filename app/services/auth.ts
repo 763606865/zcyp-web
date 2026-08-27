@@ -27,6 +27,10 @@ export interface UpdateUserPhoneResponse {
   phone: string
 }
 
+export interface EcosystemTicketResponse {
+  ticket: string
+}
+
 export interface UserCompanyBlacklistCompany {
   id: number
   name: string
@@ -97,6 +101,23 @@ export async function refreshToken(payload: RefreshTokenPayload, authorization: 
     '/rc/auth/refresh-token',
     payload,
     createAuthHeaders(authorization),
+  )
+  return response.data
+}
+
+export async function getEcosystemTicket(targetAppCode: string, authorization: string) {
+  const response = await postJson<ApiResponse<EcosystemTicketResponse>>(
+    '/rc/auth/ecosystem/ticket',
+    { target_app_code: targetAppCode },
+    createAuthHeaders(authorization),
+  )
+  return response.data
+}
+
+export async function exchangeEcosystemTicket(ticket: string) {
+  const response = await postJson<ApiResponse<AuthLoginResponse>>(
+    '/rc/auth/ecosystem/ticket/exchange',
+    { ticket },
   )
   return response.data
 }

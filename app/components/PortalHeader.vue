@@ -1,8 +1,12 @@
 <script setup lang="ts">
+import type { PortalNavItem } from '~/composables/portal-navigation'
 import type { CmsMenuItem, CmsSiteConfig } from '~/types/recruitment'
 import { computed, ref } from 'vue'
-import { resolveAssetUrl } from '~/services/http'
+import { getEcosystemTicket } from '~/services/auth'
+import { ApiRequestError, resolveAssetUrl } from '~/services/http'
 import { useSiteStore } from '~/stores/site'
+import { createAuthRedirectQuery } from '~/utils/auth-redirect'
+import { pushGlobalNotice } from '~/utils/notice'
 
 const props = defineProps<{
   activeNav?: string
@@ -31,6 +35,8 @@ const { isRefreshingIdentity, switchingIdentityCode, errorMessage: identityError
   getRedirectTo: identity => resolveIdentityProfileRoute(identity),
 })
 const panelRef = ref<HTMLElement | null>(null)
+const isGettingEcosystemTicket = ref(false)
+const ECOSYSTEM_CLASSROOM_APP_CODE = 'zcyp-classroom'
 
 const menus = computed<CmsMenuItem[]>(() => pageDataStore.menus)
 const siteConfig = computed<CmsSiteConfig | null>(() => pageDataStore.siteConfig)
@@ -97,6 +103,57 @@ function handleDocumentClick(event: MouseEvent) {
   isIdentityDropdownOpen.value = false
 }
 
+function appendEcosystemTicket(targetUrl: string, ticket: string) {
+  const url = new URL(targetUrl, window.location.origin)
+  url.searchParams.set('zc_center_auth_ticket', ticket)
+  return url.toString()
+}
+
+function isEcosystemClassroomNav(item: PortalNavItem) {
+  if (item.code === ECOSYSTEM_CLASSROOM_APP_CODE)
+    return true
+
+  try {
+    return new URL(item.to, 'http://localhost').hostname.includes('zcyp-classroom')
+  }
+  catch {
+    return false
+  }
+}
+
+async function handleEcosystemNavClick(item: PortalNavItem) {
+  if (!userStore.authHeader) {
+    pushGlobalNotice('请先登录后进入中测培训', 'warning')
+    await router.push({ path: '/login', query: createAuthRedirectQuery('/') })
+    return
+  }
+
+  if (isGettingEcosystemTicket.value)
+    return
+
+  isGettingEcosystemTicket.value = true
+
+  try {
+    const { ticket } = await getEcosystemTicket(ECOSYSTEM_CLASSROOM_APP_CODE, userStore.authHeader)
+    if (!ticket)
+      throw new Error('未获取到中台登录凭证')
+
+    const targetUrl = appendEcosystemTicket(item.to, ticket)
+    if (resolvePortalLinkTarget(item.target) === '_blank') {
+      window.open(targetUrl, '_blank', 'noopener,noreferrer')
+    }
+    else {
+      window.location.assign(targetUrl)
+    }
+  }
+  catch (error) {
+    pushGlobalNotice(error instanceof ApiRequestError ? error.message : '暂时无法进入中测培训，请稍后重试', 'error')
+  }
+  finally {
+    isGettingEcosystemTicket.value = false
+  }
+}
+
 await callOnce(async () => {
   await ensureHomePageData({ authorization: userStore.authHeader || undefined })
 })
@@ -123,16 +180,27 @@ onBeforeUnmount(() => {
         </button>
 
         <nav class="portal-main-nav" aria-label="主导航">
-          <NuxtLink
-            v-for="item in navItems"
-            :key="item.label"
-            :to="item.to"
-            :target="resolvePortalLinkTarget(item.target)"
-            rel="noopener noreferrer"
-            :class="{ 'is-active': isActiveNav(item) }"
-          >
-            {{ item.label }}
-          </NuxtLink>
+          <template v-for="item in navItems" :key="item.label">
+            <a
+              v-if="isEcosystemClassroomNav(item)"
+              :href="item.to"
+              :target="resolvePortalLinkTarget(item.target)"
+              rel="noopener noreferrer"
+              :class="{ 'is-active': isActiveNav(item) }"
+              @click.prevent.stop="handleEcosystemNavClick(item)"
+            >
+              {{ item.label }}
+            </a>
+            <NuxtLink
+              v-else
+              :to="item.to"
+              :target="resolvePortalLinkTarget(item.target)"
+              rel="noopener noreferrer"
+              :class="{ 'is-active': isActiveNav(item) }"
+            >
+              {{ item.label }}
+            </NuxtLink>
+          </template>
         </nav>
 
         <div v-if="userStore.isLoggedIn" ref="panelRef" class="portal-user-menu">

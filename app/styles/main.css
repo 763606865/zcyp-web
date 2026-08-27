@@ -3090,6 +3090,82 @@ body {
   margin-bottom: 0;
 }
 
+.ecosystem-auth-overlay {
+  position: fixed;
+  z-index: 1200;
+  display: grid;
+  inset: 0;
+  place-items: center;
+  background: rgba(20, 27, 38, 0.52);
+  padding: 24px;
+  backdrop-filter: blur(3px);
+}
+
+.ecosystem-auth-dialog {
+  width: min(420px, 100%);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 24px 64px rgba(20, 27, 38, 0.22);
+  padding: 30px 32px 26px;
+  text-align: center;
+}
+
+.ecosystem-auth-icon {
+  display: inline-grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #fff3df, #ffe1aa);
+  color: #ff9100;
+  font-size: 26px;
+}
+
+.ecosystem-auth-dialog h2 {
+  margin: 18px 0 0;
+  color: #252b35;
+  font-size: 20px;
+}
+
+.ecosystem-auth-dialog p {
+  margin: 12px 0 0;
+  color: #747b86;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.ecosystem-auth-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.ecosystem-auth-actions button {
+  display: inline-flex;
+  min-width: 112px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid #ff9700;
+  border-radius: 5px;
+  background: #ff9700;
+  color: #fff;
+  cursor: pointer;
+}
+
+.ecosystem-auth-actions button.is-secondary {
+  border-color: #dfe3e8;
+  background: #fff;
+  color: #68707c;
+}
+
+.ecosystem-auth-actions button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
 .home-job-grid.is-large {
   grid-template-rows: repeat(3, auto);
 }

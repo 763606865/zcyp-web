@@ -3,7 +3,9 @@ import type { HomePageData } from '~/types/recruitment'
 import { createDiscreteApi } from 'naive-ui'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { mockCompanies, mockJobs, mockPositionTree } from '~/mock/recruitment'
-import { resolveAssetUrl } from '~/services/http'
+import { exchangeEcosystemTicket, getAuthMe } from '~/services/auth'
+import { ApiRequestError, resolveAssetUrl } from '~/services/http'
+import { pushGlobalNotice } from '~/utils/notice'
 
 const { message } = createDiscreteApi(['message'])
 
@@ -12,6 +14,7 @@ definePageMeta({
 })
 
 const router = useRouter()
+const route = useRoute()
 const userStore = useUserStore()
 const siteStore = useSiteStore()
 const pageDataStore = usePageDataStore()
@@ -25,6 +28,8 @@ const positionTree = computed(() => pageDataStore.positionTree.length ? pageData
 const activeCategoryId = ref<number | null>(null)
 const activeSlideIndex = ref(0)
 const isCategoryPanelVisible = ref(false)
+const inboundEcosystemTicket = ref('')
+const isExchangingEcosystemTicket = ref(false)
 const portalPageRef = ref<HTMLElement | null>(null)
 const dynamicRenderEnabled = computed(() => String(runtimeConfig.public.dynamicRender).toLowerCase() === 'true')
 let slideTimer: ReturnType<typeof setInterval> | undefined
@@ -225,6 +230,64 @@ function setupDynamicReveal() {
   elements.forEach(element => dynamicRevealObserver?.observe(element))
 }
 
+function getInboundEcosystemTicket() {
+  const ticketQuery = route.query.zc_center_auth_ticket
+  const ticket = Array.isArray(ticketQuery) ? ticketQuery[0] : ticketQuery
+  return typeof ticket === 'string' ? ticket.trim() : ''
+}
+
+async function clearInboundEcosystemTicket() {
+  const query = { ...route.query }
+  delete query.zc_center_auth_ticket
+  await router.replace({ query })
+}
+
+function promptInboundEcosystemLogin() {
+  inboundEcosystemTicket.value = getInboundEcosystemTicket()
+}
+
+async function cancelInboundEcosystemLogin() {
+  if (isExchangingEcosystemTicket.value)
+    return
+
+  inboundEcosystemTicket.value = ''
+  await clearInboundEcosystemTicket()
+}
+
+async function confirmInboundEcosystemLogin() {
+  const ticket = inboundEcosystemTicket.value
+  if (!ticket || isExchangingEcosystemTicket.value)
+    return
+
+  isExchangingEcosystemTicket.value = true
+  await clearInboundEcosystemTicket()
+
+  if (ticket.length > 2048) {
+    pushGlobalNotice('中台登录凭证格式不正确', 'error')
+    inboundEcosystemTicket.value = ''
+    isExchangingEcosystemTicket.value = false
+    return
+  }
+
+  try {
+    const authData = await exchangeEcosystemTicket(ticket)
+    userStore.clearAuthSession()
+    userStore.setAuthSession(authData)
+
+    const meData = await getAuthMe(userStore.authHeader)
+    userStore.setAuthUser(meData.user)
+    await ensureHomeDirectoryData({ authorization: userStore.authHeader, force: true })
+    pushGlobalNotice('中测生态账号登录成功')
+  }
+  catch (error) {
+    pushGlobalNotice(error instanceof ApiRequestError ? error.message : '中台登录失败，请重新从来源站点进入', 'error')
+  }
+  finally {
+    inboundEcosystemTicket.value = ''
+    isExchangingEcosystemTicket.value = false
+  }
+}
+
 await useAsyncData(
   'home-page-bootstrap',
   async () => {
@@ -262,6 +325,7 @@ watch([urgentJobs, famousCompanies], () => {
 
 onMounted(() => {
   nextTick(setupDynamicReveal)
+  promptInboundEcosystemLogin()
 })
 
 onBeforeUnmount(() => {
@@ -553,5 +617,28 @@ onBeforeUnmount(() => {
         </NuxtLink>
       </div>
     </section>
+
+    <Teleport to="body">
+      <div v-if="inboundEcosystemTicket" class="ecosystem-auth-overlay" role="presentation" @click.self="cancelInboundEcosystemLogin">
+        <section class="ecosystem-auth-dialog" role="dialog" aria-modal="true" aria-labelledby="ecosystem-auth-title">
+          <span class="ecosystem-auth-icon i-carbon-ibm-cloud-pak-integration" aria-hidden="true" />
+          <h2 id="ecosystem-auth-title">
+            中测生态账号登录
+          </h2>
+          <p>
+            {{ userStore.isLoggedIn ? '检测到来自中测生态的登录信息。继续后将退出当前账号，并切换为生态账号。' : '检测到来自中测生态的登录信息，是否使用该账号登录本站？' }}
+          </p>
+          <div class="ecosystem-auth-actions">
+            <button type="button" class="is-secondary" :disabled="isExchangingEcosystemTicket" @click="cancelInboundEcosystemLogin">
+              取消
+            </button>
+            <button type="button" :disabled="isExchangingEcosystemTicket" @click="confirmInboundEcosystemLogin">
+              <span v-if="isExchangingEcosystemTicket" class="i-carbon-circle-dash animate-spin" aria-hidden="true" />
+              {{ isExchangingEcosystemTicket ? '正在登录' : '确认登录' }}
+            </button>
+          </div>
+        </section>
+      </div>
+    </Teleport>
   </div>
 </template>
