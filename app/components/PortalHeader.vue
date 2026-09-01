@@ -36,7 +36,7 @@ const { isRefreshingIdentity, switchingIdentityCode, errorMessage: identityError
 })
 const panelRef = ref<HTMLElement | null>(null)
 const isGettingEcosystemTicket = ref(false)
-const ECOSYSTEM_CLASSROOM_APP_CODE = 'zcyp-classroom'
+const ECOSYSTEM_APP_CODES = ['zcyp-classroom', 'gangwei'] as const
 
 const menus = computed<CmsMenuItem[]>(() => pageDataStore.menus)
 const siteConfig = computed<CmsSiteConfig | null>(() => pageDataStore.siteConfig)
@@ -109,21 +109,31 @@ function appendEcosystemTicket(targetUrl: string, ticket: string) {
   return url.toString()
 }
 
-function isEcosystemClassroomNav(item: PortalNavItem) {
-  if (item.code === ECOSYSTEM_CLASSROOM_APP_CODE)
-    return true
+function resolveEcosystemAppCode(item: PortalNavItem): string | null {
+  if (item.code && ECOSYSTEM_APP_CODES.includes(item.code as typeof ECOSYSTEM_APP_CODES[number]))
+    return item.code
 
   try {
-    return new URL(item.to, 'http://localhost').hostname.includes('zcyp-classroom')
+    const hostname = new URL(item.to, 'http://localhost').hostname
+    return ECOSYSTEM_APP_CODES.find(code => hostname.includes(code)) ?? null
   }
   catch {
-    return false
+    return null
   }
 }
 
+function isEcosystemNav(item: PortalNavItem) {
+  return resolveEcosystemAppCode(item) !== null
+}
+
 async function handleEcosystemNavClick(item: PortalNavItem) {
+  const appCode = resolveEcosystemAppCode(item)
+  if (!appCode)
+    return
+
+  const appName = item.label || '中测应用'
   if (!userStore.authHeader) {
-    pushGlobalNotice('请先登录后进入中测培训', 'warning')
+    pushGlobalNotice(`请先登录后进入${appName}`, 'warning')
     await router.push({ path: '/login', query: createAuthRedirectQuery('/') })
     return
   }
@@ -134,7 +144,7 @@ async function handleEcosystemNavClick(item: PortalNavItem) {
   isGettingEcosystemTicket.value = true
 
   try {
-    const { ticket } = await getEcosystemTicket(ECOSYSTEM_CLASSROOM_APP_CODE, userStore.authHeader)
+    const { ticket } = await getEcosystemTicket(appCode, userStore.authHeader)
     if (!ticket)
       throw new Error('未获取到中台登录凭证')
 
@@ -147,7 +157,7 @@ async function handleEcosystemNavClick(item: PortalNavItem) {
     }
   }
   catch (error) {
-    pushGlobalNotice(error instanceof ApiRequestError ? error.message : '暂时无法进入中测培训，请稍后重试', 'error')
+    pushGlobalNotice(error instanceof ApiRequestError ? error.message : `暂时无法进入${appName}，请稍后重试`, 'error')
   }
   finally {
     isGettingEcosystemTicket.value = false
@@ -182,7 +192,7 @@ onBeforeUnmount(() => {
         <nav class="portal-main-nav" aria-label="主导航">
           <template v-for="item in navItems" :key="item.label">
             <a
-              v-if="isEcosystemClassroomNav(item)"
+              v-if="isEcosystemNav(item)"
               :href="item.to"
               :target="resolvePortalLinkTarget(item.target)"
               rel="noopener noreferrer"
