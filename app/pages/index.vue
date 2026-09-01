@@ -13,6 +13,9 @@ definePageMeta({
   layout: 'home',
 })
 
+// 中台登录凭证参数名；后续若开放其他页面消费票据，复用本文件下方的 inbound ecosystem 系列函数即可
+const INBOUND_ECOSYSTEM_TICKET_QUERY = 'zc_center_auth_ticket'
+
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
@@ -231,14 +234,14 @@ function setupDynamicReveal() {
 }
 
 function getInboundEcosystemTicket() {
-  const ticketQuery = route.query.zc_center_auth_ticket
+  const ticketQuery = route.query[INBOUND_ECOSYSTEM_TICKET_QUERY]
   const ticket = Array.isArray(ticketQuery) ? ticketQuery[0] : ticketQuery
   return typeof ticket === 'string' ? ticket.trim() : ''
 }
 
 async function clearInboundEcosystemTicket() {
   const query = { ...route.query }
-  delete query.zc_center_auth_ticket
+  delete query[INBOUND_ECOSYSTEM_TICKET_QUERY]
   await router.replace({ query })
 }
 
