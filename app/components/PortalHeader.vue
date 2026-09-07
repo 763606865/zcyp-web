@@ -126,6 +126,14 @@ function isEcosystemNav(item: PortalNavItem) {
   return resolveEcosystemAppCode(item) !== null
 }
 
+function isInternalNavTarget(to: string) {
+  return to.startsWith('/') && !to.startsWith('//')
+}
+
+function resolveNavTarget(item: PortalNavItem) {
+  return isInternalNavTarget(item.to) ? '_self' : resolvePortalLinkTarget(item.target)
+}
+
 async function handleEcosystemNavClick(item: PortalNavItem) {
   const appCode = resolveEcosystemAppCode(item)
   if (!appCode)
@@ -204,7 +212,7 @@ onBeforeUnmount(() => {
             <NuxtLink
               v-else
               :to="item.to"
-              :target="resolvePortalLinkTarget(item.target)"
+              :target="resolveNavTarget(item)"
               rel="noopener noreferrer"
               :class="{ 'is-active': isActiveNav(item) }"
             >
