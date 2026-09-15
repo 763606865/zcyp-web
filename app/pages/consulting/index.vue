@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import ConsultingMobile from './ConsultingMobile.vue'
 
 definePageMeta({
   layout: 'home',
@@ -211,301 +212,306 @@ onMounted(() => {
 </script>
 
 <template>
-  <div ref="csSection" class="cs-page">
-    <!-- ========== 1. Banner ========== -->
-    <section class="cs-banner">
-      <div class="cs-banner-bg">
-        <img src="/assets/images/consulting/banner-bg.png" alt="" class="cs-banner-bg-img">
-      </div>
-      <div class="cs-banner-content container-cs">
-        <span class="cs-badge">科技赋能人才发展</span>
-        <h1 class="cs-banner-title">
-          中测咨询
-        </h1>
-        <p class="cs-banner-subtitle">
-          聚焦国企深化改革&nbsp;&nbsp;赋能民企规范发展
-        </p>
-        <p class="cs-banner-desc comm-indent">
-          依托中测高科二十余年人才测评与国企服务沉淀，为央企、国企及民营企业提供组织效能提升、人才发展与战略落地的全链路咨询解决方案。
-        </p>
-        <div class="cs-banner-actions">
-          <a class="cs-btn cs-btn-primary" :href="CTA_LINK" target="_blank" rel="noopener noreferrer">立即咨询
-          </a>
-          <a class="cs-btn cs-btn-outline" :href="CTA_LINK" target="_blank" rel="noopener noreferrer">了解产品
-          </a>
+  <div>
+    <div ref="csSection" class="cs-page cs-desktop">
+      <!-- ========== 1. Banner ========== -->
+      <section class="cs-banner">
+        <div class="cs-banner-bg">
+          <img src="/assets/images/consulting/banner-bg.png" alt="" class="cs-banner-bg-img">
         </div>
-      </div>
-    </section>
-
-    <!-- ========== 2. 数值区 ========== -->
-    <section class="cs-stats">
-      <div class="cs-stats-card">
-        <div v-for="(s, i) in stats" :key="i" class="cs-stat-item cs-animate">
-          <div class="cs-stat-num">
-            <span v-count-up="s.value" class="cs-count">{{ s.value }}</span><em>{{ s.suffix }}</em>
-          </div>
-          <span class="cs-stat-label">{{ s.label }}</span>
-        </div>
-      </div>
-    </section>
-
-    <!-- ========== 3. 关于中测咨询 + 三大核心优势 ========== -->
-    <section class="cs-section cs-about">
-      <div class="container-cs">
-        <div class="cs-about-grid cs-animate">
-          <div class="cs-about-left">
-            <div class="cs-animate">
-              <span class="cs-section-tag">ABOUT US · 关于中测咨询</span>
-              <h2 class="cs-section-title">
-                上市公司背景<br>深耕国企人力资源服务
-              </h2>
-              <p class="cs-about-text comm-indent">
-                中测咨询是中国人力资源服务行业首家主板上市公司——科锐国际（股票代码：300662）旗下中测高科（北京）人才测评中心联合组建的专业咨询品牌，依托中科人才（重庆）科技集团落地运营，立足西部、辐射全国。我们以「中科国企智库」为核心载体，专注为国企、央企提供组织与人才管理的系统性咨询服务。
-              </p>
-            </div>
-            <div class="cs-advantages-box cs-animate">
-              <div class="cs-advantages-box-item">
-                <div class="cs-advantages-box-item-label">
-                  使命
-                </div>
-                科技赋能人才发展，人才驱动组织未来。
-              </div>
-              <div class="cs-advantages-box-item">
-                <div class="cs-advantages-box-item-label">
-                  愿景
-                </div>
-                成为领先以科技为核心驱动的人力资源生态服务商。
-              </div>
-              <div class="cs-advantages-box-item">
-                <div class="cs-advantages-box-item-label">
-                  价值观
-                </div>
-                客户至上，人才为本，协同共创，合作共赢。
-              </div>
-            </div>
-          </div>
-          <div class="cs-about-right cs-animate">
-            <div class="cs-about-img-wrap">
-              <img src="/assets/images/consulting/box1-img.png" alt="关于中测咨询" class="cs-about-img">
-            </div>
-          </div>
-        </div>
-        <div class="cs-advantages-title cs-animate">
-          三大核心优势，构筑专业护城河
-        </div>
-        <div class="cs-advantages">
-          <div v-for="(a, i) in advantages" :key="i" class="cs-advantage cs-animate">
-            <div class="cs-advantage-line">
-              {{ a.title }}
-              <img :src="`/assets/images/consulting/${a.icon}`" alt="" class="cs-adv-icon">
-            </div>
-            <div class="cs-adv-desc">
-              {{ a.desc }}
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ========== 4. 核心体系 ========== -->
-    <section class="cs-section cs-system">
-      <div class="cs-system-inner cs-animate">
-        <img src="/assets/images/consulting/bg1.png" alt="" class="cs-system-bg">
-        <div class="cs-system-box cs-animate">
-          <div class="cs-system-header">
-            <div class="cs-system-header-title">
-              SERVICE SYSTEM · 服务产品体系
-            </div>
-            <div class="cs-system-header-subtitle">
-              核心体系
-            </div>
-            <div class="cs-system-header-desc">
-              从战略与规划、体系与流程，到发展与运营、特殊场景，四大类咨询服务体系化解决国企、央企组织与人才管理难题。
-            </div>
-            <div class="cs-system-header-tag">
-              中科国企智库
-            </div>
-            <a class="cs-system-header-btn" :href="CTA_LINK" target="_blank" rel="noopener noreferrer">
-              立即咨询
+        <div class="cs-banner-content container-cs">
+          <span class="cs-badge">科技赋能人才发展</span>
+          <h1 class="cs-banner-title">
+            中测咨询
+          </h1>
+          <p class="cs-banner-subtitle">
+            聚焦国企深化改革&nbsp;&nbsp;赋能民企规范发展
+          </p>
+          <p class="cs-banner-desc comm-indent">
+            依托中测高科二十余年人才测评与国企服务沉淀，为央企、国企及民营企业提供组织效能提升、人才发展与战略落地的全链路咨询解决方案。
+          </p>
+          <div class="cs-banner-actions">
+            <a class="cs-btn cs-btn-primary" :href="CTA_LINK" target="_blank" rel="noopener noreferrer">立即咨询
+            </a>
+            <a class="cs-btn cs-btn-outline" :href="CTA_LINK" target="_blank" rel="noopener noreferrer">了解产品
             </a>
           </div>
-          <div class="cs-system-grid cs-animate">
-            <div v-for="(c, i) in coreSystem" :key="i" class="cs-system-card">
-              <div class="cs-system-card-title">
-                {{ c.title }}
+        </div>
+      </section>
+
+      <!-- ========== 2. 数值区 ========== -->
+      <section class="cs-stats">
+        <div class="cs-stats-card">
+          <div v-for="(s, i) in stats" :key="i" class="cs-stat-item cs-animate">
+            <div class="cs-stat-num">
+              <span v-count-up="s.value" class="cs-count">{{ s.value }}</span><em>{{ s.suffix }}</em>
+            </div>
+            <span class="cs-stat-label">{{ s.label }}</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== 3. 关于中测咨询 + 三大核心优势 ========== -->
+      <section class="cs-section cs-about">
+        <div class="container-cs">
+          <div class="cs-about-grid cs-animate">
+            <div class="cs-about-left">
+              <div class="cs-animate">
+                <span class="cs-section-tag">ABOUT US · 关于中测咨询</span>
+                <h2 class="cs-section-title">
+                  上市公司背景<br>深耕国企人力资源服务
+                </h2>
+                <p class="cs-about-text comm-indent">
+                  中测咨询是中国人力资源服务行业首家主板上市公司——科锐国际（股票代码：300662）旗下中测高科（北京）人才测评中心联合组建的专业咨询品牌，依托中科人才（重庆）科技集团落地运营，立足西部、辐射全国。我们以「中科国企智库」为核心载体，专注为国企、央企提供组织与人才管理的系统性咨询服务。
+                </p>
               </div>
-              <div class="cs-system-card-desc">
-                {{ c.desc }}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ========== 5. 十大服务模块 ========== -->
-    <section class="cs-section cs-services">
-      <div class="cs-services-header cs-animate">
-        10 大服务模块，覆盖组织与人才管理全周期
-      </div>
-      <div class="cs-services-item cs-animate">
-        <div class="cs-services-item-box">
-          战略与规划类 · 3 大模块
-        </div>
-        <div class="cs-services-item-box">
-          体系与流程类 · 4 大模块
-        </div>
-        <div class="cs-services-item-box">
-          发展与运营类 · 2 大模块
-        </div>
-        <div class="cs-services-item-box">
-          特殊场景类 · 1 大模块
-        </div>
-      </div>
-
-      <div class="cs-services-grid">
-        <div v-for="(item, i) in services" :key="i" class="cs-service-item cs-animate">
-          <div class="cs-service-item-box">
-            <img :src="`/assets/images/consulting/box2-icon${i + 1}.png`" alt="" class="cs-service-icon">
-            <div class="cs-service-item-title">
-              {{ item.title }}
-            </div>
-          </div>
-          <div
-            class="cs-service-item-icon" :class="{
-              'cs-service-item-icon-orange': item.iconColor === 'orange',
-              'cs-service-item-icon-blue': item.iconColor === 'blue',
-              'cs-service-item-icon-purple': item.iconColor === 'purple',
-              'cs-service-item-icon-yellow': item.iconColor === 'yellow',
-            }"
-          >
-            {{ item.iconLabel }}
-          </div>
-          <div class="cs-service-item-desc comm-indent">
-            {{ item.desc }}
-          </div>
-          <div class="cs-service-item-tags">
-            <div v-for="(tag, t) in item.tags" :key="t" class="cs-service-item-tags-item">
-              {{ tag }}
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ========== 6. 典型服务案例 ========== -->
-    <section class="cs-section cs-cases">
-      <div class="container-cs">
-        <div class="cs-section-header cs-animate">
-          <span class="cs-section-tag">CASE STUDIES · 典型服务案例</span>
-          <h2 class="cs-section-title">
-            国企 / 央企服务成果，见证改革实效
-          </h2>
-          <p class="cs-section-desc">
-            每一个数字背后，都是一次组织效能的真实跃升。我们与客户共同定义成功，并为结果负责。
-          </p>
-        </div>
-        <div class="cs-cases-grid">
-          <div v-for="(c, i) in cases" :key="i" class="cs-case-card cs-animate">
-            <div class="cs-case-tag">
-              {{ c.tag }}
-            </div>
-            <div class="cs-case-label">
-              {{ c.label }}
-            </div>
-            <div class="cs-case-title">
-              {{ c.title }}
-            </div>
-            <div class="cs-case-desc">
-              {{ c.desc }}
-            </div>
-            <div class="cs-case-tagLabel">
-              {{ c.tagLabel }}
-            </div>
-            <div class="cs-case-metrics">
-              <div v-for="(m, mi) in c.metrics" :key="mi">
-                <div class="cs-case-metrics-item">
-                  <div class="cs-case-metrics-item-title">
-                    {{ m.label }}
+              <div class="cs-advantages-box cs-animate">
+                <div class="cs-advantages-box-item">
+                  <div class="cs-advantages-box-item-label">
+                    使命
                   </div>
-                  <span v-count-up="m.value" class="cs-count">{{ m.value }}</span>
-                  <span>{{ m.suffix }}</span>
+                  科技赋能人才发展，人才驱动组织未来。
+                </div>
+                <div class="cs-advantages-box-item">
+                  <div class="cs-advantages-box-item-label">
+                    愿景
+                  </div>
+                  成为领先以科技为核心驱动的人力资源生态服务商。
+                </div>
+                <div class="cs-advantages-box-item">
+                  <div class="cs-advantages-box-item-label">
+                    价值观
+                  </div>
+                  客户至上，人才为本，协同共创，合作共赢。
+                </div>
+              </div>
+            </div>
+            <div class="cs-about-right cs-animate">
+              <div class="cs-about-img-wrap">
+                <img src="/assets/images/consulting/box1-img.png" alt="关于中测咨询" class="cs-about-img">
+              </div>
+            </div>
+          </div>
+          <div class="cs-advantages-title cs-animate">
+            三大核心优势，构筑专业护城河
+          </div>
+          <div class="cs-advantages">
+            <div v-for="(a, i) in advantages" :key="i" class="cs-advantage cs-animate">
+              <div class="cs-advantage-line">
+                {{ a.title }}
+                <img :src="`/assets/images/consulting/${a.icon}`" alt="" class="cs-adv-icon">
+              </div>
+              <div class="cs-adv-desc">
+                {{ a.desc }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== 4. 核心体系 ========== -->
+      <section class="cs-section cs-system">
+        <div class="cs-system-inner cs-animate">
+          <img src="/assets/images/consulting/bg1.png" alt="" class="cs-system-bg">
+          <div class="cs-system-box cs-animate">
+            <div class="cs-system-header">
+              <div class="cs-system-header-title">
+                SERVICE SYSTEM · 服务产品体系
+              </div>
+              <div class="cs-system-header-subtitle">
+                核心体系
+              </div>
+              <div class="cs-system-header-desc">
+                从战略与规划、体系与流程，到发展与运营、特殊场景，四大类咨询服务体系化解决国企、央企组织与人才管理难题。
+              </div>
+              <div class="cs-system-header-tag">
+                中科国企智库
+              </div>
+              <a class="cs-system-header-btn" :href="CTA_LINK" target="_blank" rel="noopener noreferrer">
+                立即咨询
+              </a>
+            </div>
+            <div class="cs-system-grid cs-animate">
+              <div v-for="(c, i) in coreSystem" :key="i" class="cs-system-card">
+                <div class="cs-system-card-title">
+                  {{ c.title }}
+                </div>
+                <div class="cs-system-card-desc">
+                  {{ c.desc }}
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- ========== 7. 专家团队 ========== -->
-    <section class="cs-section cs-experts">
-      <img src="/assets/images/consulting/bg2.png" alt="" class="cs-experts-bg">
-      <div class="container-cs cs-experts-inner">
-        <div class="cs-section-header cs-animate">
-          <span class="cs-section-tag">EXPERT TEAM · 专家团队</span>
-          <h2 class="cs-section-title">
-            三大专家矩阵，为项目保驾护航
+      <!-- ========== 5. 十大服务模块 ========== -->
+      <section class="cs-section cs-services">
+        <div class="cs-services-header cs-animate">
+          10 大服务模块，覆盖组织与人才管理全周期
+        </div>
+        <div class="cs-services-item cs-animate">
+          <div class="cs-services-item-box">
+            战略与规划类 · 3 大模块
+          </div>
+          <div class="cs-services-item-box">
+            体系与流程类 · 4 大模块
+          </div>
+          <div class="cs-services-item-box">
+            发展与运营类 · 2 大模块
+          </div>
+          <div class="cs-services-item-box">
+            特殊场景类 · 1 大模块
+          </div>
+        </div>
+
+        <div class="cs-services-grid">
+          <div v-for="(item, i) in services" :key="i" class="cs-service-item cs-animate">
+            <div class="cs-service-item-box">
+              <img :src="`/assets/images/consulting/box2-icon${i + 1}.png`" alt="" class="cs-service-icon">
+              <div class="cs-service-item-title">
+                {{ item.title }}
+              </div>
+            </div>
+            <div
+              class="cs-service-item-icon" :class="{
+                'cs-service-item-icon-orange': item.iconColor === 'orange',
+                'cs-service-item-icon-blue': item.iconColor === 'blue',
+                'cs-service-item-icon-purple': item.iconColor === 'purple',
+                'cs-service-item-icon-yellow': item.iconColor === 'yellow',
+              }"
+            >
+              {{ item.iconLabel }}
+            </div>
+            <div class="cs-service-item-desc comm-indent">
+              {{ item.desc }}
+            </div>
+            <div class="cs-service-item-tags">
+              <div v-for="(tag, t) in item.tags" :key="t" class="cs-service-item-tags-item">
+                {{ tag }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== 6. 典型服务案例 ========== -->
+      <section class="cs-section cs-cases">
+        <div class="container-cs">
+          <div class="cs-section-header cs-animate">
+            <span class="cs-section-tag">CASE STUDIES · 典型服务案例</span>
+            <h2 class="cs-section-title">
+              国企 / 央企服务成果，见证改革实效
+            </h2>
+            <p class="cs-section-desc">
+              每一个数字背后，都是一次组织效能的真实跃升。我们与客户共同定义成功，并为结果负责。
+            </p>
+          </div>
+          <div class="cs-cases-grid">
+            <div v-for="(c, i) in cases" :key="i" class="cs-case-card cs-animate">
+              <div class="cs-case-tag">
+                {{ c.tag }}
+              </div>
+              <div class="cs-case-label">
+                {{ c.label }}
+              </div>
+              <div class="cs-case-title">
+                {{ c.title }}
+              </div>
+              <div class="cs-case-desc">
+                {{ c.desc }}
+              </div>
+              <div class="cs-case-tagLabel">
+                {{ c.tagLabel }}
+              </div>
+              <div class="cs-case-metrics">
+                <div v-for="(m, mi) in c.metrics" :key="mi">
+                  <div class="cs-case-metrics-item">
+                    <div class="cs-case-metrics-item-title">
+                      {{ m.label }}
+                    </div>
+                    <span v-count-up="m.value" class="cs-count">{{ m.value }}</span>
+                    <span>{{ m.suffix }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== 7. 专家团队 ========== -->
+      <section class="cs-section cs-experts">
+        <img src="/assets/images/consulting/bg2.png" alt="" class="cs-experts-bg">
+        <div class="container-cs cs-experts-inner">
+          <div class="cs-section-header cs-animate">
+            <span class="cs-section-tag">EXPERT TEAM · 专家团队</span>
+            <h2 class="cs-section-title">
+              三大专家矩阵，为项目保驾护航
+            </h2>
+            <p class="cs-section-desc">
+              学术专家把握政策与理论前沿，管理专家来自央企国企管理一线，实操专家主导方案落地——三类角色协同，让每一份方案既有高度、又能落地。
+            </p>
+          </div>
+          <div class="cs-experts-row">
+            <div v-for="(e, i) in experts" :key="i" class="cs-expert-block cs-animate">
+              <img src="/assets/images/consulting/box3-bg.png" alt="" class="cs-expert-bg">
+              <div class="cs-expert-block-title">
+                {{ e.title }}
+              </div>
+              <div class="cs-expert-block-desc">
+                {{ e.desc }}
+              </div>
+            </div>
+          </div>
+          <div class="cs-experts-row1">
+            <div v-for="(e, i) in expertsData" :key="i" class="cs-expert-block1 cs-animate">
+              <div class="cs-expert-block1-title">
+                {{ e.title }}
+              </div>
+              <div class="cs-expert-block1-desc">
+                {{ e.desc }}
+              </div>
+              <div class="cs-expert-block1-content">
+                {{ e.content }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== 8. CTA 开启组织效能升级之旅 ========== -->
+      <section class="cs-section cs-cta">
+        <div class="container-cs cs-cta-inner cs-animate">
+          <h2 class="cs-cta-title">
+            开启组织效能升级之旅
           </h2>
-          <p class="cs-section-desc">
-            学术专家把握政策与理论前沿，管理专家来自央企国企管理一线，实操专家主导方案落地——三类角色协同，让每一份方案既有高度、又能落地。
+          <p class="cs-cta-desc">
+            无论您正在推进国企改革深化提升行动，还是希望系统升级组织与人才管理体系，我们的顾问都将在 1 个工作日内与您取得联系。
+          </p>
+          <div class="cs-cta-actions">
+            <a
+              class="cs-cta-btn" :href="CTA_LINK" target="_blank"
+              rel="noopener noreferrer"
+            >
+              免费试用 <img src="/assets/images/consulting/btn1.png" alt="" class="cs-cta-btn-icon">
+            </a>
+            <a class="cs-cta-btn cs-cta-btn1" :href="CTA_LINK" target="_blank" rel="noopener noreferrer">
+              <img src="/assets/images/consulting/btn2.png" alt="" class="cs-cta-btn-icon">电话咨询
+            </a>
+            <a class="cs-cta-btn cs-cta-btn1" :href="CTA_LINK" target="_blank" rel="noopener noreferrer">
+              <img src="/assets/images/consulting/btn3.png" alt="" class="cs-cta-btn-icon">预约演示
+            </a>
+          </div>
+          <p class="cs-cta-phone">
+            咨询热线：400-870-1477
           </p>
         </div>
-        <div class="cs-experts-row">
-          <div v-for="(e, i) in experts" :key="i" class="cs-expert-block cs-animate">
-            <img src="/assets/images/consulting/box3-bg.png" alt="" class="cs-expert-bg">
-            <div class="cs-expert-block-title">
-              {{ e.title }}
-            </div>
-            <div class="cs-expert-block-desc">
-              {{ e.desc }}
-            </div>
-          </div>
-        </div>
-        <div class="cs-experts-row1">
-          <div v-for="(e, i) in expertsData" :key="i" class="cs-expert-block1 cs-animate">
-            <div class="cs-expert-block1-title">
-              {{ e.title }}
-            </div>
-            <div class="cs-expert-block1-desc">
-              {{ e.desc }}
-            </div>
-            <div class="cs-expert-block1-content">
-              {{ e.content }}
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
+      </section>
+    </div>
 
-    <!-- ========== 8. CTA 开启组织效能升级之旅 ========== -->
-    <section class="cs-section cs-cta">
-      <div class="container-cs cs-cta-inner cs-animate">
-        <h2 class="cs-cta-title">
-          开启组织效能升级之旅
-        </h2>
-        <p class="cs-cta-desc">
-          无论您正在推进国企改革深化提升行动，还是希望系统升级组织与人才管理体系，我们的顾问都将在 1 个工作日内与您取得联系。
-        </p>
-        <div class="cs-cta-actions">
-          <a
-            class="cs-cta-btn" :href="CTA_LINK" target="_blank"
-            rel="noopener noreferrer"
-          >
-            免费试用 <img src="/assets/images/consulting/btn1.png" alt="" class="cs-cta-btn-icon">
-          </a>
-          <a class="cs-cta-btn cs-cta-btn1" :href="CTA_LINK" target="_blank" rel="noopener noreferrer">
-            <img src="/assets/images/consulting/btn2.png" alt="" class="cs-cta-btn-icon">电话咨询
-          </a>
-          <a class="cs-cta-btn cs-cta-btn1" :href="CTA_LINK" target="_blank" rel="noopener noreferrer">
-            <img src="/assets/images/consulting/btn3.png" alt="" class="cs-cta-btn-icon">预约演示
-          </a>
-        </div>
-        <p class="cs-cta-phone">
-          咨询热线：400-870-1477
-        </p>
-      </div>
-    </section>
+    <!-- 移动端版本 -->
+    <ConsultingMobile class="cs-mobile" />
   </div>
 </template>
 
@@ -1476,6 +1482,25 @@ onMounted(() => {
   font-weight: 600;
   letter-spacing: 1px;
   color: #fff;
+}
+
+/* ===== 桌面/移动端切换 ===== */
+.cs-desktop {
+  display: block;
+}
+
+.cs-mobile {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .cs-desktop {
+    display: none;
+  }
+
+  .cs-mobile {
+    display: block;
+  }
 }
 
 /* ===== 响应式 ===== */
