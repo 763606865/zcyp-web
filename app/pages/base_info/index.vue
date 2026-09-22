@@ -18,10 +18,10 @@ const basicInfoRouteMap: Partial<Record<AuthIdentityCode, string>> = {
 const identityLabelMap: Record<AuthIdentityCode, string> = {
   jobseeker: '求职者',
   employer: '招聘方',
-  campus_manager: '校招负责人',
+  // campus_manager: '校招负责人',
   government_manager: '政府机构负责人',
   headhunter: '猎头',
-}
+} as Record<AuthIdentityCode, string>
 
 const isRedirecting = ref(false)
 

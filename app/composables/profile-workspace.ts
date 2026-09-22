@@ -17,7 +17,7 @@ function hasApprovedEmployerWorkspace(identity: AuthCurrentIdentity) {
   )
 }
 
-function hasBoundCampusManagerWorkspace(identity: AuthCurrentIdentity) {
+function _hasBoundCampusManagerWorkspace(identity: AuthCurrentIdentity) {
   return Boolean(
     identity
     && typeof identity === 'object'
@@ -55,8 +55,8 @@ export function resolveProfileWorkspaceRedirect(mode: 'index' | 'workspace', opt
   if (hasApprovedEmployerWorkspace(userStore.currentIdentityInfo))
     return '/employer/dashboard'
 
-  if (hasBoundCampusManagerWorkspace(userStore.currentIdentityInfo))
-    return '/campus/dashboard'
+  // if (hasBoundCampusManagerWorkspace(userStore.currentIdentityInfo))
+  //   return '/campus/dashboard'
 
   return options.getFallbackRedirectTo?.() || null
 }
