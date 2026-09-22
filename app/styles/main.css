@@ -1715,7 +1715,6 @@ body {
   overflow-x: auto;
   overflow-y: hidden;
   overscroll-behavior-x: contain;
-  scroll-behavior: smooth;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
 }
@@ -2970,10 +2969,6 @@ body {
 .portal-page.is-dynamic-render .home-service-ecosystem::after { animation: home-ecosystem-orbit 11s ease-in-out -3s infinite alternate-reverse; }
 .portal-page.is-dynamic-render .home-service-ecosystem-title span { background-size: 200% 100%; animation: home-ecosystem-line 2.4s ease-in-out infinite; }
 .portal-page.is-dynamic-render .home-service-ecosystem-title span:last-child { animation-direction: reverse; }
-.portal-page.is-dynamic-render .home-service-ecosystem-grid { animation: home-ecosystem-marquee 34s linear infinite; will-change: transform; }
-.portal-page.is-dynamic-render .home-service-ecosystem-row:nth-child(2) .home-service-ecosystem-grid { animation-duration: 28s; animation-direction: reverse; }
-.portal-page.is-dynamic-render .home-service-ecosystem-track:hover .home-service-ecosystem-grid,
-.portal-page.is-dynamic-render .home-service-ecosystem-track:focus-within .home-service-ecosystem-grid { animation-play-state: paused; }
 .portal-page.is-dynamic-render .home-service-ecosystem-card { position: relative; isolation: isolate; transition-duration: 0.28s; }
 .portal-page.is-dynamic-render .home-service-ecosystem-card::after {
   content: '';
@@ -3061,7 +3056,6 @@ body {
   animation: home-salary-shimmer 2.8s linear infinite;
 }
 
-@keyframes home-ecosystem-marquee { to { transform: translateX(-50%); } }
 @keyframes home-ecosystem-orbit { to { translate: 28px -12px; scale: 1.08; } }
 @keyframes home-ecosystem-line { 0%, 100% { opacity: 0.45; background-position: 0 0; } 50% { opacity: 1; background-position: 100% 0; } }
 @keyframes home-icon-float { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-3px) rotate(3deg); } }

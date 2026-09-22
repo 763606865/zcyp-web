@@ -194,6 +194,129 @@ function nextSlide() {
 
 const serviceEcosystemScrolling = new WeakSet<HTMLElement>()
 
+// 生态矩阵各行自动滚动速度（px/s），按行索引对应「产品与服务 / 线上服务」，可按需调整
+const SERVICE_ECOSYSTEM_MARQUEE_SPEEDS = [34, 24]
+// 溢出超过该阈值（px）才启动自动滚动，一行能放下时静止展示，避免临界宽度的轻微抖动
+const SERVICE_ECOSYSTEM_MARQUEE_MIN_OVERFLOW = 8
+// 各行初始滚动方向：+1 表示 scrollLeft 递增（内容从右往左），-1 表示递减（内容从左往右）
+const SERVICE_ECOSYSTEM_MARQUEE_DIRECTIONS: (1 | -1)[] = [1, -1]
+
+interface ServiceEcosystemMarqueeRow {
+  scroller: HTMLElement
+  track: HTMLElement | null
+  initialDirection: 1 | -1
+  direction: 1 | -1
+  speed: number
+  paused: boolean
+}
+
+const serviceEcosystemMarqueeRows: ServiceEcosystemMarqueeRow[] = []
+const serviceEcosystemMarqueeCleanups: Array<() => void> = []
+let serviceEcosystemMarqueeFrame = 0
+let serviceEcosystemMarqueeLastTime = 0
+
+function getServiceEcosystemMaxScroll(scroller: HTMLElement) {
+  return scroller.scrollWidth - scroller.clientWidth
+}
+
+function serviceEcosystemMarqueeTick(time: number) {
+  // 限制单帧步长，避免切后台后恢复时出现大幅跳动
+  const delta = serviceEcosystemMarqueeLastTime ? Math.min((time - serviceEcosystemMarqueeLastTime) / 1000, 0.05) : 0
+  serviceEcosystemMarqueeLastTime = time
+
+  if (delta > 0) {
+    for (const row of serviceEcosystemMarqueeRows) {
+      // 每帧实时计算最大滚动距离，天然兼容窗口缩放与数据变化
+      const maxScroll = getServiceEcosystemMaxScroll(row.scroller)
+      if (maxScroll <= SERVICE_ECOSYSTEM_MARQUEE_MIN_OVERFLOW) {
+        // 一行能放下时静止展示，并重置方向以便再次溢出时从初始方向开始
+        row.direction = row.initialDirection
+        continue
+      }
+      // 悬停/聚焦暂停；按钮 smooth 滚动期间（serviceEcosystemScrolling 防抖窗口内）跳过，避免与 scrollBy 冲突
+      if (row.paused || serviceEcosystemScrolling.has(row.scroller))
+        continue
+
+      let next = row.scroller.scrollLeft + row.direction * row.speed * delta
+      // 到达边界即反向，形成左右碰撞的往返运动
+      if (next >= maxScroll) {
+        next = maxScroll
+        row.direction = -1
+      }
+      else if (next <= 0) {
+        next = 0
+        row.direction = 1
+      }
+      row.scroller.scrollLeft = next
+    }
+  }
+
+  serviceEcosystemMarqueeFrame = window.requestAnimationFrame(serviceEcosystemMarqueeTick)
+}
+
+function setupServiceEcosystemMarquee() {
+  if (!import.meta.client || !dynamicRenderEnabled.value || !portalPageRef.value)
+    return
+  if (serviceEcosystemMarqueeRows.length)
+    return
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+    return
+
+  const scrollers = Array.from(portalPageRef.value.querySelectorAll<HTMLElement>('.home-service-ecosystem-scroll'))
+  scrollers.forEach((scroller, index) => {
+    const initialDirection = SERVICE_ECOSYSTEM_MARQUEE_DIRECTIONS[index] ?? 1
+    const row: ServiceEcosystemMarqueeRow = {
+      scroller,
+      track: scroller.closest<HTMLElement>('.home-service-ecosystem-track'),
+      initialDirection,
+      direction: initialDirection,
+      speed: SERVICE_ECOSYSTEM_MARQUEE_SPEEDS[index] ?? SERVICE_ECOSYSTEM_MARQUEE_SPEEDS[0]!,
+      paused: false,
+    }
+    // 初始方向为从左往右的行需先定位到末尾，才能向回滚动
+    if (initialDirection === -1)
+      scroller.scrollLeft = getServiceEcosystemMaxScroll(scroller)
+
+    const pause = () => {
+      row.paused = true
+    }
+    const resume = () => {
+      row.paused = false
+    }
+    const listeners: Array<[string, EventListener]> = [
+      ['mouseenter', pause],
+      ['mouseleave', resume],
+      ['focusin', pause],
+      ['focusout', resume],
+    ]
+    if (row.track) {
+      const track = row.track
+      listeners.forEach(([type, handler]) => track.addEventListener(type, handler))
+      serviceEcosystemMarqueeCleanups.push(() => {
+        listeners.forEach(([type, handler]) => track.removeEventListener(type, handler))
+      })
+    }
+
+    serviceEcosystemMarqueeRows.push(row)
+  })
+
+  if (serviceEcosystemMarqueeRows.length) {
+    serviceEcosystemMarqueeLastTime = 0
+    serviceEcosystemMarqueeFrame = window.requestAnimationFrame(serviceEcosystemMarqueeTick)
+  }
+}
+
+function teardownServiceEcosystemMarquee() {
+  if (serviceEcosystemMarqueeFrame) {
+    window.cancelAnimationFrame(serviceEcosystemMarqueeFrame)
+    serviceEcosystemMarqueeFrame = 0
+  }
+  serviceEcosystemMarqueeCleanups.forEach(dispose => dispose())
+  serviceEcosystemMarqueeCleanups.length = 0
+  serviceEcosystemMarqueeRows.length = 0
+  serviceEcosystemMarqueeLastTime = 0
+}
+
 function scrollServiceEcosystemRow(event: MouseEvent, direction: 1 | -1) {
   const row = (event.currentTarget as HTMLElement).closest('.home-service-ecosystem-row')
   const scroller = row?.querySelector<HTMLElement>('.home-service-ecosystem-scroll')
@@ -380,6 +503,7 @@ watch([urgentJobs, famousCompanies], () => {
 
 onMounted(() => {
   nextTick(setupDynamicReveal)
+  setupServiceEcosystemMarquee()
   promptInboundEcosystemLogin()
 })
 
@@ -387,6 +511,7 @@ onBeforeUnmount(() => {
   if (slideTimer)
     clearInterval(slideTimer)
   dynamicRevealObserver?.disconnect()
+  teardownServiceEcosystemMarquee()
 })
 </script>
 
