@@ -36,7 +36,7 @@ const { isRefreshingIdentity, switchingIdentityCode, errorMessage: identityError
 })
 const panelRef = ref<HTMLElement | null>(null)
 const isGettingEcosystemTicket = ref(false)
-const ECOSYSTEM_APP_CODES = ['zcyp-classroom', 'gangwei'] as const
+const ECOSYSTEM_APP_CODES = ['zcyp-classroom', 'gangwei', 'zcyp-hunter'] as const
 
 const menus = computed<CmsMenuItem[]>(() => pageDataStore.menus)
 const siteConfig = computed<CmsSiteConfig | null>(() => pageDataStore.siteConfig)
