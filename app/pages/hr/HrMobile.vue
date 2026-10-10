@@ -160,8 +160,8 @@ const enterpriseCards = [
           我们为HR从业者提供体系化学习进阶与职业发展平台，同时为缺少HR职能的小微企业提供专业的HR解决方案。
         </p>
         <div class="hr-m-banner-actions">
-          <a class="hr-m-btn hr-m-btn-primary" href="https://zcyp-landing-hub.jxhrm.com/contact?product=1&source=zcyp" target="_blank" rel="noopener noreferrer">成为会员 <span>→</span></a>
-          <a class="hr-m-btn hr-m-btn-outline" href="https://zcyp-landing-hub.jxhrm.com/contact?product=1&source=zcyp" target="_blank" rel="noopener noreferrer">企业方案 <span>→</span></a>
+          <a class="hr-m-btn hr-m-btn-primary" href="https://zcyp-landing-hub.jxhrm.com/contact?product=14&source=zcyp" target="_blank" rel="noopener noreferrer">成为会员 <span>→</span></a>
+          <a class="hr-m-btn hr-m-btn-outline" href="https://zcyp-landing-hub.jxhrm.com/contact?product=14&source=zcyp" target="_blank" rel="noopener noreferrer">企业方案 <span>→</span></a>
         </div>
       </div>
       <div class="hr-m-stats-bar">
@@ -379,7 +379,7 @@ const enterpriseCards = [
         <div class="hr-m-resource-list">
           <div
             v-for="(res, idx) in resources" :key="idx" class="hr-m-resource-item hr-m-animate"
-            @click="navigateTo('/contact?product=1')"
+            @click="navigateTo('/contact?product=14')"
           >
             <img :src="res.icon" :alt="res.name" class="hr-m-resource-icon">
             <div class="hr-m-resource-info">

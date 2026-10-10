@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 
-// 所有 CTA 按钮统一跳转链接（product=12）
-const CTA_LINK = 'https://zcyp-landing-hub.jxhrm.com/contact?product=12&source=zcyp'
+// 所有 CTA 按钮统一跳转链接（product=15）
+const CTA_LINK = 'https://zcyp-landing-hub.jxhrm.com/contact?product=15&source=zcyp'
 
 // 数值区
 const stats = [

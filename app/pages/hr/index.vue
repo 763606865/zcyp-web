@@ -258,8 +258,8 @@ onMounted(() => {
             都拥有专业的人力资源支撑。
           </p>
           <div class="hr-banner-actions">
-            <a class="hr-btn hr-btn-primary" href="https://zcyp-landing-hub.jxhrm.com/contact?product=1&source=zcyp" target="_blank" rel="noopener noreferrer">成为会员 <span>→</span></a>
-            <a class="hr-btn hr-btn-outline" href="https://zcyp-landing-hub.jxhrm.com/contact?product=1&source=zcyp" target="_blank" rel="noopener noreferrer">企业方案 <span>→</span></a>
+            <a class="hr-btn hr-btn-primary" href="https://zcyp-landing-hub.jxhrm.com/contact?product=14&source=zcyp" target="_blank" rel="noopener noreferrer">成为会员 <span>→</span></a>
+            <a class="hr-btn hr-btn-outline" href="https://zcyp-landing-hub.jxhrm.com/contact?product=14&source=zcyp" target="_blank" rel="noopener noreferrer">企业方案 <span>→</span></a>
           </div>
         </div>
         <!-- 统计卡片 -->
@@ -604,7 +604,7 @@ onMounted(() => {
               <div class="hr-resource-list">
                 <div
                   v-for="(res, idx) in resources" :key="idx" class="hr-resource-item hr-animate"
-                  @click="navigateTo('/contact?product=1')"
+                  @click="navigateTo('/contact?product=14')"
                 >
                   <img :src="res.icon" :alt="res.name" class="hr-resource-icon">
                   <div class="hr-resource-info">

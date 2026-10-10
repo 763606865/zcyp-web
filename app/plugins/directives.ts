@@ -14,9 +14,10 @@ export default defineNuxtPlugin((nuxtApp) => {
               const duration = 3000
               const startTime = performance.now()
               const hasComma = target.dataset.countComma === 'true'
+              const decimals = (target.dataset.countTarget || '').split('.')[1]?.length || 0
 
               const formatNum = (n: number) => {
-                const rounded = Math.round(n)
+                const rounded = decimals ? Number(n.toFixed(decimals)) : Math.round(n)
                 return hasComma ? rounded.toLocaleString('en-US') : String(rounded)
               }
 
