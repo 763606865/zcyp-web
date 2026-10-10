@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { TALENT_ASSESSMENT_APP_CODE, useEcosystemAppLink } from '~/composables/ecosystem-app-link'
 import ZccpMobile from './ZccpMobile.vue'
 
 definePageMeta({
@@ -9,6 +10,11 @@ definePageMeta({
 
 // 所有 CTA 按钮统一跳转链接（product=16）
 const CTA_LINK = 'https://zcyp-landing-hub.jxhrm.com/contact?product=16&source=zcyp'
+
+// 落地页域名：查看详情等产品页统一跳转
+const LANDING_HUB_BASE = 'https://zcyp-landing-hub.jxhrm.com'
+// 题库共建「查看详情」跳转链接
+const QUESTION_BANK_LINK = `${LANDING_HUB_BASE}/questionBank?source=zcyp`
 
 // 1. Banner
 const bannerTitleLines = ['全国考试测评行业头部品牌。', '学术与科技实力', '构筑企业核心竞争力！']
@@ -70,23 +76,35 @@ const paperStats = [
 
 // 4. 测评科技生态类
 // TODO 文案待校对：卡片5「AI 面试系统」、卡片9「应试能力测评」标题
+// link：「查看详情」跳转链接（外链统一新窗口打开）；appCode：需登录并携带中台 ticket 的生态应用码（人才测评待下发 key，暂为空直接跳转）
 const ecoCards = [
-  { img: 'box3-img1.png', title: '在线报名', desc: '报名、准考证、考场编排一站式线上办理' },
-  { img: 'box3-img2.png', title: '机考系统', desc: '局域网部署+监控指挥，职称水平能力测试专用' },
-  { img: 'box3-img3.png', title: '在线考试系统', desc: '四视角360°智能监考，万人级并发稳定交付' },
-  { img: 'box3-img4.png', title: '题库系统', desc: '导题、命题、组卷、审核全场景智能覆盖' },
-  { img: 'box3-img5.png', title: 'AI 面试系统', desc: '7×24自动邀约、面试、评估，3分钟出报告' },
-  { img: 'box3-img6.png', title: 'AI 考务智能体', desc: '视频分析+信号侦测+热成像，考务安全管控' },
-  { img: 'box3-img7.png', title: '心理测评工具', desc: '岗位胜任力心理测评，考完即时输出报告' },
-  { img: 'box3-img8.png', title: '无纸化面试评分系统', desc: '面试指挥系统，七重随机抽签，评分全程可溯源' },
-  { img: 'box3-img9.png', title: '应试能力测评', desc: '岗位应试能力标准化测评，精准筛选人才' },
-  { img: 'box3-img10.png', title: '成绩分析系统', desc: '难度、区分度多维诊断，分析报告一键生成' },
+  { img: 'box3-img1.png', title: '在线报名', desc: '报名、准考证、考场编排一站式线上办理', link: `${LANDING_HUB_BASE}?source=zcyp` },
+  { img: 'box3-img2.png', title: '机考系统', desc: '局域网部署+监控指挥，职称水平能力测试专用', link: `${LANDING_HUB_BASE}/computerService?source=zcyp` },
+  { img: 'box3-img3.png', title: '在线考试系统', desc: '四视角360°智能监考，万人级并发稳定交付', link: `${LANDING_HUB_BASE}/onlineTest?source=zcyp` },
+  { img: 'box3-img4.png', title: '题库系统', desc: '导题、命题、组卷、审核全场景智能覆盖', link: `${LANDING_HUB_BASE}/question?source=zcyp` },
+  { img: 'box3-img5.png', title: 'AI 面试系统', desc: '7×24自动邀约、面试、评估，3分钟出报告', link: `${LANDING_HUB_BASE}/aiInterview?source=zcyp` },
+  { img: 'box3-img6.png', title: 'AI 考务智能体', desc: '视频分析+信号侦测+热成像，考务安全管控', link: `${LANDING_HUB_BASE}/antiCheating?source=zcyp` },
+  { img: 'box3-img7.png', title: '心理测评工具', desc: '岗位胜任力心理测评，考完即时输出报告', link: 'https://check.myjobseek.com.cn', appCode: TALENT_ASSESSMENT_APP_CODE },
+  { img: 'box3-img8.png', title: '无纸化面试评分系统', desc: '面试指挥系统，七重随机抽签，评分全程可溯源', link: `${LANDING_HUB_BASE}/paperlessInterview?source=zcyp` },
+  { img: 'box3-img9.png', title: '应试能力测评', desc: '岗位应试能力标准化测评，精准筛选人才', link: 'https://gangwei.jxujob.com', appCode: 'gangwei' },
+  { img: 'box3-img10.png', title: '成绩分析系统', desc: '难度、区分度多维诊断，分析报告一键生成', link: `${LANDING_HUB_BASE}/scoreAnalysis?source=zcyp` },
 ]
 
 const ecoWide = {
   img: 'box3-img11.png',
   title: '更多服务生态敬请期待',
   desc: '专注人力资源测评的科技型、学术型服务品牌，为机关事业单位、国有企业招聘考试提供人才测评、人事考试命题与考务技术支持，覆盖全国 32 个省市。',
+}
+
+const { openEcosystemApp } = useEcosystemAppLink()
+
+// 生态卡片「查看详情」：带 appCode 的应用需登录并携带中台 ticket 新窗口打开，其余直接跳转
+function handleEcoCardLinkClick(item: (typeof ecoCards)[number], event: MouseEvent) {
+  if (!item.appCode)
+    return
+
+  event.preventDefault()
+  openEcosystemApp({ label: item.title, to: item.link, appCode: item.appCode }, '/zccp')
 }
 
 // 5. 服务案例
@@ -311,7 +329,7 @@ onMounted(() => {
               </div>
               <div class="zc-paper-actions">
                 <a
-                  class="zc-btn-primary" :href="CTA_LINK" target="_blank"
+                  class="zc-btn-primary" :href="QUESTION_BANK_LINK" target="_blank"
                   rel="noopener noreferrer"
                 >查看详情</a>
                 <a
@@ -344,7 +362,10 @@ onMounted(() => {
               <div class="eco-card-desc">
                 {{ item.desc }}
               </div>
-              <a class="eco-card-link" :href="CTA_LINK" target="_blank" rel="noopener noreferrer">查看详情</a>
+              <a
+                class="eco-card-link" :href="item.link" target="_blank"
+                rel="noopener noreferrer" @click="handleEcoCardLinkClick(item, $event)"
+              >查看详情</a>
             </div>
           </div>
           <div class="eco-card eco-card-wide">

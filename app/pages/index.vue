@@ -2,10 +2,10 @@
 import type { HomePageData } from '~/types/recruitment'
 import { createDiscreteApi } from 'naive-ui'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { TALENT_ASSESSMENT_APP_CODE, useEcosystemAppLink } from '~/composables/ecosystem-app-link'
 import { mockCompanies, mockJobs, mockPositionTree } from '~/mock/recruitment'
-import { exchangeEcosystemTicket, getAuthMe, getEcosystemTicket } from '~/services/auth'
+import { exchangeEcosystemTicket, getAuthMe } from '~/services/auth'
 import { ApiRequestError, resolveAssetUrl } from '~/services/http'
-import { createAuthRedirectQuery } from '~/utils/auth-redirect'
 import { pushGlobalNotice } from '~/utils/notice'
 
 const { message } = createDiscreteApi(['message'])
@@ -34,7 +34,7 @@ const activeSlideIndex = ref(0)
 const isCategoryPanelVisible = ref(false)
 const inboundEcosystemTicket = ref('')
 const isExchangingEcosystemTicket = ref(false)
-const isGettingEcosystemTicket = ref(false)
+const { openEcosystemApp } = useEcosystemAppLink()
 const portalPageRef = ref<HTMLElement | null>(null)
 const dynamicRenderEnabled = computed(() => String(runtimeConfig.public.dynamicRender).toLowerCase() === 'true')
 let slideTimer: ReturnType<typeof setInterval> | undefined
@@ -91,8 +91,9 @@ const serviceEcosystemRows: ServiceEcosystemRow[] = [
     className: 'is-online',
     items: [
       { label: '网上报名', to: 'https://zk.sun-hrm.com/index.php', icon: 'i-carbon-edit' },
-      { label: '心理测评（岗位胜任力测评）', to: 'https://zcyp-landing-hub.jxhrm.com/', icon: 'i-carbon-user-profile' },
-      { label: '应试能力测评', to: 'http://gangwei.jxujob.com', icon: 'i-carbon-exam-mode', appCode: 'gangwei' },
+      // 人才测评：待中台下发 key 后填入 TALENT_ASSESSMENT_APP_CODE，届时自动启用「登录 + 携带 ticket」跳转
+      { label: '人才测评', to: 'https://check.myjobseek.com.cn', icon: 'i-carbon-user-profile', appCode: TALENT_ASSESSMENT_APP_CODE },
+      { label: '应试能力测评', to: 'https://gangwei.jxujob.com', icon: 'i-carbon-exam-mode', appCode: 'gangwei' },
       { label: '在线学习', to: 'https://zcyp-classroom.jxhrm.com?source=zcyp', icon: 'i-carbon-education' },
       { label: 'AI简历优化诊断', to: 'https://zcyp-landing-hub.jxhrm.com/', icon: 'i-carbon-ai-generate' },
     ],
@@ -430,40 +431,9 @@ async function confirmInboundEcosystemLogin() {
   }
 }
 
-function appendEcosystemTicket(targetUrl: string, ticket: string) {
-  const url = new URL(targetUrl, window.location.origin)
-  url.searchParams.set(INBOUND_ECOSYSTEM_TICKET_QUERY, ticket)
-  return url.toString()
-}
-
-async function handleEcosystemServiceClick(item: ServiceEcosystemItem) {
-  const appCode = item.appCode
-  if (!appCode || isGettingEcosystemTicket.value)
-    return
-
-  const appName = item.label || '中测应用'
-  if (!userStore.authHeader) {
-    pushGlobalNotice(`请先登录后进入${appName}`, 'warning')
-    await router.push({ path: '/login', query: createAuthRedirectQuery('/') })
-    return
-  }
-
-  isGettingEcosystemTicket.value = true
-
-  try {
-    const { ticket } = await getEcosystemTicket(appCode, userStore.authHeader)
-    if (!ticket)
-      throw new Error('未获取到中台登录凭证')
-
-    const targetUrl = appendEcosystemTicket(item.to, ticket)
-    window.open(targetUrl, '_blank', 'noopener,noreferrer')
-  }
-  catch (error) {
-    pushGlobalNotice(error instanceof ApiRequestError ? error.message : `暂时无法进入${appName}，请稍后重试`, 'error')
-  }
-  finally {
-    isGettingEcosystemTicket.value = false
-  }
+// 生态应用跳转：登录并携带中台 ticket 新窗口打开（共享逻辑见 composables/ecosystem-app-link）
+function handleEcosystemServiceClick(item: ServiceEcosystemItem) {
+  return openEcosystemApp(item, '/')
 }
 
 await useAsyncData(
