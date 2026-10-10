@@ -13,11 +13,11 @@ const searchPlaceholder = computed(() => route.meta.searchPlaceholder as string 
 const searchPath = computed(() => route.meta.searchPath as string | undefined)
 let disposeGlobalNotify: (() => void) | null = null
 
-callOnce(() => {
-  siteStore.loadAreas()
-})
+callOnce(() => siteStore.loadAreas())
 
 onMounted(() => {
+  // 先恢复本地缓存的城市，再尝试自动定位，避免定位覆盖用户手动选择
+  siteStore.restoreLocalCache()
   siteStore.detectLocation()
 
   const { message } = createDiscreteApi(['message'], {

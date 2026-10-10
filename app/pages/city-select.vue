@@ -9,6 +9,10 @@ definePageMeta({
 const router = useRouter()
 const siteStore = useSiteStore()
 
+// 城市列表来自地区树数据，进入页面时确保已加载（SSR 与客户端均生效）
+if (!siteStore.areas.length)
+  await siteStore.loadAreas()
+
 // 是否处于“公司页选城市”模式，不修改全局 currentCity
 const isCompanyPicking = ref(false)
 
@@ -75,6 +79,12 @@ function handleSelect(code: string, name: string) {
 
     <div class="flex">
       <div class="flex-1">
+        <div v-if="siteStore.areasLoading" class="text-[14px] text-[#999] px-4 py-10 text-center">
+          城市数据加载中...
+        </div>
+        <div v-else-if="!groups.length" class="text-[14px] text-[#999] px-4 py-10 text-center">
+          {{ siteStore.loadError || '暂无城市数据' }}
+        </div>
         <div v-for="group in groups" :id="`city-group-${group.letter}`" :key="group.letter" class="px-4">
           <div class="text-[13px] text-[#999] font-medium py-2 bg-white top-[52px] sticky">
             {{ group.letter }}

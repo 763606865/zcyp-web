@@ -93,7 +93,10 @@ function matchCityByName(cityName: string, entries: { code: string, name: string
   return matched ? { code: matched.code, name: matched.name } : null
 }
 
-const AMAP_KEY = appEnv.amapKey
+function matchCityByCode(adcode: string, entries: { code: string, name: string }[]): CitySelection | null {
+  const matched = entries.find(e => e.code === adcode)
+  return matched ? { code: matched.code, name: matched.name } : null
+}
 
 interface AmapIpResponse {
   status: string
@@ -105,17 +108,27 @@ interface AmapIpResponse {
 }
 
 async function detectCityByAmap(): Promise<{ name: string, adcode: string } | null> {
-  if (!AMAP_KEY || typeof window === 'undefined')
+  if (typeof window === 'undefined')
+    return null
+
+  // Key 必须在调用时读取：模块加载阶段不在 Nuxt 上下文中，useRuntimeConfig 拿不到值
+  const key = appEnv.amapKey
+  if (!key)
     return null
 
   try {
-    const res = await fetch(`https://restapi.amap.com/v3/ip?key=${AMAP_KEY}`)
+    const res = await fetch(`https://restapi.amap.com/v3/ip?key=${key}`)
     const data: AmapIpResponse = await res.json()
 
-    if (data.status !== '1' || !data.city || data.city === '[]')
+    if (data.status !== '1')
       return null
 
-    return { name: data.city, adcode: data.adcode }
+    // 直辖市等场景 city 返回 "[]"，回退使用 province
+    const name = data.city && data.city !== '[]' ? data.city : data.province
+    if (!name || name === '[]')
+      return null
+
+    return { name, adcode: data.adcode }
   }
   catch {
     return null
@@ -155,7 +168,14 @@ export const useSiteStore = defineStore('site', () => {
     try {
       const payload = await getCmsMeta()
 
-      const unwrapped = Array.isArray(payload.areas) && payload.areas.length > 0 ? unwrapRoot(payload.areas) : []
+      const unwrapped = Array.isArray(payload?.areas) && payload.areas.length > 0 ? unwrapRoot(payload.areas) : []
+
+      if (unwrapped.length === 0) {
+        // 地区数据为空时不写缓存、不标记已加载，保留下次重试的机会
+        loadError.value = '地区数据为空'
+        return
+      }
+
       areas.value = unwrapped
       writeCache(AREAS_STORAGE_KEY, unwrapped)
       areasLoaded.value = true
@@ -179,24 +199,54 @@ export const useSiteStore = defineStore('site', () => {
     writeCache(CITY_STORAGE_KEY, currentCity.value)
   }
 
+  function restoreLocalCache(): void {
+    if (typeof window === 'undefined')
+      return
+
+    // SSR 水合会用服务端状态覆盖 localStorage 初始化值，水合后需要重新恢复
+    if (currentCity.value.code === '000000') {
+      const cachedCity = loadCachedCity()
+      if (cachedCity?.code)
+        currentCity.value = cachedCity
+    }
+
+    if (areas.value.length === 0) {
+      const cachedAreas = loadCachedAreas()
+      if (cachedAreas.length > 0) {
+        areas.value = cachedAreas
+        areasLoaded.value = true
+      }
+    }
+
+    if (tags.value.length === 0) {
+      const cachedTags = loadCachedTags()
+      if (cachedTags.length > 0) {
+        tags.value = cachedTags
+        tagsLoaded.value = true
+      }
+    }
+  }
+
   async function detectLocation(): Promise<void> {
-    if (isDetecting.value || currentCity.value.name !== '全国')
+    // 已有本地缓存的城市选择（含手动选"全国"）时不做自动定位
+    if (isDetecting.value || currentCity.value.name !== '全国' || loadCachedCity())
       return
 
     isDetecting.value = true
 
     try {
       const result = await detectCityByAmap()
-      if (!result) {
-        isDetecting.value = false
+      if (!result)
         return
-      }
+
+      if (!cityOptions.value.length)
+        await loadAreas()
 
       const entries = cityOptions.value.length > 0
         ? cityOptions.value
         : flattenCityEntries(areas.value)
 
-      const matched = matchCityByName(result.name, entries)
+      const matched = matchCityByCode(result.adcode, entries) || matchCityByName(result.name, entries)
       if (matched) {
         currentCity.value = matched
         writeCache(CITY_STORAGE_KEY, matched)
@@ -225,6 +275,7 @@ export const useSiteStore = defineStore('site', () => {
     loadAreas,
     detectLocation,
     switchCity,
+    restoreLocalCache,
   }
 })
 
