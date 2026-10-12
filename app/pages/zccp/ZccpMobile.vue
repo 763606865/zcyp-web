@@ -2,13 +2,13 @@
 import { onMounted, ref } from 'vue'
 import { TALENT_ASSESSMENT_APP_CODE, useEcosystemAppLink } from '~/composables/ecosystem-app-link'
 
-// 所有 CTA 按钮统一跳转链接（product=16）
-const CTA_LINK = 'https://zcyp-landing-hub.jxhrm.com/contact?product=16&source=zcyp'
-
 // 落地页域名：查看详情等产品页统一跳转
 const LANDING_HUB_BASE = 'https://zcyp-landing-hub.jxhrm.com'
-// 题库共建「查看详情」跳转链接
-const QUESTION_BANK_LINK = `${LANDING_HUB_BASE}/questionBank?source=zcyp`
+
+// 「立即咨询」统一跳转 contact 页，按卡片携带不同 product 参数
+function consultLink(product: number) {
+  return `${LANDING_HUB_BASE}/contact?product=${product}&source=zcyp`
+}
 
 // 1. Banner
 const bannerTitleLines = ['全国考试测评行业头部品牌。', '学术与科技实力', '构筑企业核心竞争力！']
@@ -51,19 +51,68 @@ const methodTable = {
 }
 
 // 3. 纸笔考试类
+// TODO 文案待校对：各项数值为占位数据、unit 单位内容待填，待替换（与桌面端 index.vue 保持同步）
 const paperCards = [
-  { theme: 'yellow', title: '中测命题', desc: '全国考试命题服务市场占有率与客户满意度遥遥领先的行业头部机构，AI命题、AI查重、AI组卷全流程智能化赋能。' },
-  { theme: 'blue', title: '中测阅卷', desc: '中测智阅云AI阅卷云平台，基于垂直领域自有大模型，全学科、全题型智能批改，匿名双评仲裁复刻国家级阅卷标准。' },
-  { theme: 'yellow', title: '制卷与押运', desc: '国家乙级涉密印刷资质+公安部安保认证，自有专职安保团队，保密印刷、武装押运、全程信息化追溯一站式交付。' },
-  { theme: 'special', title: '题库共建', desc: '以AI大模型为底座的全流程数字化题库平台，覆盖命题、审题、组卷、阅卷、审核、管理全链路，与客户共建共享。' },
-  { theme: 'blue', title: '职业技能题库建设', desc: '覆盖285个专业、1000+细分学科的标准化题库体系，攻克盲文、小语种等冷门学科命题技术，服务54+类用人单位。' },
-]
-
-const paperStats = [
-  { value: '10', label: '余年行业沉淀' },
-  { value: '64', label: '万企业用户信赖' },
-  { value: '204', label: '万场考试交付' },
-  { value: '1.3', label: '亿场考试交付' },
+  {
+    theme: 'yellow',
+    title: '中测命题',
+    desc: '全国考试命题服务市场占有率与客户满意度遥遥领先的行业头部机构，AI命题、AI查重、AI组卷全流程智能化赋能。',
+    detailLink: `${LANDING_HUB_BASE}?source=zcyp`,
+    consultProduct: 1,
+    stats: [
+      { value: '28000', label: '年均出库套数', unit: '+' },
+      { value: '18000', label: '年均笔试套数', unit: '+' },
+      { value: '9000', label: '年均面试套数', unit: '+' },
+      { value: '1000', label: '年均其他', unit: '+' },
+    ],
+  },
+  {
+    theme: 'blue',
+    title: '中测阅卷',
+    desc: '中测智阅云AI阅卷云平台，基于垂直领域自有大模型，全学科、全题型智能批改，匿名双评仲裁复刻国家级阅卷标准。',
+    detailLink: `${LANDING_HUB_BASE}/marking?source=zcyp`,
+    consultProduct: 2,
+    stats: [
+      { value: '28000', label: '十余年行业沉淀', unit: '余套' },
+      { value: '2000', label: '累计服务考生', unit: '万+人次' },
+      { value: '300', label: '比第二代阅卷效率提升', unit: '%' },
+      { value: '1.3', label: '场考试交付', unit: '亿' },
+    ],
+  },
+  {
+    theme: 'yellow',
+    title: '制卷与押运',
+    desc: '国家乙级涉密印刷资质+公安部安保认证，自有专职安保团队，保密印刷、武装押运、全程信息化追溯一站式交付。',
+    detailLink: `${LANDING_HUB_BASE}/escort?source=zcyp`,
+    consultProduct: 3,
+    stats: [
+      { value: '100', label: '专职安保人员', unit: '余人' },
+      { value: '6000', label: '保密印刷车间', unit: '㎡' },
+      { value: '32', label: '全国服务网络', unit: '省市' },
+      { value: '80', label: '高速印刷设备', unit: '余台' },
+    ],
+  },
+  {
+    theme: 'blue',
+    title: '题库共建',
+    desc: '以AI大模型为底座的全流程数字化题库平台，覆盖命题、审题、组卷、阅卷、审核、管理全链路，与客户共建共享。',
+    detailLink: `${LANDING_HUB_BASE}/questionBank?source=zcyp`,
+    consultProduct: 5,
+    stats: [
+      { value: '10', label: '行业沉淀', unit: '余年' },
+      { value: '64', label: '企业用户信赖', unit: '万' },
+      { value: '204', label: '场考试交付', unit: '万' },
+      { value: '1.3', label: '场考试交付', unit: '亿' },
+    ],
+  },
+  {
+    theme: 'yellow',
+    title: '职业技能题库建设',
+    desc: '覆盖285个专业、1000+细分学科的标准化题库体系，攻克盲文、小语种等冷门学科命题技术，服务54+类用人单位。',
+    detailLink: `${LANDING_HUB_BASE}/skillCert?source=zcyp`,
+    consultProduct: 13,
+    stats: [],
+  },
 ]
 
 // 4. 测评科技生态类
@@ -296,30 +345,29 @@ onMounted(() => {
         <div class="zc-m-paper-list">
           <div
             v-for="(card, i) in paperCards" :key="i" class="zc-m-paper-card"
-            :class="card.theme === 'special' ? 'zc-m-paper-card-special' : `zc-m-paper-card-${card.theme}`"
+            :class="`zc-m-paper-card-${card.theme}`"
           >
-            <div class="zc-m-paper-title" :class="{ 'zc-m-paper-title-dark': card.theme === 'special' }">
+            <div class="zc-m-paper-title">
               {{ card.title }}
             </div>
-            <div class="zc-m-paper-desc" :class="{ 'zc-m-paper-desc-dark': card.theme === 'special' }">
+            <div class="zc-m-paper-desc">
               {{ card.desc }}
             </div>
-            <template v-if="card.theme === 'special'">
-              <div class="zc-m-paper-stats">
-                <div v-for="(s, si) in paperStats" :key="si" class="zc-m-paper-stat">
-                  <div class="zc-m-paper-stat-value">
-                    <span v-count-up="Number(s.value)" class="zc-m-count">{{ s.value }}</span>
-                  </div>
-                  <div class="zc-m-paper-stat-label">
-                    {{ s.label }}
-                  </div>
+            <div v-if="card.stats.length" class="zc-m-paper-stats">
+              <div v-for="(s, si) in card.stats" :key="si" class="zc-m-paper-stat">
+                <div class="zc-m-paper-stat-label">
+                  {{ s.label }}
+                </div>
+                <div class="zc-m-paper-stat-value">
+                  <span v-count-up="Number(s.value)" class="zc-m-count">{{ s.value }}</span>
+                  <span v-if="s.unit" class="zc-m-paper-stat-unit">{{ s.unit }}</span>
                 </div>
               </div>
-              <div class="zc-m-paper-actions">
-                <a class="zc-m-btn-primary" :href="QUESTION_BANK_LINK" target="_blank" rel="noopener noreferrer">查看详情</a>
-                <a class="zc-m-btn-outline" :href="CTA_LINK" target="_blank" rel="noopener noreferrer">立即咨询</a>
-              </div>
-            </template>
+            </div>
+            <div class="zc-m-paper-actions">
+              <a class="zc-m-btn-primary" :href="card.detailLink" target="_blank" rel="noopener noreferrer">查看详情</a>
+              <a class="zc-m-btn-outline" :href="consultLink(card.consultProduct)" target="_blank" rel="noopener noreferrer">立即咨询</a>
+            </div>
           </div>
         </div>
       </div>
@@ -712,8 +760,8 @@ onMounted(() => {
 
 .zc-m-paper-list {
   margin-top: 16px;
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: 12px;
 }
 
@@ -803,46 +851,29 @@ onMounted(() => {
 
 .zc-m-paper-card {
   box-sizing: border-box;
-  aspect-ratio: 209 / 347;
-  padding: 20px 16px;
+  padding: 20px 18px 22px;
   background-size: 100% 100%;
   border-radius: 10px;
 }
 
 .zc-m-paper-card-yellow {
-  background-image: url('/assets/images/zccp/box2-bg1.png');
+  background-image: url('/assets/images/zccp/box2-bg-yellow.png');
 }
 
 .zc-m-paper-card-blue {
-  background-image: url('/assets/images/zccp/box2-bg2.png');
-}
-
-.zc-m-paper-card-special {
-  grid-column: 1 / -1;
-  order: 1;
-  aspect-ratio: auto;
-  padding: 20px 18px 22px;
-  background-image: url('/assets/images/zccp/box2-bg3.png');
+  background-image: url('/assets/images/zccp/box2-bg-blue.png');
 }
 
 .zc-m-paper-title {
   font-size: 16px;
   font-weight: 600;
-  color: #fff;
+  color: #23180b;
 }
 
 .zc-m-paper-desc {
   margin-top: 6px;
   font-size: 13px;
   line-height: 1.6;
-  color: #fff;
-}
-
-.zc-m-paper-title-dark {
-  color: #23180b;
-}
-
-.zc-m-paper-desc-dark {
   color: #5f5138;
 }
 
@@ -853,15 +884,29 @@ onMounted(() => {
   gap: 14px 16px;
 }
 
+.zc-m-paper-stat {
+  display: flex;
+  flex-direction: column;
+}
+
+.zc-m-paper-stat-label {
+  font-size: 14px;
+  color: #5f5138;
+}
+
 .zc-m-paper-stat-value {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
   font-size: 20px;
   font-weight: 700;
   color: #23180b;
 }
 
-.zc-m-paper-stat-label {
-  font-size: 12px;
-  color: #999;
+.zc-m-paper-stat-unit {
+  font-size: 14px;
+  font-weight: 400;
+  color: #23180b;
 }
 
 .zc-m-paper-actions {

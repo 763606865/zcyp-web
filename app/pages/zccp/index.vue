@@ -8,13 +8,13 @@ definePageMeta({
   activeNav: '中测测评',
 })
 
-// 所有 CTA 按钮统一跳转链接（product=16）
-const CTA_LINK = 'https://zcyp-landing-hub.jxhrm.com/contact?product=16&source=zcyp'
-
 // 落地页域名：查看详情等产品页统一跳转
 const LANDING_HUB_BASE = 'https://zcyp-landing-hub.jxhrm.com'
-// 题库共建「查看详情」跳转链接
-const QUESTION_BANK_LINK = `${LANDING_HUB_BASE}/questionBank?source=zcyp`
+
+// 「立即咨询」统一跳转 contact 页，按卡片携带不同 product 参数
+function consultLink(product: number) {
+  return `${LANDING_HUB_BASE}/contact?product=${product}&source=zcyp`
+}
 
 // 1. Banner
 const bannerTitleLines = ['全国考试测评行业头部品牌。', '学术与科技实力', '构筑企业核心竞争力！']
@@ -58,21 +58,81 @@ const methodTable = {
 }
 
 // 3. 纸笔考试类
-// TODO 文案待校对：四个数值（204 万场 / 1.3 亿场 口径）
+// TODO 文案待校对：各项数值为占位数据、unit 单位内容待填，待替换
 const paperCards = [
-  { theme: 'yellow', title: '中测命题', desc: '全国考试命题服务市场占有率与客户满意度遥遥领先的行业头部机构，AI命题、AI查重、AI组卷全流程智能化赋能。' },
-  { theme: 'blue', title: '中测阅卷', desc: '中测智阅云AI阅卷云平台，基于垂直领域自有大模型，全学科、全题型智能批改，匿名双评仲裁复刻国家级阅卷标准。' },
-  { theme: 'yellow', title: '制卷与押运', desc: '国家乙级涉密印刷资质+公安部安保认证，自有专职安保团队，保密印刷、武装押运、全程信息化追溯一站式交付。' },
-  { theme: 'special', title: '题库共建', desc: '以AI大模型为底座的全流程数字化题库平台，覆盖命题、审题、组卷、阅卷、审核、管理全链路，与客户共建共享。' },
-  { theme: 'blue', title: '职业技能题库建设', desc: '覆盖285个专业、1000+细分学科的标准化题库体系，攻克盲文、小语种等冷门学科命题技术，服务54+类用人单位。' },
+  {
+    theme: 'yellow',
+    title: '中测命题',
+    desc: '全国考试命题服务市场占有率与客户满意度遥遥领先的行业头部机构，AI命题、AI查重、AI组卷全流程智能化赋能。',
+    detailLink: `${LANDING_HUB_BASE}?source=zcyp`,
+    consultProduct: 1,
+    stats: [
+      { value: '28000', label: '年均出库套数', unit: '+' },
+      { value: '18000', label: '年均笔试套数', unit: '+' },
+      { value: '9000', label: '年均面试套数', unit: '+' },
+      { value: '1000', label: '年均其他', unit: '+' },
+    ],
+  },
+  {
+    theme: 'blue',
+    title: '中测阅卷',
+    desc: '中测智阅云AI阅卷云平台，基于垂直领域自有大模型，全学科、全题型智能批改，匿名双评仲裁复刻国家级阅卷标准。',
+    detailLink: `${LANDING_HUB_BASE}/marking?source=zcyp`,
+    consultProduct: 2,
+    stats: [
+      { value: '28000', label: '十余年行业沉淀', unit: '余套' },
+      { value: '2000', label: '累计服务考生', unit: '万+人次' },
+      { value: '300', label: '比第二代阅卷效率提升', unit: '%' },
+      { value: '1.3', label: '场考试交付', unit: '亿' },
+    ],
+  },
+  {
+    theme: 'yellow',
+    title: '制卷与押运',
+    desc: '国家乙级涉密印刷资质+公安部安保认证，自有专职安保团队，保密印刷、武装押运、全程信息化追溯一站式交付。',
+    detailLink: `${LANDING_HUB_BASE}/escort?source=zcyp`,
+    consultProduct: 3,
+    stats: [
+      { value: '100', label: '专职安保人员', unit: '余人' },
+      { value: '6000', label: '保密印刷车间', unit: '㎡' },
+      { value: '32', label: '全国服务网络', unit: '省市' },
+      { value: '80', label: '高速印刷设备', unit: '余台' },
+    ],
+  },
+  {
+    theme: 'blue',
+    title: '题库共建',
+    desc: '以AI大模型为底座的全流程数字化题库平台，覆盖命题、审题、组卷、阅卷、审核、管理全链路，与客户共建共享。',
+    detailLink: `${LANDING_HUB_BASE}/questionBank?source=zcyp`,
+    consultProduct: 5,
+    stats: [
+      { value: '10', label: '行业沉淀', unit: '余年' },
+      { value: '64', label: '企业用户信赖', unit: '万' },
+      { value: '204', label: '场考试交付', unit: '万' },
+      { value: '1.3', label: '场考试交付', unit: '亿' },
+    ],
+  },
+  {
+    theme: 'yellow',
+    title: '职业技能题库建设',
+    desc: '覆盖285个专业、1000+细分学科的标准化题库体系，攻克盲文、小语种等冷门学科命题技术，服务54+类用人单位。',
+    detailLink: `${LANDING_HUB_BASE}/skillCert?source=zcyp`,
+    consultProduct: 13,
+    stats: [],
+  },
 ]
 
-const paperStats = [
-  { value: '10', label: '余年行业沉淀' },
-  { value: '64', label: '万企业用户信赖' },
-  { value: '204', label: '万场考试交付' },
-  { value: '1.3', label: '亿场考试交付' },
-]
+// 纸笔考试类卡片展开项：默认第一项展开，悬浮切换，鼠标移出后保持最后悬停项
+const activePaperIndex = ref(0)
+// 数值滚动重放计数：每次展开时递增，通过变更 key 重挂载数值节点，使 v-count-up 重新播放
+const paperAnimKeys = ref(paperCards.map(() => 0))
+
+function handlePaperHover(i: number) {
+  if (activePaperIndex.value === i)
+    return
+  activePaperIndex.value = i
+  paperAnimKeys.value[i] = (paperAnimKeys.value[i] ?? 0) + 1
+}
 
 // 4. 测评科技生态类
 // TODO 文案待校对：卡片5「AI 面试系统」、卡片9「应试能力测评」标题
@@ -308,36 +368,41 @@ onMounted(() => {
         <div class="zc-paper-row zc-animate">
           <div
             v-for="(card, i) in paperCards" :key="i" class="zc-paper-card"
-            :class="card.theme === 'special' ? 'zc-paper-card-special' : `zc-paper-card-${card.theme}`"
+            :class="[`zc-paper-card-${card.theme}`, { 'zc-paper-card-active': activePaperIndex === i }]"
+            @mouseenter="handlePaperHover(i)"
           >
-            <div class="zc-paper-title" :class="{ 'zc-paper-title-dark': card.theme === 'special' }">
+            <div class="zc-paper-title">
               {{ card.title }}
             </div>
-            <div class="zc-paper-desc" :class="{ 'zc-paper-desc-dark': card.theme === 'special' }">
+            <div class="zc-paper-desc">
               {{ card.desc }}
             </div>
-            <template v-if="card.theme === 'special'">
-              <div class="zc-paper-stats">
-                <div v-for="(s, si) in paperStats" :key="si" class="zc-paper-stat">
-                  <div class="zc-paper-stat-value">
-                    <span v-count-up="Number(s.value)" class="zc-count">{{ s.value }}</span>
-                  </div>
+            <div class="zc-paper-extra">
+              <div v-if="card.stats.length" class="zc-paper-stats">
+                <div
+                  v-for="(s, si) in card.stats" :key="`${si}-${paperAnimKeys[i]}`"
+                  class="zc-paper-stat"
+                >
                   <div class="zc-paper-stat-label">
                     {{ s.label }}
+                  </div>
+                  <div class="zc-paper-stat-value">
+                    <span v-count-up="Number(s.value)" class="zc-count">{{ s.value }}</span>
+                    <span v-if="s.unit" class="zc-paper-stat-unit">{{ s.unit }}</span>
                   </div>
                 </div>
               </div>
               <div class="zc-paper-actions">
                 <a
-                  class="zc-btn-primary" :href="QUESTION_BANK_LINK" target="_blank"
+                  class="zc-btn-primary" :href="card.detailLink" target="_blank"
                   rel="noopener noreferrer"
                 >查看详情</a>
                 <a
-                  class="zc-btn-outline" :href="CTA_LINK" target="_blank"
+                  class="zc-btn-outline" :href="consultLink(card.consultProduct)" target="_blank"
                   rel="noopener noreferrer"
                 >立即咨询</a>
               </div>
-            </template>
+            </div>
           </div>
         </div>
       </div>
@@ -363,8 +428,8 @@ onMounted(() => {
                 {{ item.desc }}
               </div>
               <a
-                class="eco-card-link" :href="item.link" target="_blank"
-                rel="noopener noreferrer" @click="handleEcoCardLinkClick(item, $event)"
+                class="eco-card-link" :href="item.link" target="_blank" rel="noopener noreferrer"
+                @click="handleEcoCardLinkClick(item, $event)"
               >查看详情</a>
             </div>
           </div>
@@ -523,6 +588,7 @@ onMounted(() => {
 .comm-indent {
   text-indent: 2em;
 }
+
 /* ===== 基础 ===== */
 .zc-page {
   font-family: Inter, 'SF Pro Display', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
@@ -857,55 +923,71 @@ onMounted(() => {
 .zc-paper-row {
   margin-top: 55px;
   display: flex;
-  gap: 16px;
+  gap: 15px;
 }
 
 .zc-paper-card {
-  width: 189px;
-  height: 327px;
-  padding: 16px 24px;
+  width: 190px;
+  height: 328px;
+  padding: 16px 20px 24px;
   background-size: 100% 100%;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  cursor: pointer;
+  transition:
+    width 0.45s cubic-bezier(0.25, 0.8, 0.25, 1),
+    transform 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+.zc-paper-card-active {
+  width: 380px;
+  padding: 16px 21px 24px;
 }
 
 .zc-paper-card-yellow {
-  background-image: url('/assets/images/zccp/box2-bg1.png');
+  background-image: url('/assets/images/zccp/box2-bg-yellow.png');
 }
 
 .zc-paper-card-blue {
-  background-image: url('/assets/images/zccp/box2-bg2.png');
-}
-
-.zc-paper-card-special {
-  width: 380px;
-  height: 328px;
-  padding: 16px 21px 24px;
-  background-image: url('/assets/images/zccp/box2-bg3.png');
+  background-image: url('/assets/images/zccp/box2-bg-blue.png');
 }
 
 .zc-paper-title {
   font-size: 18px;
   font-weight: 600;
-  color: #fff;
+  color: #23180b;
 }
 
 .zc-paper-desc {
   margin-top: 7px;
   font-size: 14px;
   line-height: 22px;
-  color: #fff;
-}
-
-.zc-paper-title-dark {
-  color: #23180b;
-}
-
-.zc-paper-desc-dark {
   color: #5f5138;
 }
 
+.zc-paper-extra {
+  margin-top: auto;
+  padding-top: 16px;
+  opacity: 0;
+  transform: translateY(12px);
+  visibility: hidden;
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease,
+    visibility 0.3s;
+}
+
+.zc-paper-card-active .zc-paper-extra {
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
+  transition-delay: 0.15s;
+}
+
 .zc-paper-stats {
-  margin-top: 38px;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 18px 24px;
@@ -913,19 +995,27 @@ onMounted(() => {
 
 .zc-paper-stat {
   display: flex;
-  align-items: baseline;
-  gap: 2px;
-}
-
-.zc-paper-stat-value {
-  font-size: 24px;
-  font-weight: 700;
-  color: #23180b;
+  flex-direction: column;
 }
 
 .zc-paper-stat-label {
   font-size: 14px;
-  color: #999;
+  color: #5f5138;
+}
+
+.zc-paper-stat-value {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #23180b;
+}
+
+.zc-paper-stat-unit {
+  font-size: 14px;
+  font-weight: 400;
+  color: #23180b;
 }
 
 .zc-paper-actions {
@@ -1413,7 +1503,6 @@ onMounted(() => {
 .zc-step-card,
 .zc-theory-card,
 .zc-content-card,
-.zc-paper-card,
 .eco-card,
 .case-card,
 .zc-intro-stat,
