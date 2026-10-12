@@ -5,7 +5,6 @@ import { computed, ref } from 'vue'
 import { getEcosystemTicket } from '~/services/auth'
 import { ApiRequestError, resolveAssetUrl } from '~/services/http'
 import { useSiteStore } from '~/stores/site'
-import { createAuthRedirectQuery } from '~/utils/auth-redirect'
 import { pushGlobalNotice } from '~/utils/notice'
 
 const props = defineProps<{
@@ -134,6 +133,15 @@ function resolveNavTarget(item: PortalNavItem) {
   return isInternalNavTarget(item.to) ? '_self' : resolvePortalLinkTarget(item.target)
 }
 
+function openEcosystemTarget(targetUrl: string, target: PortalNavItem['target']) {
+  if (resolvePortalLinkTarget(target) === '_blank') {
+    window.open(targetUrl, '_blank', 'noopener,noreferrer')
+  }
+  else {
+    window.location.assign(targetUrl)
+  }
+}
+
 async function handleEcosystemNavClick(item: PortalNavItem) {
   const appCode = resolveEcosystemAppCode(item)
   if (!appCode)
@@ -141,8 +149,8 @@ async function handleEcosystemNavClick(item: PortalNavItem) {
 
   const appName = item.label || '中测应用'
   if (!userStore.authHeader) {
-    pushGlobalNotice(`请先登录后进入${appName}`, 'warning')
-    await router.push({ path: '/login', query: createAuthRedirectQuery('/') })
+    // 未登录直接跳转目标站点（不携带 ticket，不跳登录页）
+    openEcosystemTarget(item.to, item.target)
     return
   }
 
@@ -156,13 +164,7 @@ async function handleEcosystemNavClick(item: PortalNavItem) {
     if (!ticket)
       throw new Error('未获取到中台登录凭证')
 
-    const targetUrl = appendEcosystemTicket(item.to, ticket)
-    if (resolvePortalLinkTarget(item.target) === '_blank') {
-      window.open(targetUrl, '_blank', 'noopener,noreferrer')
-    }
-    else {
-      window.location.assign(targetUrl)
-    }
+    openEcosystemTarget(appendEcosystemTicket(item.to, ticket), item.target)
   }
   catch (error) {
     pushGlobalNotice(error instanceof ApiRequestError ? error.message : `暂时无法进入${appName}，请稍后重试`, 'error')

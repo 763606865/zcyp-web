@@ -431,9 +431,9 @@ async function confirmInboundEcosystemLogin() {
   }
 }
 
-// 生态应用跳转：登录并携带中台 ticket 新窗口打开（共享逻辑见 composables/ecosystem-app-link）
+// 生态应用跳转：已登录携带中台 ticket 新窗口打开，未登录直接跳转（共享逻辑见 composables/ecosystem-app-link）
 function handleEcosystemServiceClick(item: ServiceEcosystemItem) {
-  return openEcosystemApp(item, '/')
+  return openEcosystemApp(item)
 }
 
 await useAsyncData(

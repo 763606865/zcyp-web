@@ -1,7 +1,6 @@
 import { ref } from 'vue'
 import { getEcosystemTicket } from '~/services/auth'
 import { ApiRequestError } from '~/services/http'
-import { createAuthRedirectQuery } from '~/utils/auth-redirect'
 import { pushGlobalNotice } from '~/utils/notice'
 
 // 中台登录凭证参数名（与首页 inbound ecosystem 票据参数保持一致）
@@ -23,20 +22,18 @@ export function appendEcosystemTicket(targetUrl: string, ticket: string) {
 }
 
 export function useEcosystemAppLink() {
-  const router = useRouter()
   const userStore = useUserStore()
   const isGettingEcosystemTicket = ref(false)
 
-  // 需登录并携带中台 ticket 的生态应用：未登录先跳登录页（登录后回跳），已登录取 ticket 后新窗口打开
-  async function openEcosystemApp(item: EcosystemAppLinkItem, loginRedirectPath: string) {
+  // 携带中台 ticket 的生态应用：已登录取 ticket 后新窗口打开；未登录直接新窗口打开目标站点（不携带 ticket，不跳登录页）
+  async function openEcosystemApp(item: EcosystemAppLinkItem) {
     const appCode = item.appCode
     if (!appCode || isGettingEcosystemTicket.value)
       return
 
     const appName = item.label || '中测应用'
     if (!userStore.authHeader) {
-      pushGlobalNotice(`请先登录后进入${appName}`, 'warning')
-      await router.push({ path: '/login', query: createAuthRedirectQuery(loginRedirectPath) })
+      window.open(item.to, '_blank', 'noopener,noreferrer')
       return
     }
 

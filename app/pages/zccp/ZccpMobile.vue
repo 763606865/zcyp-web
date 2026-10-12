@@ -143,13 +143,13 @@ const ecoWide = {
 
 const { openEcosystemApp } = useEcosystemAppLink()
 
-// 生态卡片「查看详情」：带 appCode 的应用需登录并携带中台 ticket 新窗口打开，其余直接跳转
+// 生态卡片「查看详情」：带 appCode 的应用已登录时携带中台 ticket 新窗口打开，未登录直接跳转，其余直接跳转
 function handleEcoCardLinkClick(item: (typeof ecoCards)[number], event: MouseEvent) {
   if (!item.appCode)
     return
 
   event.preventDefault()
-  openEcosystemApp({ label: item.title, to: item.link, appCode: item.appCode }, '/zccp')
+  openEcosystemApp({ label: item.title, to: item.link, appCode: item.appCode })
 }
 
 // 5. 服务案例
