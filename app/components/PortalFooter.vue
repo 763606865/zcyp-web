@@ -9,8 +9,10 @@ const siteConfig = computed<CmsSiteConfig | null>(() => pageDataStore.siteConfig
 const friendLinks = computed<CmsFriendLink[]>(() => pageDataStore.friendLinks)
 
 const siteName = computed(() => siteConfig.value?.name || '中测易聘')
-const servicePhone = computed(() => siteConfig.value?.service_phone || '400-8251513')
-const serviceEmail = computed(() => siteConfig.value?.service_email || 'jcjt@easyzp.com')
+
+function isExternalLink(href: string) {
+  return href.startsWith('http://') || href.startsWith('https://')
+}
 
 await callOnce(async () => {
   if (!pageDataStore.siteConfig || !pageDataStore.friendLinks?.length)
@@ -26,28 +28,27 @@ await callOnce(async () => {
           {{ group.title }}
         </h3>
         <div v-else class="portal-footer-spacer" />
-        <a v-for="link in group.links" :key="link" href="/jobs">{{ link }}</a>
-      </section>
-
-      <section class="portal-footer-contact">
-        <h3>联系我们</h3>
-        <a :href="`tel:${servicePhone}`">
-          <span class="i-carbon-phone-filled" />
-          {{ servicePhone }}
-        </a>
-        <a :href="`mailto:${serviceEmail}`">
-          <span class="i-carbon-email" />
-          {{ serviceEmail }}
-        </a>
-        <p>
-          <span class="i-carbon-location-filled" />
-          南昌市红谷滩庐山南大道
-        </p>
+        <a
+          v-for="link in group.links"
+          :key="link.label"
+          :href="link.href"
+          :target="isExternalLink(link.href) ? '_blank' : undefined"
+          :rel="isExternalLink(link.href) ? 'noopener noreferrer' : undefined"
+        >{{ link.label }}</a>
       </section>
 
       <section class="portal-footer-qrcode">
-        <h3>中测易聘公众号</h3>
-        <img class="portal-footer-qr" src="/assets/images/wechat-official-account-qr-code.jpg" alt="中测易聘公众号二维码">
+        <h3>{{ portalFooterContact.qrTitle }}</h3>
+        <img class="portal-footer-qr" :src="portalFooterContact.qrCode" :alt="`${portalFooterContact.qrTitle}二维码`">
+        <div class="portal-footer-contact">
+          <h3>{{ portalFooterContact.label }}</h3>
+          <a v-for="phone in portalFooterContact.phones" :key="phone" :href="`tel:${phone}`">
+            {{ phone }}
+          </a>
+          <a :href="`mailto:${portalFooterContact.email}`">
+            {{ portalFooterContact.email }}
+          </a>
+        </div>
       </section>
     </div>
 

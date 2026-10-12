@@ -1,11 +1,11 @@
 import type { HomePageData } from '~/types/recruitment'
-import { mockCompanies, mockJobs } from '~/mock/recruitment'
+import { mockHomePageData, mockJobs } from '~/mock/recruitment'
 
 export const fallbackHomeData: HomePageData = {
   heroTitle: '',
   heroSubtitle: '',
   featuredJobs: mockJobs,
-  featuredCompanies: mockCompanies.slice(0, 3),
+  featuredCompanies: mockHomePageData.featuredCompanies.slice(0, 3),
   stats: [],
   menus: [],
   bannerPosition: null,
@@ -46,17 +46,54 @@ export const productServices = ['中测智云', '中测在线笔试', '在线面
 
 export const portalFooterGroups = [
   {
-    title: '中测在线',
-    links: ['岗位胜任力测评', '应用能力测评', '考试报名', '简历优化', '在线学历'],
+    title: '热门推荐',
+    links: [
+      { label: '中测易聘', href: '/' },
+      { label: '中测培训', href: 'https://zcyp-classroom-web.jxhrm.com' },
+      { label: '中测猎头', href: 'https://zcyp-hunter-web.jxhrm.com' },
+      { label: '中测校招', href: '/school' },
+      { label: 'HR事务所', href: '/hr' },
+    ],
   },
   {
-    title: '中测产品',
-    links: ['中测智云', '中测在线笔试', '在线面试', '牛派', '题库系统'],
+    title: '纸笔考试类产品',
+    links: [
+      { label: '中测命题', href: 'https://zcyp-landing-hub.jxhrm.com' },
+      { label: '中测阅卷', href: 'https://zcyp-landing-hub.jxhrm.com/marking' },
+      { label: '制卷与押运', href: 'https://zcyp-landing-hub.jxhrm.com/escort' },
+      { label: '题库共建', href: 'https://zcyp-landing-hub.jxhrm.com/questionBank' },
+      { label: '职业技能题库建设', href: 'https://zcyp-landing-hub.jxhrm.com/skillCert' },
+    ],
+  },
+  {
+    title: '测评科技生态类',
+    links: [
+      { label: '在线报名', href: 'https://zcyp-landing-hub.jxhrm.com' },
+      { label: '机考系统', href: 'https://zcyp-landing-hub.jxhrm.com/computerService' },
+      { label: '在线考试系统', href: 'https://zcyp-landing-hub.jxhrm.com/onlineTest' },
+      { label: '题库系统', href: 'https://zcyp-landing-hub.jxhrm.com/question' },
+      { label: 'AI面试系统', href: 'https://zcyp-landing-hub.jxhrm.com/aiInterview' },
+      { label: '无纸化面试评分（面试指挥平台）', href: 'https://zcyp-landing-hub.jxhrm.com/paperlessInterview' },
+    ],
   },
   {
     title: '',
-    links: ['无纸化面试评分（面试指挥平台）', '中测防作弊平台（考试指挥监管平台）'],
+    links: [
+      { label: 'AI考务智能体', href: 'https://zcyp-landing-hub.jxhrm.com/antiCheating' },
+      { label: '心理测评工具', href: 'https://check.myjobseek.com.cn' },
+      { label: '应试能力测评', href: 'https://gangwei.jxujob.com/' },
+      { label: '成绩分析系统', href: 'https://zcyp-landing-hub.jxhrm.com/scoreAnalysis' },
+      { label: '中测高科考务科技产品', href: 'https://zcyp-landing-hub.jxhrm.com/' },
+    ],
   },
 ] as const
+
+export const portalFooterContact = {
+  qrTitle: '关注中测高科公众号',
+  qrCode: '/assets/images/wechat-official-account-qr-code.jpg',
+  label: '联系方式',
+  phones: ['400-825-1513', '15870685766'],
+  email: '258864649@qq.com',
+} as const
 
 export const fallbackHomeNavItems = [{ label: '首页', to: '/', target: 0 }] as const
