@@ -143,7 +143,7 @@ function handlePaperHover(i: number) {
 // TODO 文案待校对：卡片5「AI 面试系统」、卡片9「应试能力测评」标题
 // link：「查看详情」跳转链接（外链统一新窗口打开）；appCode：需登录并携带中台 ticket 的生态应用码（人才测评待下发 key，暂为空直接跳转）
 const ecoCards = [
-  { img: 'box3-img1.png', title: '在线报名', desc: '报名、准考证、考场编排一站式线上办理', link: `${LANDING_HUB_BASE}?source=zcyp` },
+  { img: 'box3-img1.png', title: '在线报名', desc: '报名、准考证、考场编排一站式线上办理', link: 'https://zk.sun-hrm.com/index.php' },
   { img: 'box3-img2.png', title: '机考系统', desc: '局域网部署+监控指挥，适用各类机考场景', link: `${LANDING_HUB_BASE}/computerService?source=zcyp` },
   { img: 'box3-img3.png', title: '在线考试系统', desc: '四视角360°智能监考，万人级并发稳定交付', link: `${LANDING_HUB_BASE}/onlineTest?source=zcyp` },
   { img: 'box3-img4.png', title: '题库系统', desc: '导题、命题、组卷、审核全场景智能覆盖', link: `${LANDING_HUB_BASE}/question?source=zcyp` },

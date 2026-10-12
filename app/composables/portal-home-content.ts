@@ -68,7 +68,7 @@ export const portalFooterGroups = [
   {
     title: '测评科技生态类',
     links: [
-      { label: '在线报名', href: 'https://zcyp-landing-hub.jxhrm.com' },
+      { label: '在线报名', href: 'https://zk.sun-hrm.com/index.php' },
       { label: '机考系统', href: 'https://zcyp-landing-hub.jxhrm.com/computerService' },
       { label: '在线考试系统', href: 'https://zcyp-landing-hub.jxhrm.com/onlineTest' },
       { label: '题库系统', href: 'https://zcyp-landing-hub.jxhrm.com/question' },
