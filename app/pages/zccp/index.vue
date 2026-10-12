@@ -25,11 +25,16 @@ const bannerDesc = '专注人力资源测评的科技型、学术型服务品牌
 const defText = '人才测评（Talent Assessment / Personnel Assessment）是指以心理学、管理学、统计学等多学科理论为基础，通过标准化、系统化的方法与工具，对个体的能力、素质、性格、动机、价值观等内在特征进行测量、分析与评价，从而为人事决策（招聘选拔、晋升调岗、培训发展、团队配置等）提供客观依据的实践活动。简单说，就是'
 const defHighlight = '"用科学的尺子，把人量清楚"—— 把看不见摸不着的 "素质" 变成可比较、可判断的 "数据"'
 
-const coreBreak = [
-  { title: '测什么（对象）', desc: '知识、能力、性格、动机、价值观、心理健康等' },
-  { title: '怎么测（工具）', desc: '笔试、面试、心理测验、情景模拟、评价中心等' },
-  { title: '测得准不准（效度）', desc: '信度、效度、常模、公平性' },
-  { title: '测完干什么（应用）', desc: '选人、用人、育人、留人、激励' },
+// 一、核心拆解：2×2 环形布局，顺时针流转（测什么→怎么测→测得准不准→测完干什么）
+const coreBreakRows = [
+  [
+    { title: '测什么（对象）', desc: '知识、能力、性格、动机、价值观、心理健康等' },
+    { title: '怎么测（工具）', desc: '笔试、面试、心理测验、情景模拟、评价中心等' },
+  ],
+  [
+    { title: '测完干什么（应用）', desc: '选人、用人、育人、留人、激励' },
+    { title: '测得准不准（效度）', desc: '信度、效度、常模、公平性' },
+  ],
 ]
 
 const theories = [
@@ -139,7 +144,7 @@ function handlePaperHover(i: number) {
 // link：「查看详情」跳转链接（外链统一新窗口打开）；appCode：需登录并携带中台 ticket 的生态应用码（人才测评待下发 key，暂为空直接跳转）
 const ecoCards = [
   { img: 'box3-img1.png', title: '在线报名', desc: '报名、准考证、考场编排一站式线上办理', link: `${LANDING_HUB_BASE}?source=zcyp` },
-  { img: 'box3-img2.png', title: '机考系统', desc: '局域网部署+监控指挥，职称水平能力测试专用', link: `${LANDING_HUB_BASE}/computerService?source=zcyp` },
+  { img: 'box3-img2.png', title: '机考系统', desc: '局域网部署+监控指挥，适用各类机考场景', link: `${LANDING_HUB_BASE}/computerService?source=zcyp` },
   { img: 'box3-img3.png', title: '在线考试系统', desc: '四视角360°智能监考，万人级并发稳定交付', link: `${LANDING_HUB_BASE}/onlineTest?source=zcyp` },
   { img: 'box3-img4.png', title: '题库系统', desc: '导题、命题、组卷、审核全场景智能覆盖', link: `${LANDING_HUB_BASE}/question?source=zcyp` },
   { img: 'box3-img5.png', title: 'AI 面试系统', desc: '7×24自动邀约、面试、评估，3分钟出报告', link: `${LANDING_HUB_BASE}/aiInterview?source=zcyp` },
@@ -279,40 +284,56 @@ onMounted(() => {
           {{ defText }}<span class="zc-def-highlight">{{ defHighlight }}</span>
         </p>
 
-        <!-- 一、核心拆解 -->
-        <h3 class="zc-sub-title zc-animate">
-          一、核心拆解(四个维度)
-        </h3>
-        <div class="zc-steps zc-animate">
-          <div v-for="(item, i) in coreBreak" :key="i" class="zc-step-cell">
-            <div class="zc-step-card">
-              <div class="zc-step-title">
-                {{ item.title }}
-              </div>
-              <div class="zc-step-desc">
-                {{ item.desc }}
+        <!-- 一、核心拆解 + 二、三大理论基础 合并一行 -->
+        <div class="zc-def-merge">
+          <div class="zc-def-merge-left">
+            <h3 class="zc-sub-title zc-animate">
+              一、核心拆解(四个维度)
+            </h3>
+            <div class="zc-steps zc-animate">
+              <div v-for="(row, r) in coreBreakRows" :key="r" class="zc-steps-row">
+                <div v-for="(item, c) in row" :key="c" class="zc-step-cell">
+                  <div class="zc-step-card">
+                    <div class="zc-step-title">
+                      {{ item.title }}
+                    </div>
+                    <div class="zc-step-desc">
+                      {{ item.desc }}
+                    </div>
+                  </div>
+                  <img
+                    v-if="c === 0"
+                    src="/assets/images/zccp/box1-arrow.png"
+                    alt=""
+                    class="zc-step-arrow"
+                    :class="{ 'zc-step-arrow-back': r === 1 }"
+                  >
+                </div>
+                <div v-if="r === 0" class="zc-step-down">
+                  <img
+                    src="/assets/images/zccp/box1-arrow.png"
+                    alt=""
+                    class="zc-step-arrow zc-step-arrow-down"
+                  >
+                </div>
               </div>
             </div>
-            <img
-              v-if="i < coreBreak.length - 1" src="/assets/images/zccp/box1-arrow.png" alt=""
-              class="zc-step-arrow"
-            >
           </div>
-        </div>
-
-        <!-- 二、三大理论基础 -->
-        <h3 class="zc-sub-title zc-animate">
-          二、三大理论基础（测评“凭什么准”）
-        </h3>
-        <div class="zc-theory-row zc-animate">
-          <div v-for="(item, i) in theories" :key="i" class="zc-theory-card">
-            <img :src="`/assets/images/zccp/${item.icon}`" alt="" class="zc-theory-icon">
-            <div class="zc-theory-info">
-              <div class="zc-theory-title">
-                {{ item.title }}
-              </div>
-              <div class="zc-theory-desc">
-                {{ item.desc }}
+          <div class="zc-def-merge-right">
+            <h3 class="zc-sub-title zc-animate">
+              二、三大理论基础（测评“凭什么准”）
+            </h3>
+            <div class="zc-theory-col zc-animate">
+              <div v-for="(item, i) in theories" :key="i" class="zc-theory-card">
+                <img :src="`/assets/images/zccp/${item.icon}`" alt="" class="zc-theory-icon">
+                <div class="zc-theory-info">
+                  <div class="zc-theory-title">
+                    {{ item.title }}
+                  </div>
+                  <div class="zc-theory-desc">
+                    {{ item.desc }}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -718,7 +739,7 @@ onMounted(() => {
 
 /* ===== 2. 人才测评的定义 ===== */
 .zc-def {
-  padding: 56px 0 89px;
+  padding: 56px 0 46px;
   background: #fff;
 }
 
@@ -734,7 +755,7 @@ onMounted(() => {
 }
 
 .zc-sub-title {
-  margin-top: 36px;
+  margin-top: 28px;
 }
 
 .zc-sub-title + .zc-animate,
@@ -743,17 +764,47 @@ onMounted(() => {
 }
 
 .zc-def .zc-sub-title:not(:first-of-type) {
-  margin-top: 47px;
+  margin-top: 28px;
+}
+
+/* 一、核心拆解 + 二、三大理论基础 合并一行 */
+.zc-def-merge {
+  display: flex;
+  align-items: flex-start;
+  gap: 80px;
+}
+
+.zc-def-merge-left {
+  flex: 1 1 620px;
+  max-width: 620px;
+}
+
+.zc-def-merge-right {
+  flex: 1 1 500px;
+  max-width: 500px;
 }
 
 /* 一、核心拆解 */
 .zc-steps {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+}
+
+.zc-steps-row {
+  display: flex;
+  flex-wrap: wrap;
+  width: 100%;
 }
 
 .zc-step-cell {
   display: contents;
+}
+
+.zc-step-down {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  margin: 12px 0;
 }
 
 .zc-step-card {
@@ -776,8 +827,19 @@ onMounted(() => {
 .zc-step-arrow {
   width: 24px;
   height: 24px;
-  margin: 0 10px;
+  margin: 0 16px;
   flex-shrink: 0;
+  align-self: center;
+}
+
+/* 环形顺时针流转箭头：右 → 下 → 左，向下箭头对齐右列卡片中心 */
+.zc-step-arrow-down {
+  margin: 0 calc((100% - 56px) / 4 - 12px) 0 0;
+  transform: rotate(90deg);
+}
+
+.zc-step-arrow-back {
+  transform: rotate(180deg);
 }
 
 .zc-step-title {
@@ -794,24 +856,24 @@ onMounted(() => {
 }
 
 /* 二、三大理论基础 */
-.zc-theory-row {
+.zc-theory-col {
   display: flex;
-  gap: 24px;
+  flex-direction: column;
+  gap: 20px;
 }
 
 .zc-theory-card {
-  flex: 1;
   display: flex;
   gap: 12px;
-  padding: 34px 20px;
+  padding: 16px 20px;
   background: #fff;
   border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 12px;
 }
 
 .zc-theory-icon {
-  width: 70px;
-  height: 63px;
+  width: 50px;
+  height: 45px;
   flex-shrink: 0;
 }
 
