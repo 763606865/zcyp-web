@@ -91,8 +91,8 @@ const serviceEcosystemRows: ServiceEcosystemRow[] = [
     className: 'is-online',
     items: [
       { label: '网上报名', to: 'https://zk.sun-hrm.com/index.php', icon: 'i-carbon-edit' },
-      // 人才测评：待中台下发 key 后填入 TALENT_ASSESSMENT_APP_CODE，届时自动启用「登录 + 携带 ticket」跳转
-      { label: '人才测评', to: 'https://check.myjobseek.com.cn', icon: 'i-carbon-user-profile', appCode: TALENT_ASSESSMENT_APP_CODE },
+      // 测评工具：待中台下发 key 后填入 TALENT_ASSESSMENT_APP_CODE，届时自动启用「登录 + 携带 ticket」跳转
+      { label: '测评工具', to: 'https://check.myjobseek.com.cn', icon: 'i-carbon-user-profile', appCode: TALENT_ASSESSMENT_APP_CODE },
       { label: '应试能力测评', to: 'https://gangwei.jxujob.com', icon: 'i-carbon-exam-mode', appCode: 'gangwei' },
       { label: '在线学习', to: 'https://zcyp-classroom.jxhrm.com?source=zcyp', icon: 'i-carbon-education' },
       { label: 'AI简历优化诊断', to: 'https://zcyp-landing-hub.jxhrm.com/', icon: 'i-carbon-ai-generate' },
