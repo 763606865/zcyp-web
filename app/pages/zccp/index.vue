@@ -153,6 +153,8 @@ const ecoCards = [
   { img: 'box3-img8.png', title: '无纸化面试评分系统', desc: '面试指挥系统，七重随机抽签，评分全程可溯源', link: `${LANDING_HUB_BASE}/paperlessInterview?source=zcyp` },
   { img: 'box3-img9.png', title: '应试能力测评', desc: '岗位应试能力标准化测评，精准筛选人才', link: 'https://gangwei.jxujob.com', appCode: 'gangwei' },
   { img: 'box3-img10.png', title: '成绩分析系统', desc: '难度、区分度多维诊断，分析报告一键生成', link: `${LANDING_HUB_BASE}/scoreAnalysis?source=zcyp` },
+  { img: 'box3-img12.png', title: '中测阅卷系统', desc: '全题型智能批改，让阅卷更高效', link: `${LANDING_HUB_BASE}/marking?source=zcyp` },
+  { img: 'box3-img13.png', title: '中测高科考务硬件科技产品', desc: '覆盖考试考务全场景的安防检测设备体系', link: `${LANDING_HUB_BASE}/product?source=zcyp` },
 ]
 
 const ecoWide = {
@@ -454,7 +456,7 @@ onMounted(() => {
               >查看详情</a>
             </div>
           </div>
-          <div class="eco-card eco-card-wide">
+          <!-- <div class="eco-card eco-card-wide">
             <div class="eco-card-img-wrap">
               <img :src="`/assets/images/zccp/${ecoWide.img}`" alt="" class="eco-card-img">
               <div class="eco-card-img-text">
@@ -469,7 +471,7 @@ onMounted(() => {
                 {{ ecoWide.desc }}
               </div>
             </div>
-          </div>
+          </div> -->
         </div>
       </div>
     </section>
