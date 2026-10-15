@@ -2007,6 +2007,11 @@ body {
   color: var(--portal-orange);
 }
 
+/* 移动端手风琴子分类面板：默认隐藏，仅 ≤640px 手风琴布局中展开（PC/平板沿用悬浮面板） */
+.home-category-item-panel {
+  display: none;
+}
+
 .home-main-hero {
   min-width: 0;
   overflow: hidden;
@@ -3444,5 +3449,308 @@ body {
 
   .home-company-cover strong {
     font-size: 20px;
+  }
+}
+
+/* ===== 门户首页移动端适配（≤640px，断点与中测测评/纸笔考试模块一致）===== */
+@media (max-width: 640px) {
+  .portal-page {
+    padding: 12px 0 24px;
+  }
+
+  .portal-hero-grid {
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  /* Banner 轮播：固定比例 + cover，多张图切换高度一致不跳动 */
+  .home-banner {
+    height: auto;
+    aspect-ratio: 10 / 3;
+  }
+
+  /* 指示点保留视觉尺寸，用 padding 撑大点击热区 */
+  .home-banner-dots button {
+    box-sizing: content-box;
+    width: 8px;
+    height: 8px;
+    padding: 4px;
+    background-clip: content-box;
+  }
+
+  .home-banner-dots button.is-active {
+    width: 18px;
+    background-clip: content-box;
+  }
+
+  /* 分类导航：手风琴——点击分类在行内展开子分类，再次点击收起 */
+  .home-category-modal {
+    display: none;
+  }
+
+  .home-category-card {
+    display: block;
+  }
+
+  .home-category-item + .home-category-item {
+    border-top: 1px solid #f4f6f9;
+  }
+
+  .home-category-card button {
+    height: 44px;
+    padding: 0 12px;
+    font-size: 13px;
+  }
+
+  .home-category-card button .i-carbon-chevron-right {
+    transition: transform 0.2s ease;
+  }
+
+  /* 标题行保持白底不加高亮（仅内容区 #f2f4f9），橙色文字 + 箭头朝下表示展开 */
+  .home-category-item.is-open > button,
+  .home-category-card button.is-active {
+    background: #fff;
+    color: var(--portal-orange);
+  }
+
+  .home-category-item.is-open > button .i-carbon-chevron-right {
+    transform: rotate(90deg);
+  }
+
+  .home-category-item-panel {
+    display: block;
+    background: #f2f4f9;
+    padding: 2px 12px 12px;
+    animation: home-category-panel-open 0.22s ease;
+  }
+
+  .home-category-item-panel section {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+    padding: 0 0 10px;
+  }
+
+  .home-category-item-panel h3 {
+    margin: 4px 0 0;
+    color: #2f3540;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .home-category-item-panel section > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+  }
+
+  .home-category-item-panel button {
+    height: auto;
+    min-height: 32px;
+    border: 0;
+    background: transparent;
+    padding: 4px 0;
+    color: #69707d;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  .home-category-item-panel button:hover {
+    background: transparent;
+    color: var(--portal-orange);
+  }
+
+  @keyframes home-category-panel-open {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* 生态矩阵：手指横滑 + 左右箭头（JS 侧已停用自动 marquee），加大箭头点击热区 */
+  .home-service-ecosystem-title {
+    padding-top: 14px;
+  }
+
+  .home-service-ecosystem-body {
+    gap: 12px;
+    margin-top: 16px;
+    padding: 0 10px;
+  }
+
+  /* 卡片行占满整行：去掉叠加的左右留白 */
+  .home-service-ecosystem-track {
+    padding-right: 0;
+  }
+
+  .home-service-ecosystem-scroll-wrapper {
+    position: static;
+    padding: 0;
+  }
+
+  /* 左右箭头移到徽标行右侧，不压在卡片选项上，卡片占满整行 */
+  .home-service-ecosystem-row {
+    position: relative;
+  }
+
+  .home-service-ecosystem-arrow {
+    top: 1px;
+    transform: none;
+  }
+
+  .home-service-ecosystem-arrow.is-left {
+    right: 36px;
+    left: auto;
+  }
+
+  .home-service-ecosystem-arrow.is-right {
+    right: 2px;
+  }
+
+  .home-service-ecosystem-arrow {
+    width: 24px;
+    height: 24px;
+    font-size: 16px;
+  }
+
+  /* 卡片区：单列堆叠 */
+  .home-panel {
+    margin-top: 16px;
+    padding: 12px;
+  }
+
+  .home-job-grid {
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  .home-job-card {
+    padding: 14px 12px 12px;
+  }
+
+  /* 名企招聘：一行两个（图 + 公司名的轻卡片，双列更紧凑） */
+  .home-company-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  .home-company-cover strong,
+  .home-company-card-cover strong {
+    font-size: 14px;
+    line-height: 1.4;
+    padding: 0 6px;
+  }
+
+  .home-company-card h3 {
+    padding: 10px 10px 12px;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .home-company-card-body h3 {
+    padding: 8px 10px 0;
+    font-size: 13px;
+  }
+
+  .home-company-card-body small {
+    padding: 2px 10px 8px;
+    font-size: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* 静态图片：固定比例 + cover，卡片整齐不变形 */
+  .home-gold-card {
+    min-height: 0;
+    aspect-ratio: 4 / 1;
+  }
+
+  .home-gold-row-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .home-gold-row-2 .home-gold-card {
+    min-height: 0;
+    aspect-ratio: 5 / 2;
+  }
+
+  .home-gold-card img,
+  .home-company-card-cover img,
+  .home-jobseeker-aside-banner img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .home-company-cover,
+  .home-company-card-cover {
+    height: auto;
+    aspect-ratio: 16 / 9;
+  }
+
+  .home-jobseeker-aside-carousel {
+    height: auto;
+    aspect-ratio: 4 / 1;
+  }
+
+  /* 生态登录弹窗 */
+  .ecosystem-auth-overlay {
+    padding: 16px;
+  }
+
+  .ecosystem-auth-dialog {
+    padding: 24px 18px 20px;
+  }
+
+  .ecosystem-auth-dialog h2 {
+    font-size: 18px;
+  }
+
+  .ecosystem-auth-actions button {
+    flex: 1;
+  }
+}
+
+/* 触屏设备且处于移动端宽度：移除 hover 效果（点击后样式黏滞，不适用）。
+   双条件限定（hover:none 且 ≤640px）确保 >640px 的 PC/触屏设备零影响 */
+@media (hover: none) and (max-width: 640px) {
+  .home-job-card:hover,
+  .home-group-card:hover,
+  .home-service-ecosystem-card:hover {
+    border-color: var(--portal-border);
+    box-shadow: none;
+    transform: none;
+  }
+
+  .home-category-card .home-category-item > button:not(.is-active):hover {
+    background: #fff;
+    color: #515864;
+  }
+
+  .home-category-item-panel button:hover {
+    background: transparent;
+    color: #69707d;
+  }
+
+  .portal-page.is-dynamic-render .home-service-ecosystem-card:hover,
+  .portal-page.is-dynamic-render .home-company-card:hover,
+  .portal-page.is-dynamic-render .home-urgent-panel .home-job-card:hover {
+    border-color: var(--portal-border);
+    box-shadow: 0 8px 22px rgba(43, 64, 94, 0.04);
+    transform: none;
+  }
+
+  .portal-page.is-dynamic-render .home-service-ecosystem-card:hover::after,
+  .portal-page.is-dynamic-render .home-company-card:hover::after,
+  .portal-page.is-dynamic-render .home-urgent-panel .home-job-card:hover::after {
+    opacity: 0;
+    transform: none;
   }
 }

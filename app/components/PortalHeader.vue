@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { PortalNavItem } from '~/composables/portal-navigation'
 import type { CmsMenuItem, CmsSiteConfig } from '~/types/recruitment'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { getEcosystemTicket } from '~/services/auth'
 import { ApiRequestError, resolveAssetUrl } from '~/services/http'
 import { useSiteStore } from '~/stores/site'
@@ -16,6 +16,7 @@ const props = defineProps<{
 }>()
 
 const router = useRouter()
+const route = useRoute()
 const siteStore = useSiteStore()
 const userStore = useUserStore()
 const pageDataStore = usePageDataStore()
@@ -24,6 +25,7 @@ const { displayName, accountMenuItems } = usePortalUser()
 
 const searchKeyword = ref('')
 const isIdentityDropdownOpen = ref(false)
+const isNavDrawerOpen = ref(false)
 const qrTriggerRef = ref<HTMLElement | null>(null)
 const isQrPreviewVisible = ref(false)
 const qrPreviewPosition = ref({ top: 0, left: 0 })
@@ -82,6 +84,24 @@ function hideQrPreview() {
 function toggleIdentityDropdown() {
   isIdentityDropdownOpen.value = !isIdentityDropdownOpen.value
 }
+
+function openNavDrawer() {
+  isNavDrawerOpen.value = true
+}
+
+function closeNavDrawer() {
+  isNavDrawerOpen.value = false
+}
+
+// 路由变化时自动收起移动端导航抽屉
+watch(() => route.fullPath, () => closeNavDrawer())
+
+// 抽屉打开期间锁定页面滚动，避免背景跟滚
+watch(isNavDrawerOpen, (open) => {
+  if (typeof document === 'undefined')
+    return
+  document.body.style.overflow = open ? 'hidden' : ''
+})
 
 async function handleLogout() {
   isIdentityDropdownOpen.value = false
@@ -184,8 +204,10 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-  if (typeof document !== 'undefined')
+  if (typeof document !== 'undefined') {
     document.removeEventListener('click', handleDocumentClick)
+    document.body.style.overflow = ''
+  }
 })
 </script>
 
@@ -274,6 +296,10 @@ onBeforeUnmount(() => {
         <NuxtLink v-else to="/login" class="portal-login-link no-underline">
           去登录
         </NuxtLink>
+
+        <button type="button" class="portal-nav-toggle" aria-label="打开导航菜单" @click="openNavDrawer">
+          <span class="i-carbon-menu" />
+        </button>
       </div>
     </div>
 
@@ -344,6 +370,45 @@ onBeforeUnmount(() => {
         :style="{ top: `${qrPreviewPosition.top}px`, left: `${qrPreviewPosition.left}px` }"
       >
     </Transition>
+
+    <Transition name="portal-nav-drawer">
+      <div v-if="isNavDrawerOpen" class="portal-nav-drawer-overlay" role="presentation" @click.self="closeNavDrawer">
+        <nav class="portal-nav-drawer" aria-label="移动端主导航">
+          <div class="portal-nav-drawer-head">
+            <strong>全部导航</strong>
+            <button type="button" class="portal-nav-drawer-close" aria-label="关闭导航菜单" @click="closeNavDrawer">
+              <span class="i-carbon-close" />
+            </button>
+          </div>
+          <div class="portal-nav-drawer-body">
+            <template v-for="item in navItems" :key="`drawer-${item.label}`">
+              <a
+                v-if="isEcosystemNav(item)"
+                :href="item.to"
+                :target="resolvePortalLinkTarget(item.target)"
+                rel="noopener noreferrer"
+                class="portal-nav-drawer-item"
+                :class="{ 'is-active': isActiveNav(item) }"
+                @click.prevent.stop="handleEcosystemNavClick(item); closeNavDrawer()"
+              >
+                {{ item.label }}
+              </a>
+              <NuxtLink
+                v-else
+                :to="item.to"
+                :target="resolveNavTarget(item)"
+                rel="noopener noreferrer"
+                class="portal-nav-drawer-item"
+                :class="{ 'is-active': isActiveNav(item) }"
+                @click="closeNavDrawer"
+              >
+                {{ item.label }}
+              </NuxtLink>
+            </template>
+          </div>
+        </nav>
+      </div>
+    </Transition>
   </Teleport>
 </template>
 
@@ -377,6 +442,163 @@ onBeforeUnmount(() => {
 @media (max-width: 1023px) {
   .portal-search-inner {
     grid-template-columns: 1fr;
+  }
+}
+
+/* 移动端汉堡按钮与导航抽屉 */
+.portal-nav-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.portal-nav-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(20, 27, 38, 0.45);
+}
+
+.portal-nav-drawer {
+  display: flex;
+  width: min(76vw, 300px);
+  height: 100%;
+  flex-direction: column;
+  background: #fff;
+  box-shadow: -12px 0 32px rgba(20, 27, 38, 0.18);
+  overflow-y: auto;
+}
+
+.portal-nav-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--portal-border, #e9edf3);
+}
+
+.portal-nav-drawer-head strong {
+  color: #2c3038;
+  font-size: 15px;
+}
+
+.portal-nav-drawer-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: #f4f6f8;
+  color: #69707d;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.portal-nav-drawer-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.portal-nav-drawer-item {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 16px;
+  border-bottom: 1px solid #f2f4f8;
+  color: #404653;
+  font-size: 15px;
+  text-decoration: none;
+}
+
+.portal-nav-drawer-item.is-active {
+  background: #fff6e6;
+  color: var(--portal-orange, #ff9f00);
+  font-weight: 600;
+}
+
+.portal-nav-drawer-enter-active,
+.portal-nav-drawer-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.portal-nav-drawer-enter-active .portal-nav-drawer,
+.portal-nav-drawer-leave-active .portal-nav-drawer {
+  transition: transform 0.24s ease;
+}
+
+.portal-nav-drawer-enter-from,
+.portal-nav-drawer-leave-to {
+  opacity: 0;
+}
+
+.portal-nav-drawer-enter-from .portal-nav-drawer,
+.portal-nav-drawer-leave-to .portal-nav-drawer {
+  transform: translateX(100%);
+}
+
+@media (max-width: 640px) {
+  .portal-top-strip-inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 0;
+  }
+
+  .portal-main-nav {
+    display: none;
+  }
+
+  .portal-user-menu {
+    order: 0;
+    margin-left: auto;
+  }
+
+  .portal-nav-toggle {
+    display: inline-flex;
+  }
+
+  .portal-city-button span:last-child {
+    display: none;
+  }
+
+  /* 搜索行：消除 min-content 撑宽，图片链接可收缩，避免小屏横向溢出 */
+  .portal-search-inner .flex {
+    min-width: 0;
+    gap: 12px;
+  }
+
+  .portal-searchbox {
+    min-width: 0;
+  }
+
+  .source-link {
+    flex: 0 1 auto;
+    width: 134px;
+    height: 38px;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .source-link img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
   }
 }
 </style>

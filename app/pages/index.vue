@@ -109,6 +109,23 @@ function selectCategory(id: number) {
   isCategoryPanelVisible.value = true
 }
 
+// 触屏 tap 会先触发合成 mouseenter/focus 再触发 click，若不忽略会让刚打开的手风琴立即被收起
+function handleCategoryHover(id: number) {
+  if (import.meta.client && !window.matchMedia('(hover: hover)').matches)
+    return
+  selectCategory(id)
+}
+
+function handleCategoryClick(id: number) {
+  // 触屏无法 hover：再次点击已选中分类时收起内联面板，便于移动端折叠
+  const isTouch = import.meta.client && !window.matchMedia('(hover: hover)').matches
+  if (isTouch && activeCategoryId.value === id && isCategoryPanelVisible.value) {
+    hideCategoryPanel()
+    return
+  }
+  selectCategory(id)
+}
+
 function hideCategoryPanel() {
   isCategoryPanelVisible.value = false
 }
@@ -215,6 +232,9 @@ const serviceEcosystemMarqueeRows: ServiceEcosystemMarqueeRow[] = []
 const serviceEcosystemMarqueeCleanups: Array<() => void> = []
 let serviceEcosystemMarqueeFrame = 0
 let serviceEcosystemMarqueeLastTime = 0
+// 移动端停用自动 marquee（保留手指横滑与左右箭头点击），断点与样式层保持一致
+const SERVICE_ECOSYSTEM_MARQUEE_MOBILE_QUERY = '(max-width: 640px)'
+let serviceEcosystemMobileMedia: MediaQueryList | null = null
 
 function getServiceEcosystemMaxScroll(scroller: HTMLElement) {
   return scroller.scrollWidth - scroller.clientWidth
@@ -226,29 +246,32 @@ function serviceEcosystemMarqueeTick(time: number) {
   serviceEcosystemMarqueeLastTime = time
 
   if (delta > 0) {
-    for (const row of serviceEcosystemMarqueeRows) {
-      // 每帧实时计算最大滚动距离，天然兼容窗口缩放与数据变化
-      const maxScroll = getServiceEcosystemMaxScroll(row.scroller)
-      if (maxScroll <= SERVICE_ECOSYSTEM_MARQUEE_MIN_OVERFLOW) {
-        // 一行能放下时静止展示，并重置方向以便再次溢出时从初始方向开始
-        row.direction = row.initialDirection
-        continue
-      }
-      // 悬停/聚焦暂停；按钮 smooth 滚动期间（serviceEcosystemScrolling 防抖窗口内）跳过，避免与 scrollBy 冲突
-      if (row.paused || serviceEcosystemScrolling.has(row.scroller))
-        continue
+    // 移动端交给手指横滑，跳过自动滚动（含方向重置，避免切换视口时位置被重写）
+    if (!serviceEcosystemMobileMedia?.matches) {
+      for (const row of serviceEcosystemMarqueeRows) {
+        // 每帧实时计算最大滚动距离，天然兼容窗口缩放与数据变化
+        const maxScroll = getServiceEcosystemMaxScroll(row.scroller)
+        if (maxScroll <= SERVICE_ECOSYSTEM_MARQUEE_MIN_OVERFLOW) {
+          // 一行能放下时静止展示，并重置方向以便再次溢出时从初始方向开始
+          row.direction = row.initialDirection
+          continue
+        }
+        // 悬停/聚焦暂停；按钮 smooth 滚动期间（serviceEcosystemScrolling 防抖窗口内）跳过，避免与 scrollBy 冲突
+        if (row.paused || serviceEcosystemScrolling.has(row.scroller))
+          continue
 
-      let next = row.scroller.scrollLeft + row.direction * row.speed * delta
-      // 到达边界即反向，形成左右碰撞的往返运动
-      if (next >= maxScroll) {
-        next = maxScroll
-        row.direction = -1
+        let next = row.scroller.scrollLeft + row.direction * row.speed * delta
+        // 到达边界即反向，形成左右碰撞的往返运动
+        if (next >= maxScroll) {
+          next = maxScroll
+          row.direction = -1
+        }
+        else if (next <= 0) {
+          next = 0
+          row.direction = 1
+        }
+        row.scroller.scrollLeft = next
       }
-      else if (next <= 0) {
-        next = 0
-        row.direction = 1
-      }
-      row.scroller.scrollLeft = next
     }
   }
 
@@ -264,6 +287,7 @@ function setupServiceEcosystemMarquee() {
     return
 
   const scrollers = Array.from(portalPageRef.value.querySelectorAll<HTMLElement>('.home-service-ecosystem-scroll'))
+  serviceEcosystemMobileMedia = window.matchMedia(SERVICE_ECOSYSTEM_MARQUEE_MOBILE_QUERY)
   scrollers.forEach((scroller, index) => {
     const initialDirection = SERVICE_ECOSYSTEM_MARQUEE_DIRECTIONS[index] ?? 1
     const row: ServiceEcosystemMarqueeRow = {
@@ -274,8 +298,8 @@ function setupServiceEcosystemMarquee() {
       speed: SERVICE_ECOSYSTEM_MARQUEE_SPEEDS[index] ?? SERVICE_ECOSYSTEM_MARQUEE_SPEEDS[0]!,
       paused: false,
     }
-    // 初始方向为从左往右的行需先定位到末尾，才能向回滚动
-    if (initialDirection === -1)
+    // 初始方向为从左往右的行需先定位到末尾，才能向回滚动（移动端由手指控制，不预定位）
+    if (initialDirection === -1 && !serviceEcosystemMobileMedia?.matches)
       scroller.scrollLeft = getServiceEcosystemMaxScroll(scroller)
 
     const pause = () => {
@@ -553,18 +577,34 @@ onBeforeUnmount(() => {
 
     <section class="portal-container portal-hero-grid" @mouseleave="hideCategoryPanel">
       <aside class="home-category-card">
-        <button
+        <div
           v-for="item in categoryNavs"
           :key="item.id"
-          type="button"
-          :class="{ 'is-active': activeCategory?.id === item.id }"
-          @mouseenter="selectCategory(item.id)"
-          @focus="selectCategory(item.id)"
-          @click="selectCategory(item.id)"
+          class="home-category-item"
+          :class="{ 'is-open': isCategoryPanelVisible && activeCategory?.id === item.id }"
         >
-          <span class="text-left flex-1 min-w-0 truncate">{{ item.name }}</span>
-          <span class="i-carbon-chevron-right" />
-        </button>
+          <button
+            type="button"
+            :class="{ 'is-active': activeCategory?.id === item.id }"
+            @mouseenter="handleCategoryHover(item.id)"
+            @focus="handleCategoryHover(item.id)"
+            @click="handleCategoryClick(item.id)"
+          >
+            <span class="text-left flex-1 min-w-0 truncate">{{ item.name }}</span>
+            <span class="i-carbon-chevron-right" />
+          </button>
+
+          <div v-if="isCategoryPanelVisible && activeCategory?.id === item.id" class="home-category-item-panel">
+            <section v-for="group in activeCategoryGroups" :key="group.id">
+              <h3>{{ group.name }}</h3>
+              <div>
+                <button v-for="leaf in group.children" :key="leaf.id" type="button" @click="openCategory(leaf.name)">
+                  {{ leaf.name }}
+                </button>
+              </div>
+            </section>
+          </div>
+        </div>
       </aside>
 
       <div v-if="isCategoryPanelVisible && activeCategory" class="home-category-modal" @mouseenter="isCategoryPanelVisible = true">
