@@ -14,7 +14,7 @@ import type {
   RcPositionNode,
 } from '~/types/recruitment'
 import { appEnv } from '~/config/env'
-import { mockAnnouncementDetail, mockAnnouncementsPageData, mockCompanies, mockHomeAnnouncementsPageData, mockHomePageData, mockJobs, mockNotices, mockPositionTree } from '~/mock/recruitment'
+import { mockAnnouncementDetail, mockAnnouncementsPageData, mockHomeAnnouncementsPageData, mockHomePageData, mockJobs, mockNotices, mockPositionTree } from '~/mock/recruitment'
 import { getJson } from './http'
 
 interface ApiResponse<T> {
@@ -95,11 +95,13 @@ function resolveAuthorizationHeader(authorization?: string) {
   return userStore.authHeader || undefined
 }
 
-export function getHomePageData(authorization?: string) {
+export function getHomePageData(authorization?: string, cityCode?: string) {
   return withMockFallback<HomePageData>(
     async () => {
       const authHeader = resolveAuthorizationHeader(authorization)
-      const response = await getJson<ApiResponse<CmsHomePayload>>('/cms/home', undefined, authHeader ? { Authorization: authHeader } : undefined)
+      const response = await getJson<ApiResponse<CmsHomePayload>>('/cms/home', {
+        city_code: cityCode,
+      }, authHeader ? { Authorization: authHeader } : undefined)
       const payload = response.data
 
       return {
@@ -115,7 +117,8 @@ export function getHomePageData(authorization?: string) {
   )
 }
 
-export async function getJobList() {
+// city_code 预留：职位列表接口接入后透传城市过滤，当前 mock 数据不区分城市
+export async function getJobList(_cityCode?: string) {
   return mockJobs
 }
 
@@ -123,7 +126,8 @@ export async function getJobDetail(id: string) {
   return mockJobs.find(job => job.id === id) || mockJobs[0]
 }
 
-export async function getNoticeList() {
+// city_code 预留：公告列表接口接入后透传城市过滤，当前 mock 数据不区分城市
+export async function getNoticeList(_cityCode?: string) {
   return mockNotices
 }
 
@@ -226,11 +230,13 @@ export async function getCompanyFilteredList(params?: { per_page?: number, page?
   )
 }
 
-export async function getHomePositions(authorization?: string) {
+export async function getHomePositions(authorization?: string, cityCode?: string) {
   return withMockFallback<RcPositionNode[]>(
     async () => {
       const authHeader = resolveAuthorizationHeader(authorization)
-      const response = await getJson<ApiResponse<CmsHomePositionsPayload>>('/cms/home/rc/positions', undefined, authHeader ? { Authorization: authHeader } : undefined)
+      const response = await getJson<ApiResponse<CmsHomePositionsPayload>>('/cms/home/rc/positions', {
+        city_code: cityCode,
+      }, authHeader ? { Authorization: authHeader } : undefined)
       return response.data.positions || []
     },
     mockPositionTree,

@@ -5,7 +5,14 @@ import { cacheCmsFriendLinks, cacheCmsMenus, cacheCmsSiteConfig, readCachedCmsFr
 interface HomeBootstrapOptions {
   authorization?: string
   force?: boolean
+  /** 数据城市范围：缺省/'000000' 表示全国，传城市 code 时按城市过滤拉取 */
+  cityCode?: string
 }
+
+// homeData 当前对应的城市范围（'' = 全国）与写入序号：首页（全国）与城市站（按城市过滤）
+// 共用 pageDataStore，范围变化时强制重拉，且旧请求不覆盖新请求写入的数据
+let homeDataScopeKey: string | null = null
+let homeDataWriteSeq = 0
 
 interface HomeDirectoryBootstrapResult {
   homeData: HomePageData | null
@@ -80,17 +87,22 @@ async function ensureCmsFriendLinks(authorization?: string) {
 
 export async function ensureHomePageData(options: HomeBootstrapOptions = {}) {
   const pageDataStore = usePageDataStore()
-  const shouldRefresh = options.force || !pageDataStore.homeData
+  const scopeKey = options.cityCode ?? ''
+  const shouldRefresh = options.force || !pageDataStore.homeData || homeDataScopeKey !== scopeKey
 
   if (shouldRefresh) {
     const authHeader = resolveBootstrapAuthorization(options.authorization)
+    const writeSeq = ++homeDataWriteSeq
     const [homeData, menus, siteConfig, friendLinks] = await Promise.all([
-      getHomePageData(authHeader),
+      getHomePageData(authHeader, options.cityCode),
       ensureCmsMenus(authHeader),
       ensureCmsSiteConfig(authHeader),
       ensureCmsFriendLinks(authHeader),
     ])
-    pageDataStore.setHomeData(homeData)
+    if (writeSeq === homeDataWriteSeq) {
+      homeDataScopeKey = scopeKey
+      pageDataStore.setHomeData(homeData)
+    }
     pageDataStore.setMenus(menus)
     pageDataStore.setSiteConfig(siteConfig)
     pageDataStore.setFriendLinks(friendLinks)
@@ -113,7 +125,9 @@ export async function ensureSiteConfig(options: HomeBootstrapOptions = {}) {
 
 export async function ensureHomeDirectoryData(options: HomeBootstrapOptions = {}): Promise<HomeDirectoryBootstrapResult> {
   const pageDataStore = usePageDataStore()
+  const scopeKey = options.cityCode ?? ''
   const shouldRefresh = options.force
+    || homeDataScopeKey !== scopeKey
     || !pageDataStore.homeData
     || !pageDataStore.allJobs.length
     || !pageDataStore.notices.length
@@ -122,24 +136,28 @@ export async function ensureHomeDirectoryData(options: HomeBootstrapOptions = {}
 
   if (shouldRefresh) {
     const authHeader = resolveBootstrapAuthorization(options.authorization)
-    const [homeData, allJobs, notices, companies, positionTree, menus, siteConfig, friendLinks] = await Promise.all([
-      getHomePageData(authHeader),
-      getJobList(),
-      getNoticeList(),
-      getCompanyList(),
-      getHomePositions(authHeader),
+    const writeSeq = ++homeDataWriteSeq
+    const [homeData, allJobs, notices, companyList, positionTree, menus, siteConfig, friendLinks] = await Promise.all([
+      getHomePageData(authHeader, options.cityCode),
+      getJobList(options.cityCode),
+      getNoticeList(options.cityCode),
+      getCompanyList({ city_code: options.cityCode }),
+      getHomePositions(authHeader, options.cityCode),
       ensureCmsMenus(authHeader),
       ensureCmsSiteConfig(authHeader),
       ensureCmsFriendLinks(authHeader),
     ])
 
-    pageDataStore.setHomeDirectoryData({
-      homeData,
-      allJobs,
-      notices,
-      companies,
-      positionTree,
-    })
+    if (writeSeq === homeDataWriteSeq) {
+      homeDataScopeKey = scopeKey
+      pageDataStore.setHomeDirectoryData({
+        homeData,
+        allJobs,
+        notices,
+        companies: companyList.data,
+        positionTree,
+      })
+    }
     pageDataStore.setMenus(menus)
     pageDataStore.setSiteConfig(siteConfig)
     pageDataStore.setFriendLinks(friendLinks)

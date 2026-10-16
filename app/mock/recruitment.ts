@@ -1,4 +1,4 @@
-import type { AnnouncementDetail, AnnouncementsPageData, AnnouncementSummary, CompanyDirectoryItem, HomeAnnouncementsPageData, HomePageData, JobSummary, NoticeSummary, RcPositionNode } from '~/types/recruitment'
+import type { AnnouncementDetail, AnnouncementsPageData, AnnouncementSummary, CityAsideAd, CompanyHighlight, HomeAnnouncementsPageData, HomePageData, JobSummary, NoticeSummary, RcPositionNode } from '~/types/recruitment'
 
 export const mockJobs: JobSummary[] = [
   {
@@ -701,7 +701,7 @@ export const mockAnnouncementDetail: AnnouncementDetail = {
   updated_at: '2026-05-29 10:00:00',
 }
 
-export const mockCompanies: CompanyDirectoryItem[] = [
+export const mockCompanies: Array<CompanyHighlight & { city: string, tags: string[] }> = [
   {
     id: 'company-001',
     name: '星瀚智能科技',
@@ -755,5 +755,33 @@ export const mockCompanies: CompanyDirectoryItem[] = [
     industry: '人力资源',
     city: '南昌',
     tags: ['内容运营', '活动策划', '雇主品牌'],
+  },
+]
+
+// 城市站右栏轮播广告 mock，后续由接口下发替换
+export const mockCityAsideAds: CityAsideAd[] = [
+  {
+    id: 1,
+    title: '高薪职位专场',
+    image: '/assets/images/discovery-jobs-offer-ad.png',
+    link_url: '/jobs',
+    target: 2,
+    sort: 0,
+  },
+  {
+    id: 2,
+    title: '简历优化诊断',
+    image: '/assets/images/discovery-jobs-resume-ad.png',
+    link_url: '/assessment',
+    target: 2,
+    sort: 1,
+  },
+  {
+    id: 3,
+    title: '校园招聘专场',
+    image: '/assets/images/discovery-jobs-design.png',
+    link_url: '/campus',
+    target: 2,
+    sort: 2,
   },
 ]

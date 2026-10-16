@@ -3,10 +3,15 @@ import type { HomePageData } from '~/types/recruitment'
 import { createDiscreteApi } from 'naive-ui'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { TALENT_ASSESSMENT_APP_CODE, useEcosystemAppLink } from '~/composables/ecosystem-app-link'
-import { mockCompanies, mockJobs, mockPositionTree } from '~/mock/recruitment'
+import { mockCityAsideAds, mockCompanies, mockJobs, mockPositionTree } from '~/mock/recruitment'
 import { exchangeEcosystemTicket, getAuthMe } from '~/services/auth'
 import { ApiRequestError, resolveAssetUrl } from '~/services/http'
 import { pushGlobalNotice } from '~/utils/notice'
+
+// variant：'home'（默认，首页）/'city'（城市站：去掉生态矩阵与黄金展位，右栏换成广告位）
+const props = defineProps<{
+  variant?: 'home' | 'city'
+}>()
 
 const { message } = createDiscreteApi(['message'])
 
@@ -54,6 +59,9 @@ const {
 const goldSlotRow1 = computed(() => homeData.value.adSlots.find(s => s.code === 'index.gold.row-1'))
 const goldSlotRow2 = computed(() => homeData.value.adSlots.find(s => s.code === 'index.gold.row-2'))
 const showJobseekerCard = computed(() => userStore.isLoggedIn && userStore.currentIdentity === 'jobseeker')
+const isCityVariant = computed(() => props.variant === 'city')
+// 城市站右栏广告位：先用 mock，接口就绪后替换为接口下发数据
+const cityAsideAds = mockCityAsideAds
 
 interface ServiceEcosystemItem {
   label: string
@@ -460,18 +468,28 @@ function handleEcosystemServiceClick(item: ServiceEcosystemItem) {
   return openEcosystemApp(item)
 }
 
+// 城市站（variant='city'）按当前城市过滤拉取，城市切后自动重载；'000000'/全国视为全国范围（不过滤）
+const cityScopeCode = computed(() => {
+  if (!isCityVariant.value)
+    return undefined
+  const code = siteStore.currentCityCode
+  return code && code !== '000000' ? code : undefined
+})
+
 await useAsyncData(
-  'home-page-bootstrap',
+  () => (isCityVariant.value ? `home-page-bootstrap-city-${cityScopeCode.value || 'all'}` : 'home-page-bootstrap'),
   async () => {
     await ensureHomeDirectoryData({
       authorization: userStore.authHeader || undefined,
       force: userStore.isLoggedIn,
+      cityCode: cityScopeCode.value,
     })
 
     return true
   },
   {
     server: false,
+    watch: isCityVariant.value ? [() => siteStore.currentCityCode] : [],
     default: () => true,
   },
 )
@@ -511,7 +529,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div ref="portalPageRef" class="portal-page" :class="{ 'is-dynamic-render': dynamicRenderEnabled }">
-    <section class="portal-container home-service-ecosystem" aria-labelledby="home-service-ecosystem-title">
+    <section v-if="!isCityVariant" class="portal-container home-service-ecosystem" aria-labelledby="home-service-ecosystem-title">
       <div class="home-service-ecosystem-title">
         <span aria-hidden="true" />
         <h2 id="home-service-ecosystem-title">
@@ -654,14 +672,15 @@ onBeforeUnmount(() => {
       </div>
 
       <aside class="home-user-card">
-        <template v-if="showJobseekerCard">
+        <CityAsideAdCarousel v-if="isCityVariant" :ads="cityAsideAds" />
+        <template v-else-if="showJobseekerCard">
           <PortalJobseekerCard :banners="jobseekerAsideBanners" />
         </template>
         <PortalHomeGuestAside v-else />
       </aside>
     </section>
 
-    <section class="portal-container home-section">
+    <section v-if="!isCityVariant" class="portal-container home-section">
       <h2 class="home-section-title is-gold">
         黄金展位
       </h2>

@@ -179,6 +179,16 @@ export interface CmsAdItem {
   updated_at?: string
 }
 
+// 城市站右栏轮播广告（先用 mock，接入接口后字段与 CmsAdItem 对齐）
+export interface CityAsideAd {
+  id: number
+  title: string
+  image: string | null
+  link_url: string | null
+  target: number
+  sort: number
+}
+
 export interface CmsAdSlot {
   id: number
   name: string
