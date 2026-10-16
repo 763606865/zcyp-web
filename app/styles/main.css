@@ -1206,7 +1206,8 @@ body {
 
 .portal-main-nav {
   display: flex;
-  justify-content: center;
+  /* safe center：内容溢出时退化为左对齐，避免居中溢出把左侧「首页」挤出可视区且无法滚动到 */
+  justify-content: safe center;
   gap: 7px;
   min-width: 0;
   overflow-x: auto;

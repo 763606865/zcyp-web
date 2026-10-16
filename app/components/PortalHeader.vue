@@ -215,10 +215,10 @@ onBeforeUnmount(() => {
   <header class="portal-header">
     <div class="portal-top-strip">
       <div class="portal-container portal-top-strip-inner">
-        <button type="button" class="portal-city-button" @click="handleGoCitySelect">
+        <button type="button" class="portal-city-button" :title="displayCity" @click="handleGoCitySelect">
           <span class="i-carbon-location-filled" />
-          <span>{{ displayCity }}</span>
-          <span>[切换城市]</span>
+          <span class="portal-city-name">{{ displayCity }}</span>
+          <span class="portal-city-switch">[切换城市]</span>
         </button>
 
         <nav class="portal-main-nav" aria-label="主导航">
@@ -240,7 +240,15 @@ onBeforeUnmount(() => {
               rel="noopener noreferrer"
               :class="{ 'is-active': isActiveNav(item) }"
             >
-              {{ item.label }}
+              <!-- 城市站文案随城市动态变化，超长时省略显示并用 title 提示全称 -->
+              <span
+                v-if="item.code === 'city-station'"
+                class="portal-nav-city-label"
+                :title="item.label"
+              >{{ item.label }}</span>
+              <template v-else>
+                {{ item.label }}
+              </template>
             </NuxtLink>
           </template>
         </nav>
@@ -417,6 +425,29 @@ onBeforeUnmount(() => {
   width: 134px;
   height: 32px;
   text-decoration: none;
+}
+/* 顶部城市按钮：限制在栅格列宽内，超长城市名省略显示（悬停 title 提示全称） */
+.portal-city-button {
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+.portal-city-button .portal-city-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.portal-city-button .i-carbon-location-filled,
+.portal-city-button .portal-city-switch {
+  flex: none;
+}
+/* 导航内城市站文案限宽省略，避免长城市名把「首页」挤出可视区 */
+.portal-nav-city-label {
+  max-width: 6em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .portal-search-inner {
   grid-template-columns: fit-content(250px) minmax(0, 1fr) 145px;
