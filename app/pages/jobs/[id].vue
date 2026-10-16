@@ -360,55 +360,55 @@ async function handleQuickCommunicate() {
 
 <template>
   <div class="job-detail-root bg-[#f2f4f8]">
-    <div v-if="errorMessage" class="mx-auto max-w-[1100px] px-5 py-12">
-      <div class="rounded-[6px] bg-white px-6 py-16 text-center text-[14px] text-red-500">
+    <div v-if="errorMessage" class="mx-auto px-5 py-12 max-w-[1100px]">
+      <div class="text-[14px] text-red-500 px-6 py-16 text-center rounded-[6px] bg-white">
         {{ errorMessage }}
       </div>
     </div>
 
-    <div v-else-if="isLoading" class="mx-auto max-w-[1100px] px-5 py-12">
-      <div class="rounded-[6px] bg-white px-6 py-16 text-center text-[14px] text-slate-500">
+    <div v-else-if="isLoading" class="mx-auto px-5 py-12 max-w-[1100px]">
+      <div class="text-[14px] text-slate-500 px-6 py-16 text-center rounded-[6px] bg-white">
         加载中...
       </div>
     </div>
 
     <template v-else-if="job">
       <section class="bg-[radial-gradient(circle_at_78%_50%,rgba(202,224,250,0.82),rgba(239,246,255,0.92)_38%,#eef5fd_68%)]">
-        <div class="mx-auto max-w-[1100px] px-5 py-7">
+        <div class="mx-auto px-5 py-7 max-w-[1100px]">
           <div class="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
             <div class="min-w-0">
-              <div class="flex items-center gap-2 text-[13px] text-slate-400">
+              <div class="text-[13px] text-slate-400 flex gap-2 items-center">
                 <span class="i-carbon-time" />
                 <span>{{ formatPublishedAt(job.published_at) }}</span>
               </div>
-              <h1 class="job-hero-title mt-5 text-[28px] text-slate-950 font-semibold leading-tight">
+              <h1 class="job-hero-title text-[28px] text-slate-950 leading-tight font-semibold mt-5">
                 {{ job.title }}
               </h1>
-              <div class="job-hero-salary mt-3 text-[24px] text-[#ff9f00] font-semibold">
+              <div class="job-hero-salary text-[24px] text-[#ff9f00] font-semibold mt-3">
                 {{ getSalaryLabel(job) }}
               </div>
-              <div class="mt-5 flex flex-wrap items-center gap-6 text-[14px] text-slate-600">
-                <span v-for="tag in jobInfoTags" :key="tag" class="inline-flex items-center gap-1.5">
+              <div class="text-[14px] text-slate-600 mt-5 flex flex-wrap gap-6 items-center">
+                <span v-for="tag in jobInfoTags" :key="tag" class="inline-flex gap-1.5 items-center">
                   <span class="i-carbon-location" />
                   {{ tag }}
                 </span>
               </div>
             </div>
-            <div class="job-hero-side flex flex-col items-start gap-16 md:items-end">
-              <div class="flex items-center gap-7 text-[13px] text-slate-400">
-                <button type="button" class="border-none bg-transparent text-[#ff9f00] cursor-pointer inline-flex items-center gap-1" @click="openShareDialog">
+            <div class="job-hero-side flex flex-col gap-16 items-start md:items-end">
+              <div class="text-[13px] text-slate-400 flex gap-7 items-center">
+                <button type="button" class="text-[#ff9f00] border-none bg-transparent inline-flex gap-1 cursor-pointer items-center" @click="openShareDialog">
                   <span class="i-carbon-chat" /> 微信扫码分享
                 </button>
-                <button type="button" class="border-none bg-transparent cursor-pointer inline-flex items-center gap-1 hover:text-slate-600" @click="openReportDialog">
+                <button type="button" class="border-none bg-transparent inline-flex gap-1 cursor-pointer items-center hover:text-slate-600" @click="openReportDialog">
                   <span class="i-carbon-warning-alt" /> {{ hasReported ? '已举报' : '举报' }}
                 </button>
               </div>
               <div class="job-hero-actions flex gap-4">
-                <button type="button" class="h-10 rounded-[6px] border border-[#ff9f00] bg-white px-6 text-[16px] text-[#ff9f00] font-semibold cursor-pointer inline-flex items-center gap-2" :disabled="isFavoriteOperating" @click="handleFavorite">
+                <button type="button" class="text-[16px] text-[#ff9f00] font-semibold px-6 border border-[#ff9f00] rounded-[6px] bg-white inline-flex gap-2 h-10 cursor-pointer items-center" :disabled="isFavoriteOperating" @click="handleFavorite">
                   <span :class="job.is_favorited ? 'i-carbon-star-filled' : 'i-carbon-star'" />
                   {{ job.is_favorited ? '已收藏' : '收藏' }}
                 </button>
-                <button type="button" class="h-10 rounded-[6px] border-none bg-[#ff9f00] px-8 text-[16px] text-white font-semibold cursor-pointer hover:bg-[#f08f00]" @click="handleApply">
+                <button type="button" class="text-[16px] text-white font-semibold px-8 rounded-[6px] border-none bg-[#ff9f00] h-10 cursor-pointer hover:bg-[#f08f00]" @click="handleApply">
                   {{ job.is_applied ? '撤回投递' : '立即投递' }}
                 </button>
               </div>
@@ -431,16 +431,16 @@ async function handleQuickCommunicate() {
         </button>
       </div>
 
-      <div class="mx-auto grid max-w-[1100px] gap-4 px-5 py-5 lg:grid-cols-[minmax(0,1fr)_240px]">
+      <div class="mx-auto px-5 py-5 gap-4 grid max-w-[1100px] lg:grid-cols-[minmax(0,1fr)_240px]">
         <main class="space-y-4">
-          <section class="rounded-[6px] bg-white px-6 py-6">
+          <section class="px-6 py-6 rounded-[6px] bg-white">
             <h2 class="text-[18px] text-slate-900 font-semibold">
               职位描述
             </h2>
             <div v-if="benefitTags.length" class="mt-4 flex flex-wrap gap-3">
-              <span v-for="tag in benefitTags" :key="tag" class="rounded bg-slate-100 px-4 py-1.5 text-[13px] text-slate-500">{{ tag }}</span>
+              <span v-for="tag in benefitTags" :key="tag" class="text-[13px] text-slate-500 px-4 py-1.5 rounded bg-slate-100">{{ tag }}</span>
             </div>
-            <div class="mt-6 space-y-5 text-[14px] text-slate-600 leading-7">
+            <div class="text-[14px] text-slate-600 leading-7 mt-6 space-y-5">
               <div>
                 <h3 class="text-[15px] text-slate-700 font-semibold">
                   岗位职责：
@@ -471,73 +471,85 @@ async function handleQuickCommunicate() {
               <h2 class="text-[18px] text-slate-900 font-semibold">
                 工作地址
               </h2>
-              <div class="mt-4 flex items-center gap-2 text-[14px] text-slate-700">
+              <div class="text-[14px] text-slate-700 mt-4 flex gap-2 items-center">
                 <span class="i-carbon-location-filled text-slate-400" />
                 <span>{{ job.workplace || areaLabel || '地址待完善' }}</span>
               </div>
-              <div class="relative mt-3 h-[108px] overflow-hidden rounded-[6px] bg-[#dfeaf4]">
-                <div class="absolute inset-0 opacity-80 [background-image:linear-gradient(25deg,transparent_0_44%,#c9d9e8_45%_47%,transparent_48%),linear-gradient(155deg,transparent_0_52%,#c9d9e8_53%_55%,transparent_56%),linear-gradient(90deg,#eef4f8_1px,transparent_1px),linear-gradient(0deg,#eef4f8_1px,transparent_1px)] [background-size:180px_80px,220px_90px,48px_48px,48px_48px]" />
-                <span class="absolute left-1/2 top-1/2 h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-500 shadow-[0_6px_12px_rgba(239,68,68,0.35)]" />
+              <div class="mt-3 rounded-[6px] bg-[#dfeaf4] h-[108px] relative overflow-hidden">
+                <div class="opacity-80 [background-image:linear-gradient(25deg,transparent_0_44%,#c9d9e8_45%_47%,transparent_48%),linear-gradient(155deg,transparent_0_52%,#c9d9e8_53%_55%,transparent_56%),linear-gradient(90deg,#eef4f8_1px,transparent_1px),linear-gradient(0deg,#eef4f8_1px,transparent_1px)] [background-size:180px_80px,220px_90px,48px_48px,48px_48px] inset-0 absolute" />
+                <span class="rounded-full bg-red-500 h-6 w-6 shadow-[0_6px_12px_rgba(239,68,68,0.35)] left-1/2 top-1/2 absolute -translate-x-1/2 -translate-y-1/2" />
               </div>
             </div>
           </section>
 
-          <div class="flex items-center justify-between rounded-[6px] bg-white px-5 py-3 text-[13px] text-slate-500">
-            <span class="inline-flex items-center gap-2">
+          <div class="text-[13px] text-slate-500 px-5 py-3 rounded-[6px] bg-white flex items-center justify-between">
+            <span class="inline-flex gap-2 items-center">
               <span class="i-carbon-warning-alt" />
               以担保或任何理由索要财物，扣押证照，均涉嫌违法。一经发现，
-              <button type="button" class="border-none bg-transparent px-0 text-[#ff9f00] cursor-pointer" @click="openReportDialog">{{ hasReported ? '已举报' : '立即举报' }}</button>
+              <button type="button" class="text-[#ff9f00] px-0 border-none bg-transparent cursor-pointer" @click="openReportDialog">{{ hasReported ? '已举报' : '立即举报' }}</button>
             </span>
             <span class="text-[16px]">×</span>
           </div>
 
-          <section class="rounded-[6px] bg-white px-6 py-6">
+          <section class="px-6 py-6 rounded-[6px] bg-white">
             <h2 class="text-[18px] text-slate-900 font-semibold">
               公司信息
             </h2>
-            <div class="mt-5 flex items-center gap-4">
-              <div class="h-12 w-12 flex shrink-0 items-center justify-center overflow-hidden rounded bg-slate-100 text-[11px] text-blue-600 font-bold">
+            <div class="mt-5 flex gap-4 items-center">
+              <div class="text-[11px] text-blue-600 font-bold rounded bg-slate-100 flex shrink-0 h-12 w-12 items-center justify-center overflow-hidden">
                 <img v-if="companyLogo" :src="companyLogo" :alt="`${companyName}logo`" class="h-full w-full object-contain">
                 <span v-else>{{ companyName.slice(0, 2) }}</span>
               </div>
               <div class="min-w-0">
-                <div class="flex flex-wrap items-center gap-3">
+                <div class="flex flex-wrap gap-3 items-center">
                   <NuxtLink :to="`/company/${job.company_id}`" class="text-[18px] text-slate-900 font-semibold no-underline hover:text-[#ff9f00]">
                     {{ companyName }}
                   </NuxtLink>
-                  <span class="text-[13px] text-[#ff9f00] inline-flex items-center gap-1">
+                  <span class="text-[13px] text-[#ff9f00] inline-flex gap-1 items-center">
                     <span class="i-carbon-checkmark-filled" /> 已认证
                   </span>
                 </div>
-                <div class="mt-2 flex flex-wrap gap-2 text-[13px] text-slate-500">
+                <div class="text-[13px] text-slate-500 mt-2 flex flex-wrap gap-2">
                   <span v-for="item in companyInfoItems" :key="item">{{ item }}</span>
                 </div>
               </div>
             </div>
-            <div class="mt-6 border-t border-slate-100 pt-5">
+            <div class="mt-6 pt-5 border-t border-slate-100">
               <h3 class="text-[15px] text-slate-900 font-semibold">
                 公司介绍
               </h3>
-              <p class="mt-3 text-[14px] text-slate-600 leading-7">
+              <p class="text-[14px] text-slate-600 leading-7 mt-3">
                 {{ plainText(companyProfile?.introduction, '公司介绍暂未完善。') }}
               </p>
             </div>
-            <div class="mt-6 grid gap-5 text-[14px] sm:grid-cols-3">
+            <div class="text-[14px] mt-6 gap-5 grid sm:grid-cols-3">
               <div>
-                <div class="text-slate-400">公司名称</div>
-                <div class="mt-2 text-slate-700">{{ companyName }}</div>
+                <div class="text-slate-400">
+                  公司名称
+                </div>
+                <div class="text-slate-700 mt-2">
+                  {{ companyName }}
+                </div>
               </div>
               <div>
-                <div class="text-slate-400">企业类型</div>
-                <div class="mt-2 text-slate-700">{{ companyProfile?.nature_type_label || '股份有限公司' }}</div>
+                <div class="text-slate-400">
+                  企业类型
+                </div>
+                <div class="text-slate-700 mt-2">
+                  {{ companyProfile?.nature_type_label || '股份有限公司' }}
+                </div>
               </div>
               <div>
-                <div class="text-slate-400">成立时间</div>
-                <div class="mt-2 text-slate-700">{{ companyProfile?.founded_at || '暂未填写' }}</div>
+                <div class="text-slate-400">
+                  成立时间
+                </div>
+                <div class="text-slate-700 mt-2">
+                  {{ companyProfile?.founded_at || '暂未填写' }}
+                </div>
               </div>
             </div>
             <div class="mt-7 text-center">
-              <NuxtLink :to="`/company/${job.company_id}`" class="inline-flex h-9 items-center rounded-[6px] border border-[#ff9f00] px-8 text-[14px] text-[#ff9f00] no-underline">
+              <NuxtLink :to="`/company/${job.company_id}`" class="text-[14px] text-[#ff9f00] px-8 border border-[#ff9f00] rounded-[6px] no-underline inline-flex h-9 items-center">
                 查看更多
               </NuxtLink>
             </div>
@@ -547,44 +559,50 @@ async function handleQuickCommunicate() {
         </main>
 
         <aside class="space-y-4">
-          <section class="rounded-[6px] bg-white px-5 py-5">
+          <section class="px-5 py-5 rounded-[6px] bg-white">
             <h2 class="text-[17px] text-slate-900 font-semibold">
               职位招聘官
             </h2>
-            <div class="mt-5 flex items-center gap-3">
-              <div class="h-12 w-12 flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#6f54ff] text-white">
+            <div class="mt-5 flex gap-3 items-center">
+              <div class="text-white rounded-full bg-[#6f54ff] flex shrink-0 h-12 w-12 items-center justify-center overflow-hidden">
                 <img v-if="getCreatorAvatar(job)" :src="getCreatorAvatar(job)" :alt="getCreatorName(job)" class="h-full w-full object-cover">
                 <span v-else>{{ getCreatorInitial(job) }}</span>
               </div>
               <div>
-                <div class="text-[17px] text-slate-900 font-semibold">{{ getCreatorName(job) }}</div>
-                <div class="mt-1 text-[13px] text-slate-500">{{ getCreatorTitle(job) }} {{ getCreatorActiveLabel(job) }}</div>
+                <div class="text-[17px] text-slate-900 font-semibold">
+                  {{ getCreatorName(job) }}
+                </div>
+                <div class="text-[13px] text-slate-500 mt-1">
+                  {{ getCreatorTitle(job) }} {{ getCreatorActiveLabel(job) }}
+                </div>
               </div>
             </div>
-            <button type="button" class="mt-6 h-9 w-full rounded-[6px] border border-[#ff9f00] bg-white text-[14px] text-[#ff9f00] cursor-pointer inline-flex items-center justify-center gap-1" @click="handleQuickCommunicate">
+            <button type="button" class="text-[14px] text-[#ff9f00] mt-6 border border-[#ff9f00] rounded-[6px] bg-white inline-flex gap-1 h-9 w-full cursor-pointer items-center justify-center" @click="handleQuickCommunicate">
               <span class="i-carbon-chat" />
               继续沟通
             </button>
           </section>
 
-          <section class="rounded-[6px] bg-white px-5 py-5">
+          <section class="px-5 py-5 rounded-[6px] bg-white">
             <h2 class="text-[17px] text-slate-900 font-semibold">
               公司信息
             </h2>
             <div class="mt-5 flex gap-3">
-              <div class="h-10 w-10 flex shrink-0 items-center justify-center overflow-hidden rounded bg-slate-100 text-[10px] text-blue-600 font-bold">
+              <div class="text-[10px] text-blue-600 font-bold rounded bg-slate-100 flex shrink-0 h-10 w-10 items-center justify-center overflow-hidden">
                 <img v-if="companyLogo" :src="companyLogo" :alt="`${companyName}logo`" class="h-full w-full object-contain">
                 <span v-else>{{ companyName.slice(0, 2) }}</span>
               </div>
-              <div class="text-[15px] text-slate-900 font-medium leading-6">{{ companyName }}</div>
+              <div class="text-[15px] text-slate-900 leading-6 font-medium">
+                {{ companyName }}
+              </div>
             </div>
-            <div class="mt-5 space-y-4 text-[14px] text-slate-500">
-              <div v-for="item in companyInfoItems" :key="item" class="flex items-center gap-2">
+            <div class="text-[14px] text-slate-500 mt-5 space-y-4">
+              <div v-for="item in companyInfoItems" :key="item" class="flex gap-2 items-center">
                 <span class="i-carbon-enterprise" />
                 {{ item }}
               </div>
             </div>
-            <NuxtLink :to="`/company/${job.company_id}`" class="mt-6 flex h-9 items-center justify-center rounded-[6px] border border-[#ff9f00] text-[14px] text-[#ff9f00] no-underline">
+            <NuxtLink :to="`/company/${job.company_id}`" class="text-[14px] text-[#ff9f00] mt-6 border border-[#ff9f00] rounded-[6px] no-underline flex h-9 items-center justify-center">
               查看在招职位
             </NuxtLink>
           </section>
@@ -593,35 +611,35 @@ async function handleQuickCommunicate() {
     </template>
 
     <!-- 微信扫码分享弹窗 -->
-    <div v-if="showShareDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4" @click.self="showShareDialog = false">
-      <div class="w-full max-w-[380px] rounded-[10px] bg-white p-6 text-center shadow-xl" role="dialog" aria-modal="true" aria-labelledby="share-dialog-title">
+    <div v-if="showShareDialog" class="px-4 bg-black/45 flex items-center inset-0 justify-center fixed z-50" @click.self="showShareDialog = false">
+      <div class="p-6 text-center rounded-[10px] bg-white max-w-[380px] w-full shadow-xl" role="dialog" aria-modal="true" aria-labelledby="share-dialog-title">
         <div class="flex items-center justify-between">
           <h2 id="share-dialog-title" class="text-[18px] text-slate-900 font-semibold">
             微信扫码分享
           </h2>
-          <button type="button" class="border-none bg-transparent text-[22px] text-slate-400 cursor-pointer hover:text-slate-600" aria-label="关闭分享弹窗" @click="showShareDialog = false">
+          <button type="button" class="text-[22px] text-slate-400 border-none bg-transparent cursor-pointer hover:text-slate-600" aria-label="关闭分享弹窗" @click="showShareDialog = false">
             ×
           </button>
         </div>
 
-        <div class="mx-auto mt-5 flex h-[256px] w-[256px] items-center justify-center rounded-[8px] border border-slate-100 bg-white">
+        <div class="mx-auto mt-5 border border-slate-100 rounded-[8px] bg-white flex h-[256px] w-[256px] items-center justify-center">
           <span v-if="isQrCodeGenerating" class="text-[14px] text-slate-400">二维码生成中...</span>
           <img v-else-if="shareQrCodeDataUrl" :src="shareQrCodeDataUrl" alt="职位分享二维码" class="h-[240px] w-[240px]">
         </div>
-        <p class="mt-4 text-[14px] text-slate-500">
+        <p class="text-[14px] text-slate-500 mt-4">
           使用微信扫描二维码，查看并分享该职位
         </p>
       </div>
     </div>
 
     <!-- 举报弹窗 -->
-    <div v-if="showReportDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4" @click.self="showReportDialog = false">
-      <div class="w-full max-w-[520px] rounded-[10px] bg-white p-6 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="report-dialog-title">
+    <div v-if="showReportDialog" class="px-4 bg-black/45 flex items-center inset-0 justify-center fixed z-50" @click.self="showReportDialog = false">
+      <div class="p-6 rounded-[10px] bg-white max-w-[520px] w-full shadow-xl" role="dialog" aria-modal="true" aria-labelledby="report-dialog-title">
         <div class="flex items-center justify-between">
           <h2 id="report-dialog-title" class="text-[18px] text-slate-900 font-semibold">
             举报该职位
           </h2>
-          <button type="button" class="border-none bg-transparent text-[22px] text-slate-400 cursor-pointer hover:text-slate-600" aria-label="关闭举报弹窗" @click="showReportDialog = false">
+          <button type="button" class="text-[22px] text-slate-400 border-none bg-transparent cursor-pointer hover:text-slate-600" aria-label="关闭举报弹窗" @click="showReportDialog = false">
             ×
           </button>
         </div>
@@ -630,12 +648,12 @@ async function handleQuickCommunicate() {
           <div class="text-[14px] text-slate-700 font-medium">
             举报原因 <span class="text-red-500">*</span>
           </div>
-          <div class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div class="mt-3 gap-3 grid grid-cols-2 sm:grid-cols-3">
             <button
               v-for="reason in reportReasonOptions"
               :key="reason.value"
               type="button"
-              class="h-9 rounded-[6px] border text-[13px] cursor-pointer transition-colors"
+              class="text-[13px] border rounded-[6px] h-9 cursor-pointer transition-colors"
               :class="reportForm.reasonType === reason.value
                 ? 'border-[#ff9f00] bg-[#fff7e8] text-[#e99000]'
                 : 'border-slate-200 bg-white text-slate-600 hover:border-[#ffb84d]'"
@@ -648,7 +666,7 @@ async function handleQuickCommunicate() {
         </div>
 
         <div class="mt-5">
-          <div class="flex items-center justify-between text-[14px] text-slate-700 font-medium">
+          <div class="text-[14px] text-slate-700 font-medium flex items-center justify-between">
             <span>详细说明（选填）</span>
             <span class="text-[12px] text-slate-400 font-normal">{{ reportForm.description.length }}/2000</span>
           </div>
@@ -657,15 +675,15 @@ async function handleQuickCommunicate() {
             maxlength="2000"
             rows="5"
             placeholder="请补充具体情况，帮助平台快速核实"
-            class="mt-2 w-full resize-none rounded-[6px] border border-slate-200 px-3 py-2 text-[14px] text-slate-700 outline-none focus:border-[#ff9f00]"
+            class="text-[14px] text-slate-700 mt-2 px-3 py-2 outline-none border border-slate-200 rounded-[6px] w-full resize-none focus:border-[#ff9f00]"
           />
         </div>
 
-        <div class="mt-6 flex justify-end gap-3">
-          <button type="button" class="h-9 rounded-[6px] border border-slate-200 bg-white px-5 text-[14px] text-slate-600 cursor-pointer" :disabled="isReportSubmitting" @click="showReportDialog = false">
+        <div class="mt-6 flex gap-3 justify-end">
+          <button type="button" class="text-[14px] text-slate-600 px-5 border border-slate-200 rounded-[6px] bg-white h-9 cursor-pointer" :disabled="isReportSubmitting" @click="showReportDialog = false">
             取消
           </button>
-          <button type="button" class="h-9 rounded-[6px] border-none bg-[#ff9f00] px-5 text-[14px] text-white cursor-pointer disabled:cursor-not-allowed disabled:opacity-60" :disabled="isReportSubmitting" @click="submitReport">
+          <button type="button" class="text-[14px] text-white px-5 rounded-[6px] border-none bg-[#ff9f00] h-9 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed" :disabled="isReportSubmitting" @click="submitReport">
             {{ isReportSubmitting ? '提交中...' : '提交举报' }}
           </button>
         </div>
@@ -673,89 +691,3 @@ async function handleQuickCommunicate() {
     </div>
   </div>
 </template>
-
-<style scoped>
-.job-mobile-action-bar {
-  display: none;
-}
-
-@media (max-width: 640px) {
-  .job-detail-root {
-    padding-bottom: 76px;
-  }
-
-  .job-hero-title {
-    margin-top: 14px;
-    font-size: 22px;
-  }
-
-  .job-hero-salary {
-    font-size: 20px;
-  }
-
-  .job-hero-side {
-    gap: 20px;
-  }
-
-  .job-hero-actions {
-    display: none;
-  }
-
-  .job-mobile-action-bar {
-    position: fixed;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    z-index: 40;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
-    background: #fff;
-    box-shadow: 0 -6px 20px rgba(43, 64, 94, 0.1);
-  }
-
-  .mobile-bar-favorite,
-  .mobile-bar-chat {
-    display: inline-flex;
-    height: 40px;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    padding: 0 12px;
-    border: 1px solid #e3e6ec;
-    border-radius: 6px;
-    background: #fff;
-    color: #666;
-    cursor: pointer;
-    font-size: 13px;
-    white-space: nowrap;
-  }
-
-  .mobile-bar-favorite:disabled {
-    cursor: wait;
-    opacity: 0.6;
-  }
-
-  .mobile-bar-favorite .is-active {
-    color: #ff9f00;
-  }
-
-  .mobile-bar-chat {
-    border-color: #ff9f00;
-    color: #ff9f00;
-  }
-
-  .mobile-bar-apply {
-    height: 40px;
-    flex: 1;
-    border: 0;
-    border-radius: 6px;
-    background: #ff9f00;
-    color: #fff;
-    cursor: pointer;
-    font-size: 15px;
-    font-weight: 600;
-  }
-}
-</style>

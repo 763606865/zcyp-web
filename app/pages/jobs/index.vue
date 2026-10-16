@@ -532,10 +532,10 @@ async function handleCommunicate(job: TalentJobItem) {
 </script>
 
 <template>
-  <div class="bg-[#f1f3f8] pb-10">
-    <section class="mx-auto max-w-[1200px] px-4 pt-5 lg:px-0">
+  <div class="pb-10 bg-[#f1f3f8]">
+    <section class="mx-auto px-4 pt-5 max-w-[1200px] lg:px-0">
       <div class="rounded-[6px] bg-white shadow-[0_8px_22px_rgba(43,64,94,0.08)]">
-        <div class="border-b border-[#eef0f3] px-4 py-4 text-[18px] text-[#ff9f00] font-semibold sm:px-8 sm:py-5 sm:text-[20px]">
+        <div class="text-[18px] text-[#ff9f00] font-semibold px-4 py-4 border-b border-[#eef0f3] sm:text-[20px] sm:px-8 sm:py-5">
           {{ keyword || '职位搜索' }}
         </div>
         <JobListFilterPanel
@@ -568,26 +568,26 @@ async function handleCommunicate(job: TalentJobItem) {
         />
       </div>
 
-      <div class="mt-4 h-[48px] rounded-[6px] bg-white px-4 sm:px-8">
+      <div class="mt-4 px-4 rounded-[6px] bg-white h-[48px] sm:px-8">
         <button
           v-for="tab in [{ key: 'all', label: '综合' }, { key: 'latest', label: '最新' }, { key: 'hot', label: '最热' }]"
           :key="tab.key"
           type="button"
-          class="relative mr-8 h-[48px] border-none bg-transparent px-0 text-[16px] cursor-pointer"
+          class="text-[16px] mr-8 px-0 border-none bg-transparent h-[48px] cursor-pointer relative"
           :class="sortTab === tab.key ? 'text-[#ff9f00] font-semibold' : 'text-[#222]'"
           @click="sortTab = tab.key as 'all' | 'latest' | 'hot'; handleSearch()"
         >
           {{ tab.label }}
-          <span v-if="sortTab === tab.key" class="absolute bottom-0 left-0 right-0 h-[2px] bg-[#ff9f00]" />
+          <span v-if="sortTab === tab.key" class="bg-[#ff9f00] h-[2px] bottom-0 left-0 right-0 absolute" />
         </button>
       </div>
 
-      <div class="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_250px]">
+      <div class="mt-4 gap-4 grid lg:grid-cols-[minmax(0,1fr)_250px]">
         <main class="space-y-4">
-          <div v-if="isLoading" class="rounded-[6px] bg-white py-16 text-center text-[14px] text-[#999]">
+          <div v-if="isLoading" class="text-[14px] text-[#999] py-16 text-center rounded-[6px] bg-white">
             搜索中...
           </div>
-          <div v-else-if="displayJobs.length === 0" class="rounded-[6px] bg-white py-16 text-center text-[14px] text-[#999]">
+          <div v-else-if="displayJobs.length === 0" class="text-[14px] text-[#999] py-16 text-center rounded-[6px] bg-white">
             未找到匹配的职位
           </div>
           <template v-else>
@@ -608,20 +608,20 @@ async function handleCommunicate(job: TalentJobItem) {
             />
           </template>
 
-          <div v-if="lastPage > 1 && !isLoading" class="jobs-pagination flex items-center justify-center gap-2 py-6">
-            <button class="h-8 border border-[#d8dbe2] bg-white px-3 text-[#999] disabled:opacity-40" :disabled="currentPage <= 1" @click="goToPage(currentPage - 1)">
+          <div v-if="lastPage > 1 && !isLoading" class="jobs-pagination py-6 flex gap-2 items-center justify-center">
+            <button class="text-[#999] px-3 border border-[#d8dbe2] bg-white h-8 disabled:opacity-40" :disabled="currentPage <= 1" @click="goToPage(currentPage - 1)">
               上一页
             </button>
             <button
               v-for="page in pageNumbers"
               :key="page"
-              class="h-8 min-w-8 border px-3 text-[14px]"
+              class="text-[14px] px-3 border h-8 min-w-8"
               :class="page === currentPage ? 'border-[#ff9f00] bg-[#ff9f00] text-white' : 'border-[#d8dbe2] bg-white text-[#666]'"
               @click="goToPage(page)"
             >
               {{ page }}
             </button>
-            <button class="h-8 border border-[#d8dbe2] bg-white px-3 text-[#999] disabled:opacity-40" :disabled="currentPage >= lastPage" @click="goToPage(currentPage + 1)">
+            <button class="text-[#999] px-3 border border-[#d8dbe2] bg-white h-8 disabled:opacity-40" :disabled="currentPage >= lastPage" @click="goToPage(currentPage + 1)">
               下一页
             </button>
           </div>
