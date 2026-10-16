@@ -181,11 +181,13 @@ function getRecruiterActiveLabel(job: TalentJobItem) {
         <span v-for="item in getCompanyMeta(job)" :key="item">{{ item }}</span>
       </div>
       <div class="recruiter-row">
-        <span class="recruiter-avatar" aria-hidden="true">
-          <img v-if="getRecruiterAvatar(job)" :src="getRecruiterAvatar(job)" :alt="getRecruiter(job)">
-        </span>
-        <span>{{ getRecruiter(job) }}</span>
-        <span>{{ getRecruiterActiveLabel(job) }}</span>
+        <div class="recruiter-info">
+          <span class="recruiter-avatar" aria-hidden="true">
+            <img v-if="getRecruiterAvatar(job)" :src="getRecruiterAvatar(job)" :alt="getRecruiter(job)">
+          </span>
+          <span>{{ getRecruiter(job) }}</span>
+          <span>{{ getRecruiterActiveLabel(job) }}</span>
+        </div>
         <button type="button" class="chat-button" @click="$emit('communicate', job)">
           <span class="i-carbon-chat" /> 立即沟通
         </button>
@@ -377,6 +379,13 @@ function getRecruiterActiveLabel(job: TalentJobItem) {
   font-size: 14px;
 }
 
+.recruiter-info {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+}
+
 .recruiter-avatar {
   display: inline-flex;
   width: 24px;
@@ -434,6 +443,131 @@ function getRecruiterActiveLabel(job: TalentJobItem) {
 
   .job-actions {
     justify-content: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .job-card {
+    display: grid;
+    min-height: 0;
+    padding: 14px 16px 16px;
+    gap: 10px 12px;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+  }
+
+  .job-main,
+  .company-main,
+  .recruiter-row,
+  .job-actions {
+    display: contents;
+  }
+
+  .job-title-row {
+    grid-row: 1;
+    grid-column: 1 / -1;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+  }
+
+  .job-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .job-salary {
+    margin-left: auto;
+    font-size: 15px;
+    white-space: nowrap;
+  }
+
+  .job-tags {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    margin-top: 0;
+    gap: 6px;
+  }
+
+  .job-tags span {
+    height: 22px;
+    padding: 0 8px;
+    line-height: 22px;
+  }
+
+  .job-address {
+    grid-row: 3;
+    grid-column: 1 / -1;
+    margin-top: 0;
+    overflow: hidden;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .job-address span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .company-head {
+    grid-row: 4;
+    grid-column: 1 / -1;
+    gap: 10px;
+  }
+
+  .company-meta {
+    grid-row: 5;
+    grid-column: 1 / -1;
+    margin-top: 0;
+    font-size: 13px;
+  }
+
+  .company-meta span + span::before {
+    margin: 0 6px;
+  }
+
+  .recruiter-info {
+    grid-row: 6;
+    grid-column: 1 / -1;
+    overflow: hidden;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .recruiter-info > span:not(.recruiter-avatar) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .chat-button {
+    grid-row: 7;
+    grid-column: 1;
+    justify-self: start;
+    height: 32px;
+    padding: 0 12px;
+    border: 1px solid #ff9700;
+    border-radius: 4px;
+    font-size: 13px;
+  }
+
+  .favorite-button {
+    position: static;
+    grid-row: 7;
+    grid-column: 2;
+    justify-self: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    font-size: 16px;
+  }
+
+  .apply-button {
+    grid-row: 7;
+    grid-column: 3;
+    justify-self: end;
+    width: 96px;
+    height: 34px;
   }
 }
 </style>

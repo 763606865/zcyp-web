@@ -63,6 +63,12 @@ const atlasCityFilterTouched = ref(false)
 const cityDisplayLimit = ref(11)
 const officialLoadError = ref('')
 const atlasLoadError = ref('')
+const extraOfficialJobs = ref<TalentJobItem[]>([])
+const extraAtlasAnnouncements = ref<RcTalentAnnouncementItem[]>([])
+const officialLoadedPage = ref(1)
+const atlasLoadedPage = ref(1)
+const isLoadingMoreOfficial = ref(false)
+const isLoadingMoreAtlas = ref(false)
 const officialAdSlots = ref<CmsAdSlot[]>([])
 const discoveryPageRef = ref<HTMLElement | null>(null)
 const dynamicRenderEnabled = computed(() => String(runtimeConfig.public.dynamicRender).toLowerCase() === 'true')
@@ -396,6 +402,40 @@ function updateCityDisplayLimit() {
     cityDisplayLimit.value = 3
 }
 
+function resetOfficialLoadMore() {
+  extraOfficialJobs.value = []
+  officialLoadedPage.value = 1
+}
+
+function resetAtlasLoadMore() {
+  extraAtlasAnnouncements.value = []
+  atlasLoadedPage.value = 1
+}
+
+async function fetchOfficialPage(page: number): Promise<TalentJobListResponse> {
+  if (hasOfficialSearchFilters.value) {
+    return await searchTalentJobs({ ...officialSearchQuery.value, page }, userStore.authHeader || '')
+  }
+
+  return await getRecommendedJobs({
+    city_code: officialSearchQuery.value.city_code,
+    page,
+    per_page: OFFICIAL_PAGE_SIZE,
+  }, userStore.authHeader || undefined)
+}
+
+async function fetchAtlasPage(page: number): Promise<RcTalentAnnouncementListResponse> {
+  if (hasAtlasSearchFilters.value) {
+    return await searchTalentAnnouncements({ ...atlasSearchQuery.value, page }, userStore.authHeader || '')
+  }
+
+  return await getRecommendedTalentAnnouncements({
+    city_code: atlasSearchQuery.value.city_code,
+    page,
+    per_page: ATLAS_PAGE_SIZE,
+  }, userStore.authHeader || undefined)
+}
+
 function setupDynamicReveal() {
   dynamicRevealObserver?.disconnect()
   dynamicRevealObserver = undefined
@@ -472,11 +512,13 @@ async function loadAtlasAnnouncements() {
 watch(currentCityFilterLabel, (value) => {
   if (!cityFilterTouched.value && selectedCityFilter.value !== value) {
     officialPage.value = 1
+    resetOfficialLoadMore()
     selectedCityFilter.value = value
   }
 
   if (!atlasCityFilterTouched.value && selectedAtlasCityFilter.value !== value) {
     atlasPage.value = 1
+    resetAtlasLoadMore()
     selectedAtlasCityFilter.value = value
   }
 }, { immediate: true })
@@ -501,10 +543,24 @@ const { data: atlasData, pending: loadingAtlas } = await useAsyncData(
   },
 )
 
-const officialJobs = computed<TalentJobItem[]>(() => officialJobsData.value?.data || [])
+const officialJobs = computed<TalentJobItem[]>(() => [...(officialJobsData.value?.data || []), ...extraOfficialJobs.value])
 const officialLastPage = computed(() => officialJobsData.value?.last_page || 1)
-const atlasAnnouncements = computed<RcTalentAnnouncementItem[]>(() => atlasData.value?.data || [])
+const atlasAnnouncements = computed<RcTalentAnnouncementItem[]>(() => [...(atlasData.value?.data || []), ...extraAtlasAnnouncements.value])
 const atlasLastPage = computed(() => atlasData.value?.last_page || 1)
+const hasMoreOfficialToLoad = computed(() => officialLoadedPage.value < officialLastPage.value)
+const hasMoreAtlasToLoad = computed(() => atlasLoadedPage.value < atlasLastPage.value)
+const atlasFilterCount = computed(() => {
+  let count = 0
+  if (selectedAtlasCityFilter.value !== '不限')
+    count++
+  if (selectedAtlasPublisherTypeFilter.value !== 0)
+    count++
+  if (selectedAtlasGraduationYearFilter.value !== 0)
+    count++
+  if (selectedAtlasEducationLevelFilter.value !== 0)
+    count++
+  return count
+})
 const rightSideSlotAds = computed(() => {
   const slot = officialAdSlots.value.find(item => item.code === RIGHT_SIDE_AD_SLOT_CODE)
   return slot?.ads || []
@@ -571,6 +627,7 @@ async function goAtlasCityStations() {
 
 function selectOfficialFilter(kind: OfficialFilterKind, value: string | number) {
   officialPage.value = 1
+  resetOfficialLoadMore()
 
   if (kind === 'city') {
     cityFilterTouched.value = true
@@ -599,22 +656,26 @@ function selectOfficialSelectValue(kind: Extract<OfficialFilterKind, 'education'
 
 function selectAtlasCityFilter(value: string) {
   atlasPage.value = 1
+  resetAtlasLoadMore()
   atlasCityFilterTouched.value = true
   selectedAtlasCityFilter.value = value
 }
 
 function selectAtlasGraduationYear(value: number) {
   atlasPage.value = 1
+  resetAtlasLoadMore()
   selectedAtlasGraduationYearFilter.value = value
 }
 
 function selectAtlasEducationLevel(value: number) {
   atlasPage.value = 1
+  resetAtlasLoadMore()
   selectedAtlasEducationLevelFilter.value = value
 }
 
 function selectAtlasPublisherType(value: string | number | null) {
   atlasPage.value = 1
+  resetAtlasLoadMore()
   selectedAtlasPublisherTypeFilter.value = Number(value || 0)
 }
 
@@ -723,6 +784,42 @@ function goAtlasPage(page: number) {
     atlasPage.value = page
 }
 
+async function handleLoadMoreOfficial() {
+  if (isLoadingMoreOfficial.value || !hasMoreOfficialToLoad.value)
+    return
+
+  isLoadingMoreOfficial.value = true
+  try {
+    const payload = await fetchOfficialPage(officialLoadedPage.value + 1)
+    extraOfficialJobs.value = [...extraOfficialJobs.value, ...(payload?.data || [])]
+    officialLoadedPage.value += 1
+  }
+  catch {
+    // 加载失败保持现状，可再次点击重试
+  }
+  finally {
+    isLoadingMoreOfficial.value = false
+  }
+}
+
+async function handleLoadMoreAtlas() {
+  if (isLoadingMoreAtlas.value || !hasMoreAtlasToLoad.value)
+    return
+
+  isLoadingMoreAtlas.value = true
+  try {
+    const payload = await fetchAtlasPage(atlasLoadedPage.value + 1)
+    extraAtlasAnnouncements.value = [...extraAtlasAnnouncements.value, ...(payload?.data || [])]
+    atlasLoadedPage.value += 1
+  }
+  catch {
+    // 加载失败保持现状，可再次点击重试
+  }
+  finally {
+    isLoadingMoreAtlas.value = false
+  }
+}
+
 async function navigateToLogin() {
   pushGlobalNotice('请先登录')
   await navigateTo({ path: '/login', query: createAuthRedirectQuery(route.fullPath) })
@@ -777,6 +874,8 @@ async function handleApply(job: TalentJobItem) {
 }
 
 function updateJobFavoriteState(jobId: number, isFavorited: boolean) {
+  extraOfficialJobs.value = extraOfficialJobs.value.map(item => item.id === jobId ? { ...item, is_favorited: isFavorited } : item)
+
   if (!officialJobsData.value)
     return
 
@@ -886,49 +985,51 @@ async function handleCommunicate(job: TalentJobItem) {
       />
 
       <div v-else class="filter-body is-atlas">
-        <div class="filter-row">
-          <div class="filter-label">
-            工作地点
+        <MobileFilterCollapse :active-count="atlasFilterCount">
+          <div class="filter-row">
+            <div class="filter-label">
+              工作地点
+            </div>
+            <div class="filter-options is-city-options">
+              <button v-for="item in displayedCityFilters" :key="item" type="button" class="filter-option" :class="{ 'is-selected': selectedAtlasCityFilter === item }" @click="selectAtlasCityFilter(item)">
+                {{ item }}
+              </button>
+              <button type="button" class="filter-option is-more" @click="goAtlasCityStations">
+                更多城市 <span class="i-carbon-caret-right" />
+              </button>
+            </div>
           </div>
-          <div class="filter-options is-city-options">
-            <button v-for="item in displayedCityFilters" :key="item" type="button" class="filter-option" :class="{ 'is-selected': selectedAtlasCityFilter === item }" @click="selectAtlasCityFilter(item)">
-              {{ item }}
-            </button>
-            <button type="button" class="filter-option is-more" @click="goAtlasCityStations">
-              更多城市 <span class="i-carbon-caret-right" />
-            </button>
+          <div class="filter-row">
+            <div class="filter-label">
+              单位类型
+            </div>
+            <div class="filter-options">
+              <button v-for="item in atlasPublisherTypeSelectOptions" :key="item.value" type="button" class="filter-option" :class="{ 'is-selected': selectedAtlasPublisherTypeFilter === item.value }" @click="selectAtlasPublisherType(item.value)">
+                {{ item.label }}
+              </button>
+            </div>
           </div>
-        </div>
-        <div class="filter-row">
-          <div class="filter-label">
-            单位类型
+          <div class="filter-row">
+            <div class="filter-label">
+              毕业年份
+            </div>
+            <div class="filter-options">
+              <button v-for="item in graduationFilters" :key="item.value" type="button" class="filter-option" :class="{ 'is-selected': selectedAtlasGraduationYearFilter === item.value }" @click="selectAtlasGraduationYear(item.value)">
+                {{ item.label }}
+              </button>
+            </div>
           </div>
-          <div class="filter-options">
-            <button v-for="item in atlasPublisherTypeSelectOptions" :key="item.value" type="button" class="filter-option" :class="{ 'is-selected': selectedAtlasPublisherTypeFilter === item.value }" @click="selectAtlasPublisherType(item.value)">
-              {{ item.label }}
-            </button>
+          <div class="filter-row">
+            <div class="filter-label">
+              学历要求
+            </div>
+            <div class="filter-options">
+              <button v-for="item in atlasEducationLevelFilters" :key="item.value" type="button" class="filter-option" :class="{ 'is-selected': selectedAtlasEducationLevelFilter === item.value }" @click="selectAtlasEducationLevel(item.value)">
+                {{ item.label }}
+              </button>
+            </div>
           </div>
-        </div>
-        <div class="filter-row">
-          <div class="filter-label">
-            毕业年份
-          </div>
-          <div class="filter-options">
-            <button v-for="item in graduationFilters" :key="item.value" type="button" class="filter-option" :class="{ 'is-selected': selectedAtlasGraduationYearFilter === item.value }" @click="selectAtlasGraduationYear(item.value)">
-              {{ item.label }}
-            </button>
-          </div>
-        </div>
-        <div class="filter-row">
-          <div class="filter-label">
-            学历要求
-          </div>
-          <div class="filter-options">
-            <button v-for="item in atlasEducationLevelFilters" :key="item.value" type="button" class="filter-option" :class="{ 'is-selected': selectedAtlasEducationLevelFilter === item.value }" @click="selectAtlasEducationLevel(item.value)">
-              {{ item.label }}
-            </button>
-          </div>
-        </div>
+        </MobileFilterCollapse>
       </div>
     </section>
 
@@ -964,7 +1065,7 @@ async function handleCommunicate(job: TalentJobItem) {
           />
         </template>
 
-        <div v-if="officialLastPage > 1" class="pager-row">
+        <div v-if="officialLastPage > 1" class="pager-row discovery-desktop-pager">
           <button type="button" :disabled="officialPage <= 1" @click="goOfficialPage(officialPage - 1)">
             上一页
           </button>
@@ -972,6 +1073,15 @@ async function handleCommunicate(job: TalentJobItem) {
           <button type="button" :disabled="officialPage >= officialLastPage" @click="goOfficialPage(officialPage + 1)">
             下一页
           </button>
+        </div>
+
+        <div v-if="officialJobs.length > 0" class="discovery-load-more">
+          <button v-if="hasMoreOfficialToLoad" type="button" class="discovery-load-more-button" :disabled="isLoadingMoreOfficial" @click="handleLoadMoreOfficial">
+            {{ isLoadingMoreOfficial ? '加载中...' : '加载更多' }}
+          </button>
+          <div v-else class="discovery-load-more-end">
+            没有更多了
+          </div>
         </div>
       </div>
 
@@ -1031,7 +1141,7 @@ async function handleCommunicate(job: TalentJobItem) {
         </article>
       </template>
 
-      <div v-if="atlasLastPage > 1" class="pager-row">
+      <div v-if="atlasLastPage > 1" class="pager-row discovery-desktop-pager">
         <button type="button" :disabled="atlasPage <= 1" @click="goAtlasPage(atlasPage - 1)">
           上一页
         </button>
@@ -1039,6 +1149,15 @@ async function handleCommunicate(job: TalentJobItem) {
         <button type="button" :disabled="atlasPage >= atlasLastPage" @click="goAtlasPage(atlasPage + 1)">
           下一页
         </button>
+      </div>
+
+      <div v-if="atlasAnnouncements.length > 0" class="discovery-load-more">
+        <button v-if="hasMoreAtlasToLoad" type="button" class="discovery-load-more-button" :disabled="isLoadingMoreAtlas" @click="handleLoadMoreAtlas">
+          {{ isLoadingMoreAtlas ? '加载中...' : '加载更多' }}
+        </button>
+        <div v-else class="discovery-load-more-end">
+          没有更多了
+        </div>
       </div>
     </section>
   </div>
@@ -1631,20 +1750,27 @@ async function handleCommunicate(job: TalentJobItem) {
   }
 }
 
-@media (max-width: 1024px) {
+.discovery-load-more {
+  display: none;
+}
+
+@media (max-width: 640px) {
   .official-results {
     grid-template-columns: 1fr;
   }
 
   .ad-column {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: none;
   }
-}
 
-@media (max-width: 720px) {
   .filter-panel {
     height: auto;
+    min-height: 0;
     overflow: visible;
+  }
+
+  .filter-body.is-atlas {
+    min-height: 0;
   }
 
   .filter-tabs,
@@ -1683,8 +1809,82 @@ async function handleCommunicate(job: TalentJobItem) {
     flex-direction: column;
   }
 
-  .ad-column {
-    grid-template-columns: 1fr;
+  .discovery-desktop-pager {
+    display: none;
+  }
+
+  .discovery-load-more {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 8px 0 20px;
+    align-items: center;
+  }
+
+  .discovery-load-more-button {
+    width: 100%;
+    height: 40px;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    background: #fff;
+    color: #666;
+    cursor: pointer;
+    font-size: 14px;
+  }
+
+  .discovery-load-more-button:disabled {
+    cursor: wait;
+    opacity: 0.6;
+  }
+
+  .discovery-load-more-end {
+    color: #aaa;
+    font-size: 13px;
+  }
+}
+
+@media (hover: none) and (max-width: 640px) {
+  .discovery-page.is-dynamic-render .filter-option:not(.is-selected):hover,
+  .discovery-page.is-dynamic-render :deep(.filter-option:not(.is-selected):hover),
+  .discovery-page.is-dynamic-render :deep(.filter-dropdown:hover) {
+    background: transparent;
+    color: rgba(34, 34, 34, 1);
+    transform: none;
+  }
+
+  .discovery-page.is-dynamic-render :deep(.job-card:hover) {
+    border-color: #fff;
+    box-shadow: none;
+    transform: none;
+  }
+
+  .discovery-page.is-dynamic-render :deep(.job-card:hover::after) {
+    transform: translateX(-105%);
+  }
+
+  .discovery-page.is-dynamic-render :deep(.job-card:hover .company-logo) {
+    animation: none;
+  }
+
+  .discovery-page.is-dynamic-render :deep(.apply-button:not(:disabled):hover),
+  .discovery-page.is-dynamic-render :deep(.chat-button:hover),
+  .discovery-page.is-dynamic-render .copy-button:hover {
+    box-shadow: none;
+    transform: none;
+  }
+
+  .discovery-page.is-dynamic-render .atlas-card:hover {
+    border-color: transparent;
+    box-shadow: none;
+    transform: none;
+  }
+
+  .discovery-page.is-dynamic-render .atlas-card:hover::before {
+    transform: scaleY(0);
+  }
+
+  .discovery-page.is-dynamic-render .atlas-card:hover .atlas-title {
+    color: #222;
   }
 }
 </style>

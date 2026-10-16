@@ -365,12 +365,12 @@ const errorText = computed(() => {
   color: #999;
   font-size: 13px;
 }
-@media (max-width: 720px) {
+@media (max-width: 640px) {
   .announcement-header {
     padding: 26px 20px 22px;
   }
   .announcement-header h1 {
-    font-size: 24px;
+    font-size: 22px;
   }
   .information-grid {
     margin: 20px 20px 0;

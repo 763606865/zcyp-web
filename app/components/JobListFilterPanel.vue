@@ -2,7 +2,7 @@
 import type { SelectOption as NaiveSelectOption } from 'naive-ui'
 import { NInputNumber, NSelect } from 'naive-ui'
 
-defineProps<{
+const props = defineProps<{
   displayedCityFilters: string[]
   selectedCityFilter: string
   salaryFilters: string[]
@@ -33,121 +33,140 @@ defineEmits<{
   selectEducation: [value: string | number | null]
   selectCompanySize: [value: string | number | null]
 }>()
+
+const activeFilterCount = computed(() => {
+  let count = 0
+  if (props.selectedCityFilter !== '不限')
+    count++
+  if (props.selectedSalaryFilter !== '不限')
+    count++
+  if (props.selectedExperienceFilter !== 0)
+    count++
+  if (props.selectedEmploymentTypeFilter !== 0)
+    count++
+  if (props.selectedEducationLevelFilter !== 0)
+    count++
+  if (props.selectedCompanySizeFilter !== 0)
+    count++
+  return count
+})
 </script>
 
 <template>
-  <div class="job-list-filter-body">
-    <div class="filter-row">
-      <div class="filter-label">
-        工作地点
+  <MobileFilterCollapse :active-count="activeFilterCount">
+    <div class="job-list-filter-body">
+      <div class="filter-row">
+        <div class="filter-label">
+          工作地点
+        </div>
+        <div class="filter-options is-city-options">
+          <button v-for="item in displayedCityFilters" :key="item" type="button" class="filter-option" :class="{ 'is-selected': selectedCityFilter === item }" @click="$emit('selectCity', item)">
+            {{ item }}
+          </button>
+          <button type="button" class="filter-option is-more" @click="$emit('moreCity')">
+            更多城市 <span class="i-carbon-caret-right" />
+          </button>
+        </div>
       </div>
-      <div class="filter-options is-city-options">
-        <button v-for="item in displayedCityFilters" :key="item" type="button" class="filter-option" :class="{ 'is-selected': selectedCityFilter === item }" @click="$emit('selectCity', item)">
-          {{ item }}
-        </button>
-        <button type="button" class="filter-option is-more" @click="$emit('moreCity')">
-          更多城市 <span class="i-carbon-caret-right" />
-        </button>
-      </div>
-    </div>
 
-    <div class="filter-row">
-      <div class="filter-label">
-        薪资待遇
+      <div class="filter-row">
+        <div class="filter-label">
+          薪资待遇
+        </div>
+        <div class="filter-options">
+          <button v-for="item in salaryFilters" :key="item" type="button" class="filter-option" :class="{ 'is-selected': selectedSalaryFilter === item }" @click="$emit('selectSalary', item)">
+            {{ item }}
+          </button>
+          <div v-if="selectedSalaryFilter === '自定义'" class="salary-range-filter">
+            <ClientOnly>
+              <NInputNumber
+                :value="customSalaryMin"
+                class="salary-range-input"
+                size="small"
+                placeholder="最低"
+                :min="customSalaryMinValue"
+                :max="customSalaryMaxValue"
+                :step="customSalaryStep"
+                :show-button="false"
+                @update:value="$emit('updateCustomSalaryMin', $event)"
+              />
+              <span>至</span>
+              <NInputNumber
+                :value="customSalaryMax"
+                class="salary-range-input"
+                size="small"
+                placeholder="最高"
+                :min="customSalaryMinValue"
+                :max="customSalaryMaxValue"
+                :step="customSalaryStep"
+                :show-button="false"
+                @update:value="$emit('updateCustomSalaryMax', $event)"
+              />
+              <template #fallback>
+                <span class="salary-range-placeholder">最低</span>
+                <span>至</span>
+                <span class="salary-range-placeholder">最高</span>
+              </template>
+            </ClientOnly>
+          </div>
+        </div>
       </div>
-      <div class="filter-options">
-        <button v-for="item in salaryFilters" :key="item" type="button" class="filter-option" :class="{ 'is-selected': selectedSalaryFilter === item }" @click="$emit('selectSalary', item)">
-          {{ item }}
-        </button>
-        <div v-if="selectedSalaryFilter === '自定义'" class="salary-range-filter">
+
+      <div class="filter-row">
+        <div class="filter-label">
+          经验要求
+        </div>
+        <div class="filter-options">
+          <button v-for="item in experienceFilters" :key="item.value" type="button" class="filter-option" :class="{ 'is-selected': selectedExperienceFilter === item.value }" @click="$emit('selectExperience', Number(item.value))">
+            {{ item.label }}
+          </button>
+        </div>
+      </div>
+
+      <div class="filter-row">
+        <div class="filter-label">
+          工作性质
+        </div>
+        <div class="filter-options is-employment-options">
+          <button v-for="item in employmentTypeFilters" :key="item.value" type="button" class="filter-option" :class="{ 'is-selected': selectedEmploymentTypeFilter === item.value }" @click="$emit('selectEmploymentType', Number(item.value))">
+            {{ item.label }}
+          </button>
+        </div>
+      </div>
+
+      <div class="filter-row">
+        <div class="filter-label">
+          其他筛选
+        </div>
+        <div class="filter-options is-extra-options">
           <ClientOnly>
-            <NInputNumber
-              :value="customSalaryMin"
-              class="salary-range-input"
+            <NSelect
+              class="filter-select"
+              :class="{ 'is-selected': selectedEducationLevelFilter !== 0 }"
+              :value="selectedEducationLevelFilter"
+              :options="educationLevelSelectOptions"
               size="small"
-              placeholder="最低"
-              :min="customSalaryMinValue"
-              :max="customSalaryMaxValue"
-              :step="customSalaryStep"
-              :show-button="false"
-              @update:value="$emit('updateCustomSalaryMin', $event)"
+              :consistent-menu-width="false"
+              @update:value="$emit('selectEducation', $event)"
             />
-            <span>至</span>
-            <NInputNumber
-              :value="customSalaryMax"
-              class="salary-range-input"
+            <NSelect
+              class="filter-select"
+              :class="{ 'is-selected': selectedCompanySizeFilter !== 0 }"
+              :value="selectedCompanySizeFilter"
+              :options="companySizeSelectOptions"
               size="small"
-              placeholder="最高"
-              :min="customSalaryMinValue"
-              :max="customSalaryMaxValue"
-              :step="customSalaryStep"
-              :show-button="false"
-              @update:value="$emit('updateCustomSalaryMax', $event)"
+              :consistent-menu-width="false"
+              @update:value="$emit('selectCompanySize', $event)"
             />
             <template #fallback>
-              <span class="salary-range-placeholder">最低</span>
-              <span>至</span>
-              <span class="salary-range-placeholder">最高</span>
+              <span class="filter-select-placeholder">学历要求</span>
+              <span class="filter-select-placeholder">公司规模</span>
             </template>
           </ClientOnly>
         </div>
       </div>
     </div>
-
-    <div class="filter-row">
-      <div class="filter-label">
-        经验要求
-      </div>
-      <div class="filter-options">
-        <button v-for="item in experienceFilters" :key="item.value" type="button" class="filter-option" :class="{ 'is-selected': selectedExperienceFilter === item.value }" @click="$emit('selectExperience', Number(item.value))">
-          {{ item.label }}
-        </button>
-      </div>
-    </div>
-
-    <div class="filter-row">
-      <div class="filter-label">
-        工作性质
-      </div>
-      <div class="filter-options is-employment-options">
-        <button v-for="item in employmentTypeFilters" :key="item.value" type="button" class="filter-option" :class="{ 'is-selected': selectedEmploymentTypeFilter === item.value }" @click="$emit('selectEmploymentType', Number(item.value))">
-          {{ item.label }}
-        </button>
-      </div>
-    </div>
-
-    <div class="filter-row">
-      <div class="filter-label">
-        其他筛选
-      </div>
-      <div class="filter-options is-extra-options">
-        <ClientOnly>
-          <NSelect
-            class="filter-select"
-            :class="{ 'is-selected': selectedEducationLevelFilter !== 0 }"
-            :value="selectedEducationLevelFilter"
-            :options="educationLevelSelectOptions"
-            size="small"
-            :consistent-menu-width="false"
-            @update:value="$emit('selectEducation', $event)"
-          />
-          <NSelect
-            class="filter-select"
-            :class="{ 'is-selected': selectedCompanySizeFilter !== 0 }"
-            :value="selectedCompanySizeFilter"
-            :options="companySizeSelectOptions"
-            size="small"
-            :consistent-menu-width="false"
-            @update:value="$emit('selectCompanySize', $event)"
-          />
-          <template #fallback>
-            <span class="filter-select-placeholder">学历要求</span>
-            <span class="filter-select-placeholder">公司规模</span>
-          </template>
-        </ClientOnly>
-      </div>
-    </div>
-  </div>
+  </MobileFilterCollapse>
 </template>
 
 <style scoped>
@@ -314,9 +333,10 @@ defineEmits<{
   font-size: 14px;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 640px) {
   .job-list-filter-body {
     padding-right: 18px;
+    padding-bottom: 18px;
     padding-left: 18px;
   }
 

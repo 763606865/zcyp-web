@@ -359,7 +359,7 @@ async function handleQuickCommunicate() {
 </script>
 
 <template>
-  <div class="bg-[#f2f4f8]">
+  <div class="job-detail-root bg-[#f2f4f8]">
     <div v-if="errorMessage" class="mx-auto max-w-[1100px] px-5 py-12">
       <div class="rounded-[6px] bg-white px-6 py-16 text-center text-[14px] text-red-500">
         {{ errorMessage }}
@@ -381,10 +381,10 @@ async function handleQuickCommunicate() {
                 <span class="i-carbon-time" />
                 <span>{{ formatPublishedAt(job.published_at) }}</span>
               </div>
-              <h1 class="mt-5 text-[28px] text-slate-950 font-semibold leading-tight">
+              <h1 class="job-hero-title mt-5 text-[28px] text-slate-950 font-semibold leading-tight">
                 {{ job.title }}
               </h1>
-              <div class="mt-3 text-[24px] text-[#ff9f00] font-semibold">
+              <div class="job-hero-salary mt-3 text-[24px] text-[#ff9f00] font-semibold">
                 {{ getSalaryLabel(job) }}
               </div>
               <div class="mt-5 flex flex-wrap items-center gap-6 text-[14px] text-slate-600">
@@ -394,7 +394,7 @@ async function handleQuickCommunicate() {
                 </span>
               </div>
             </div>
-            <div class="flex flex-col items-start gap-16 md:items-end">
+            <div class="job-hero-side flex flex-col items-start gap-16 md:items-end">
               <div class="flex items-center gap-7 text-[13px] text-slate-400">
                 <button type="button" class="border-none bg-transparent text-[#ff9f00] cursor-pointer inline-flex items-center gap-1" @click="openShareDialog">
                   <span class="i-carbon-chat" /> 微信扫码分享
@@ -403,7 +403,7 @@ async function handleQuickCommunicate() {
                   <span class="i-carbon-warning-alt" /> {{ hasReported ? '已举报' : '举报' }}
                 </button>
               </div>
-              <div class="flex gap-4">
+              <div class="job-hero-actions flex gap-4">
                 <button type="button" class="h-10 rounded-[6px] border border-[#ff9f00] bg-white px-6 text-[16px] text-[#ff9f00] font-semibold cursor-pointer inline-flex items-center gap-2" :disabled="isFavoriteOperating" @click="handleFavorite">
                   <span :class="job.is_favorited ? 'i-carbon-star-filled' : 'i-carbon-star'" />
                   {{ job.is_favorited ? '已收藏' : '收藏' }}
@@ -416,6 +416,20 @@ async function handleQuickCommunicate() {
           </div>
         </div>
       </section>
+
+      <div class="job-mobile-action-bar">
+        <button type="button" class="mobile-bar-favorite" :disabled="isFavoriteOperating" @click="handleFavorite">
+          <span :class="job.is_favorited ? 'i-carbon-star-filled is-active' : 'i-carbon-star'" />
+          <span>{{ job.is_favorited ? '已收藏' : '收藏' }}</span>
+        </button>
+        <button type="button" class="mobile-bar-chat" @click="handleQuickCommunicate">
+          <span class="i-carbon-chat" />
+          <span>沟通</span>
+        </button>
+        <button type="button" class="mobile-bar-apply" @click="handleApply">
+          {{ job.is_applied ? '撤回投递' : '立即投递' }}
+        </button>
+      </div>
 
       <div class="mx-auto grid max-w-[1100px] gap-4 px-5 py-5 lg:grid-cols-[minmax(0,1fr)_240px]">
         <main class="space-y-4">
@@ -659,3 +673,89 @@ async function handleQuickCommunicate() {
     </div>
   </div>
 </template>
+
+<style scoped>
+.job-mobile-action-bar {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .job-detail-root {
+    padding-bottom: 76px;
+  }
+
+  .job-hero-title {
+    margin-top: 14px;
+    font-size: 22px;
+  }
+
+  .job-hero-salary {
+    font-size: 20px;
+  }
+
+  .job-hero-side {
+    gap: 20px;
+  }
+
+  .job-hero-actions {
+    display: none;
+  }
+
+  .job-mobile-action-bar {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+    background: #fff;
+    box-shadow: 0 -6px 20px rgba(43, 64, 94, 0.1);
+  }
+
+  .mobile-bar-favorite,
+  .mobile-bar-chat {
+    display: inline-flex;
+    height: 40px;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 0 12px;
+    border: 1px solid #e3e6ec;
+    border-radius: 6px;
+    background: #fff;
+    color: #666;
+    cursor: pointer;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .mobile-bar-favorite:disabled {
+    cursor: wait;
+    opacity: 0.6;
+  }
+
+  .mobile-bar-favorite .is-active {
+    color: #ff9f00;
+  }
+
+  .mobile-bar-chat {
+    border-color: #ff9f00;
+    color: #ff9f00;
+  }
+
+  .mobile-bar-apply {
+    height: 40px;
+    flex: 1;
+    border: 0;
+    border-radius: 6px;
+    background: #ff9f00;
+    color: #fff;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 600;
+  }
+}
+</style>

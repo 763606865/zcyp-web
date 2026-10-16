@@ -94,30 +94,58 @@ if (import.meta.client) {
   })
 }
 const perPage = ref(9)
+const extraCompanies = ref<CompanyDirectoryItem[]>([])
+const mobileLoadedPage = ref(1)
+const isLoadingMore = ref(false)
+
+const activeFilterCount = computed(() => {
+  let count = 0
+  if (activeCityCode.value)
+    count++
+  if (activeScale.value !== '不限')
+    count++
+  if (activeFunding.value !== '不限')
+    count++
+  return count
+})
 
 const hasFilter = computed(() => !!activeCityCode.value || activeScale.value !== '不限')
 
 const { data: companies } = await useAsyncData(
   () => `company-directory-${activePage.value}-${activeCityCode.value}-${activeScale.value}`,
-  () => {
-    const params = {
-      per_page: perPage.value,
-      page: activePage.value,
-      ...(activeScale.value !== '不限' ? { scale_type: activeScale.value } : {}),
-      ...(activeCityCode.value ? { city_code: activeCityCode.value } : {}),
-    }
-    return hasFilter.value ? getCompanyFilteredList(params) : getCompanyList(params)
-  },
+  () => fetchCompanyPage(activePage.value),
   {
     server: false,
     default: () => ({ data: [], total: 0 }),
   },
 )
 
+function buildCompanyParams(page: number) {
+  return {
+    per_page: perPage.value,
+    page,
+    ...(activeScale.value !== '不限' ? { scale_type: activeScale.value } : {}),
+    ...(activeCityCode.value ? { city_code: activeCityCode.value } : {}),
+  }
+}
+
+function fetchCompanyPage(page: number) {
+  return hasFilter.value
+    ? getCompanyFilteredList(buildCompanyParams(page))
+    : getCompanyList(buildCompanyParams(page))
+}
+
+function resetMobileLoadMore() {
+  extraCompanies.value = []
+  mobileLoadedPage.value = 1
+}
+
 const totalPages = computed(() => {
   const total = companies.value?.total || 0
   return Math.max(1, Math.ceil(total / 15))
 })
+
+const hasMoreToLoad = computed(() => mobileLoadedPage.value < totalPages.value)
 
 const companyList = computed(() => {
   const list = companies.value?.data
@@ -129,7 +157,7 @@ const filteredCompanies = computed(() => {
 })
 
 const companyCards = computed<CompanyCardView[]>(() => {
-  return filteredCompanies.value.map(company => mapCompanyCard(company))
+  return [...filteredCompanies.value, ...extraCompanies.value].map(company => mapCompanyCard(company))
 })
 
 function mapCompanyCard(company: CompanyDirectoryItem): CompanyCardView {
@@ -170,7 +198,26 @@ const paginationThemeOverrides = {
 
 watch([activeCity, activeScale, activeFunding], () => {
   activePage.value = 1
+  resetMobileLoadMore()
 })
+
+async function handleLoadMore() {
+  if (isLoadingMore.value || !hasMoreToLoad.value)
+    return
+
+  isLoadingMore.value = true
+  try {
+    const payload = await fetchCompanyPage(mobileLoadedPage.value + 1)
+    extraCompanies.value = [...extraCompanies.value, ...(payload?.data || [])]
+    mobileLoadedPage.value += 1
+  }
+  catch {
+    // 加载失败保持现状，可再次点击重试
+  }
+  finally {
+    isLoadingMore.value = false
+  }
+}
 
 function clearFilters() {
   activeCity.value = '全国'
@@ -184,55 +231,57 @@ function clearFilters() {
   <div class="company-directory-page">
     <main class="portal-container company-directory-main">
       <section class="company-filter-panel" aria-label="名企推荐筛选条件">
-        <div class="company-filter-row">
-          <strong>工作地点</strong>
-          <div class="company-filter-options">
-            <button
-              v-for="(item, idx) in cityFilterItems"
-              :key="item.code"
-              type="button"
-              :class="{ 'is-active': item.code === '__more__' ? isMoreCityActive : (item.code === '' ? !activeCityCode : item.code === activeCityCode), 'is-muted': item.code === '__more__' && !isMoreCityActive }"
-              @click="handleCityClick(item)"
-            >
-              {{ item.display }}
-              <span v-if="item.code === '__more__'" class="i-carbon-caret-right" />
-            </button>
+        <MobileFilterCollapse :active-count="activeFilterCount">
+          <div class="company-filter-row">
+            <strong>工作地点</strong>
+            <div class="company-filter-options">
+              <button
+                v-for="(item, idx) in cityFilterItems"
+                :key="item.code"
+                type="button"
+                :class="{ 'is-active': item.code === '__more__' ? isMoreCityActive : (item.code === '' ? !activeCityCode : item.code === activeCityCode), 'is-muted': item.code === '__more__' && !isMoreCityActive }"
+                @click="handleCityClick(item)"
+              >
+                {{ item.display }}
+                <span v-if="item.code === '__more__'" class="i-carbon-caret-right" />
+              </button>
+            </div>
           </div>
-        </div>
 
-        <div class="company-filter-row">
-          <strong>公司规模</strong>
-          <div class="company-filter-options">
-            <button
-              v-for="item in scaleFilters"
-              :key="item.code"
-              type="button"
-              :class="{ 'is-active': item.code === activeScale }"
-              @click="activeScale = item.code"
-            >
-              {{ item.name }}
-            </button>
+          <div class="company-filter-row">
+            <strong>公司规模</strong>
+            <div class="company-filter-options">
+              <button
+                v-for="item in scaleFilters"
+                :key="item.code"
+                type="button"
+                :class="{ 'is-active': item.code === activeScale }"
+                @click="activeScale = item.code"
+              >
+                {{ item.name }}
+              </button>
+            </div>
           </div>
-        </div>
 
-        <div class="company-filter-row is-extra">
-          <strong>融资阶段</strong>
-          <div class="company-filter-options">
-            <button
-              v-for="item in fundingFilters"
-              :key="item"
-              type="button"
-              :class="{ 'is-active': item === activeFunding }"
-              @click="activeFunding = item"
-            >
-              {{ item }}
+          <div class="company-filter-row is-extra">
+            <strong>融资阶段</strong>
+            <div class="company-filter-options">
+              <button
+                v-for="item in fundingFilters"
+                :key="item"
+                type="button"
+                :class="{ 'is-active': item === activeFunding }"
+                @click="activeFunding = item"
+              >
+                {{ item }}
+              </button>
+            </div>
+            <button type="button" class="company-filter-clear" @click="clearFilters">
+              <span class="i-carbon-trash-can" />
+              清空筛选条件
             </button>
           </div>
-          <button type="button" class="company-filter-clear" @click="clearFilters">
-            <span class="i-carbon-trash-can" />
-            清空筛选条件
-          </button>
-        </div>
+        </MobileFilterCollapse>
 
         <!-- <div class="company-filter-row is-extra">
           <strong>其他筛选</strong>
@@ -294,6 +343,15 @@ function clearFilters() {
           </template>
         </NaiveClientPagination>
       </nav>
+
+      <div v-if="companyCards.length > 0" class="company-load-more">
+        <button v-if="hasMoreToLoad" type="button" class="company-load-more-button" :disabled="isLoadingMore" @click="handleLoadMore">
+          {{ isLoadingMore ? '加载中...' : '加载更多' }}
+        </button>
+        <div v-else class="company-load-more-end">
+          没有更多了
+        </div>
+      </div>
     </main>
   </div>
 </template>
@@ -609,6 +667,10 @@ function clearFilters() {
   }
 }
 
+.company-load-more {
+  display: none;
+}
+
 @media (max-width: 1023px) {
   .company-filter-panel {
     padding: 22px 18px;
@@ -658,8 +720,36 @@ function clearFilters() {
   }
 
   .company-pagination {
-    flex-wrap: wrap;
-    justify-content: center;
+    display: none;
+  }
+
+  .company-load-more {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 16px;
+    align-items: center;
+  }
+
+  .company-load-more-button {
+    width: 100%;
+    height: 40px;
+    border: 1px solid rgba(216, 219, 226, 1);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 1);
+    color: rgba(102, 102, 102, 1);
+    cursor: pointer;
+    font-size: 14px;
+  }
+
+  .company-load-more-button:disabled {
+    cursor: wait;
+    opacity: 0.6;
+  }
+
+  .company-load-more-end {
+    color: rgba(170, 170, 170, 1);
+    font-size: 13px;
   }
 }
 </style>

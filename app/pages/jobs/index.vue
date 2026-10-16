@@ -80,6 +80,9 @@ const educationLevelSelectOptions = [{ label: '学历要求', value: 0 }, ...edu
 const companySizeSelectOptions = [{ label: '公司规模', value: 0 }, ...companySizeOptions.filter(item => item.value !== 0)]
 
 const fakeJobs: TalentJobItem[] = []
+const extraJobs = ref<TalentJobItem[]>([])
+const mobileLoadedPage = ref(1)
+const isLoadingMore = ref(false)
 
 const currentCityCode = computed(() => siteStore.currentCityCode === '000000' ? undefined : siteStore.currentCityCode)
 const currentCityFilterLabel = computed(() => {
@@ -120,8 +123,12 @@ const { data: talentJobsData, pending: isLoading, refresh: refreshJobs } = await
 )
 
 const jobList = computed<TalentJobItem[]>(() => talentJobsData.value?.data || [])
-const displayJobs = computed(() => jobList.value.length ? jobList.value : fakeJobs)
+const displayJobs = computed(() => {
+  const merged = [...jobList.value, ...extraJobs.value]
+  return merged.length ? merged : fakeJobs
+})
 const lastPage = computed(() => talentJobsData.value?.last_page || 1)
+const hasMoreToLoad = computed(() => mobileLoadedPage.value < lastPage.value)
 const pageNumbers = computed(() => {
   const pages: number[] = []
   const start = Math.max(1, currentPage.value - 2)
@@ -173,23 +180,50 @@ function createFakeJob(id: number, title: string, companyName: string, salaryMin
   }
 }
 
+function buildJobsQuery(page: number): TalentJobQuery {
+  return {
+    keyword: keyword.value || undefined,
+    city_code: selectedCityCode.value || undefined,
+    employment_type: selectedEmploymentTypeFilter.value || undefined,
+    education_level: selectedEducationLevelFilter.value || undefined,
+    company_size: selectedCompanySizeFilter.value || undefined,
+    sort: sortTab.value === 'all' ? undefined : sortTab.value,
+    ...resolveExperienceRange(selectedExperienceFilter.value),
+    ...resolveSalaryRange(selectedSalaryFilter.value),
+    per_page: 10,
+    page,
+  } satisfies TalentJobQuery
+}
+
 async function loadJobs() {
   try {
-    return await searchTalentJobs({
-      keyword: keyword.value || undefined,
-      city_code: selectedCityCode.value || undefined,
-      employment_type: selectedEmploymentTypeFilter.value || undefined,
-      education_level: selectedEducationLevelFilter.value || undefined,
-      company_size: selectedCompanySizeFilter.value || undefined,
-      sort: sortTab.value === 'all' ? undefined : sortTab.value,
-      ...resolveExperienceRange(selectedExperienceFilter.value),
-      ...resolveSalaryRange(selectedSalaryFilter.value),
-      per_page: 10,
-      page: currentPage.value,
-    } satisfies TalentJobQuery, userStore.authHeader || '')
+    return await searchTalentJobs(buildJobsQuery(currentPage.value), userStore.authHeader || '')
   }
   catch {
     return null
+  }
+}
+
+function resetMobileLoadMore() {
+  extraJobs.value = []
+  mobileLoadedPage.value = 1
+}
+
+async function handleLoadMore() {
+  if (isLoadingMore.value || !hasMoreToLoad.value)
+    return
+
+  isLoadingMore.value = true
+  try {
+    const payload = await searchTalentJobs(buildJobsQuery(mobileLoadedPage.value + 1), userStore.authHeader || '')
+    extraJobs.value = [...extraJobs.value, ...(payload?.data || [])]
+    mobileLoadedPage.value += 1
+  }
+  catch {
+    pushGlobalNotice('加载失败，请稍后重试')
+  }
+  finally {
+    isLoadingMore.value = false
   }
 }
 
@@ -297,6 +331,7 @@ onBeforeUnmount(() => {
 watch(currentCityFilterLabel, (value) => {
   if (!cityFilterTouched.value && selectedCityFilter.value !== value) {
     currentPage.value = 1
+    resetMobileLoadMore()
     selectedCityFilter.value = value
   }
 }, { immediate: true })
@@ -349,11 +384,13 @@ function updateCustomSalaryMax(value: number | null) {
 
 async function handleSearch() {
   currentPage.value = 1
+  resetMobileLoadMore()
   await refreshJobs()
 }
 
 function handleFilterChange() {
   currentPage.value = 1
+  resetMobileLoadMore()
   refreshJobs()
 }
 
@@ -426,6 +463,8 @@ function getAreaLabel(job: TalentJobItem) {
 }
 
 function updateJobFavoriteState(jobId: number, isFavorited: boolean) {
+  extraJobs.value = extraJobs.value.map(item => item.id === jobId ? { ...item, is_favorited: isFavorited } : item)
+
   if (!talentJobsData.value)
     return
 
@@ -496,7 +535,7 @@ async function handleCommunicate(job: TalentJobItem) {
   <div class="bg-[#f1f3f8] pb-10">
     <section class="mx-auto max-w-[1200px] px-4 pt-5 lg:px-0">
       <div class="rounded-[6px] bg-white shadow-[0_8px_22px_rgba(43,64,94,0.08)]">
-        <div class="border-b border-[#eef0f3] px-8 py-5 text-[20px] text-[#ff9f00] font-semibold">
+        <div class="border-b border-[#eef0f3] px-4 py-4 text-[18px] text-[#ff9f00] font-semibold sm:px-8 sm:py-5 sm:text-[20px]">
           {{ keyword || '职位搜索' }}
         </div>
         <JobListFilterPanel
@@ -529,7 +568,7 @@ async function handleCommunicate(job: TalentJobItem) {
         />
       </div>
 
-      <div class="mt-4 h-[48px] rounded-[6px] bg-white px-8">
+      <div class="mt-4 h-[48px] rounded-[6px] bg-white px-4 sm:px-8">
         <button
           v-for="tab in [{ key: 'all', label: '综合' }, { key: 'latest', label: '最新' }, { key: 'hot', label: '最热' }]"
           :key="tab.key"
@@ -569,7 +608,7 @@ async function handleCommunicate(job: TalentJobItem) {
             />
           </template>
 
-          <div v-if="lastPage > 1 && !isLoading" class="flex items-center justify-center gap-2 py-6">
+          <div v-if="lastPage > 1 && !isLoading" class="jobs-pagination flex items-center justify-center gap-2 py-6">
             <button class="h-8 border border-[#d8dbe2] bg-white px-3 text-[#999] disabled:opacity-40" :disabled="currentPage <= 1" @click="goToPage(currentPage - 1)">
               上一页
             </button>
@@ -586,6 +625,15 @@ async function handleCommunicate(job: TalentJobItem) {
               下一页
             </button>
           </div>
+
+          <div v-if="displayJobs.length > 0" class="jobs-load-more">
+            <button v-if="hasMoreToLoad" type="button" class="jobs-load-more-button" :disabled="isLoadingMore" @click="handleLoadMore">
+              {{ isLoadingMore ? '加载中...' : '加载更多' }}
+            </button>
+            <div v-else class="jobs-load-more-end">
+              没有更多了
+            </div>
+          </div>
         </main>
 
         <aside class="hidden lg:block">
@@ -595,3 +643,44 @@ async function handleCommunicate(job: TalentJobItem) {
     </section>
   </div>
 </template>
+
+<style scoped>
+.jobs-load-more {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .jobs-pagination {
+    display: none;
+  }
+
+  .jobs-load-more {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 0 20px;
+    align-items: center;
+  }
+
+  .jobs-load-more-button {
+    width: 100%;
+    height: 40px;
+    border: 1px solid #e3e6ec;
+    border-radius: 6px;
+    background: #fff;
+    color: #666;
+    cursor: pointer;
+    font-size: 14px;
+  }
+
+  .jobs-load-more-button:disabled {
+    cursor: wait;
+    opacity: 0.6;
+  }
+
+  .jobs-load-more-end {
+    color: #aaa;
+    font-size: 13px;
+  }
+}
+</style>
