@@ -120,4 +120,13 @@ withDefaults(defineProps<{
   background: radial-gradient(circle at 35% 35%, #fff, #ffcf33 32%, #0b83ff 33%, #0b83ff 43%, transparent 44%);
   opacity: 0.75;
 }
+
+/* 移动端：卡片封面固定比例 + cover，单列后保持整齐不变形（PC 零变化） */
+@media (max-width: 640px) {
+  .activity-cover,
+  .activity-cover.is-large {
+    height: auto;
+    aspect-ratio: 2 / 1;
+  }
+}
 </style>

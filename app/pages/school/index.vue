@@ -1622,12 +1622,17 @@ onBeforeUnmount(() => {
   }
 
   .school-dual-grid,
-  .school-presentation-grid,
-  .school-section-head,
-  .school-section-title-row {
+  .school-presentation-grid {
     display: grid;
     grid-template-columns: 1fr;
-    justify-items: start;
+  }
+
+  /* 标题行保持 PC 的 flex space-between：“更多”与标题同行靠右 */
+  .school-section-head,
+  .school-section-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
   }
 
   .school-headline-item {
@@ -1637,6 +1642,53 @@ onBeforeUnmount(() => {
   .school-headline-item > span {
     width: 34px;
     height: 34px;
+  }
+
+  /* 封面图：卡片阵列固定比例 + cover，单列后保持整齐不变形 */
+  .school-dual-cover,
+  .school-presentation-cover {
+    height: auto;
+    aspect-ratio: 2 / 1;
+  }
+
+  /* 单列后字号与留白微调 */
+  .school-company-card h3,
+  .school-job-title h3,
+  .school-job-title strong {
+    font-size: 16px;
+  }
+
+  .school-company-actions span {
+    font-size: 14px;
+  }
+
+  .school-presentation-body h3,
+  .school-dual-card h3 {
+    min-height: auto;
+    font-size: 15px;
+  }
+
+  .school-content-section {
+    margin-top: 28px;
+  }
+}
+
+/* 移动端（触屏）移除 hover 效果，PC 端 hover 不受影响 */
+@media (hover: none) and (max-width: 640px) {
+  .school-section-head a:hover {
+    color: rgba(153, 153, 153, 1);
+  }
+
+  .school-dual-card:hover,
+  .school-company-card:hover,
+  .school-presentation-card:hover,
+  .school-job-card:hover {
+    box-shadow: none;
+    transform: none;
+  }
+
+  .school-headline-item:hover strong {
+    color: rgba(34, 34, 34, 1);
   }
 }
 </style>

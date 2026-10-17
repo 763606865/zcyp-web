@@ -98,6 +98,11 @@ const { data: schoolActivitiesData, pending: loading, refresh: refreshSchoolActi
 const items = computed<SchoolActivityListItem[]>(() => schoolActivitiesData.value?.data || [])
 const total = computed(() => schoolActivitiesData.value?.total || 0)
 
+const activeFilterCount = computed(() => {
+  const flags = [Boolean(keyword.value), typeFilter.value !== null, Boolean(provinceCode.value), Boolean(cityCode.value), Boolean(districtCode.value)]
+  return flags.filter(Boolean).length
+})
+
 function onSearch() {
   page.value = 1
   refreshSchoolActivities()
@@ -119,8 +124,8 @@ function resolveActivityRoute(item: SchoolActivityListItem) {
 
 <template>
   <div class="mx-auto px-4 max-w-[1240px] lg:px-6">
-    <div class="py-8">
-      <h1 class="text-[28px] text-[#24180c] font-bold">
+    <div class="py-8 max-sm:py-6">
+      <h1 class="text-[28px] text-[#24180c] font-bold max-sm:text-[22px]">
         校园活动
       </h1>
       <p class="text-[14px] text-[#6f6556] mt-2">
@@ -128,46 +133,48 @@ function resolveActivityRoute(item: SchoolActivityListItem) {
       </p>
     </div>
 
-    <div class="flex flex-wrap gap-3 items-center">
-      <input v-model="keyword" type="text" placeholder="搜索活动…" class="text-[13px] text-[#24180c] px-4 outline-none border border-[#ecd8a9] rounded-[12px] bg-white h-[42px] w-[240px] transition focus:border-[#d79a19]" @keyup.enter="onSearch">
+    <MobileFilterCollapse :active-count="activeFilterCount">
+      <div class="flex flex-wrap gap-3 items-center max-sm:flex-col max-sm:gap-2 max-sm:items-stretch">
+        <input v-model="keyword" type="text" placeholder="搜索活动…" class="text-[13px] text-[#24180c] px-4 outline-none border border-[#ecd8a9] rounded-[12px] bg-white h-[42px] w-[240px] transition focus:border-[#d79a19] max-sm:w-full" @keyup.enter="onSearch">
 
-      <select v-model="typeFilter" class="text-[13px] text-[#24180c] px-3 outline-none border border-[#ecd8a9] rounded-[12px] bg-white h-[42px] transition focus:border-[#d79a19]">
-        <option v-for="opt in typeOptions" :key="String(opt.value)" :value="opt.value">
-          {{ opt.label }}
-        </option>
-      </select>
+        <select v-model="typeFilter" class="text-[13px] text-[#24180c] px-3 outline-none border border-[#ecd8a9] rounded-[12px] bg-white h-[42px] transition focus:border-[#d79a19] max-sm:w-full">
+          <option v-for="opt in typeOptions" :key="String(opt.value)" :value="opt.value">
+            {{ opt.label }}
+          </option>
+        </select>
 
-      <select v-model="provinceCode" class="text-[13px] text-[#24180c] px-3 outline-none border border-[#ecd8a9] rounded-[12px] bg-white h-[42px] transition focus:border-[#d79a19]" @change="onProvinceChange(($event.target as HTMLSelectElement).value)">
-        <option :value="null">
-          选择省份
-        </option>
-        <option v-for="p in provinceOptions" :key="p.value" :value="p.value">
-          {{ p.label }}
-        </option>
-      </select>
+        <select v-model="provinceCode" class="text-[13px] text-[#24180c] px-3 outline-none border border-[#ecd8a9] rounded-[12px] bg-white h-[42px] transition focus:border-[#d79a19] max-sm:w-full" @change="onProvinceChange(($event.target as HTMLSelectElement).value)">
+          <option :value="null">
+            选择省份
+          </option>
+          <option v-for="p in provinceOptions" :key="p.value" :value="p.value">
+            {{ p.label }}
+          </option>
+        </select>
 
-      <select v-model="cityCode" class="text-[13px] text-[#24180c] px-3 outline-none border border-[#ecd8a9] rounded-[12px] bg-white h-[42px] transition focus:border-[#d79a19] disabled:opacity-40" :disabled="!provinceCode" @change="onCityChange(($event.target as HTMLSelectElement).value)">
-        <option :value="null">
-          选择城市
-        </option>
-        <option v-for="c in cityOptions" :key="c.value" :value="c.value">
-          {{ c.label }}
-        </option>
-      </select>
+        <select v-model="cityCode" class="text-[13px] text-[#24180c] px-3 outline-none border border-[#ecd8a9] rounded-[12px] bg-white h-[42px] transition focus:border-[#d79a19] disabled:opacity-40 max-sm:w-full" :disabled="!provinceCode" @change="onCityChange(($event.target as HTMLSelectElement).value)">
+          <option :value="null">
+            选择城市
+          </option>
+          <option v-for="c in cityOptions" :key="c.value" :value="c.value">
+            {{ c.label }}
+          </option>
+        </select>
 
-      <select v-model="districtCode" class="text-[13px] text-[#24180c] px-3 outline-none border border-[#ecd8a9] rounded-[12px] bg-white h-[42px] transition focus:border-[#d79a19] disabled:opacity-40" :disabled="!cityCode">
-        <option :value="null">
-          选择区县
-        </option>
-        <option v-for="d in districtOptions" :key="d.value" :value="d.value">
-          {{ d.label }}
-        </option>
-      </select>
+        <select v-model="districtCode" class="text-[13px] text-[#24180c] px-3 outline-none border border-[#ecd8a9] rounded-[12px] bg-white h-[42px] transition focus:border-[#d79a19] disabled:opacity-40 max-sm:w-full" :disabled="!cityCode">
+          <option :value="null">
+            选择区县
+          </option>
+          <option v-for="d in districtOptions" :key="d.value" :value="d.value">
+            {{ d.label }}
+          </option>
+        </select>
 
-      <button class="text-[13px] text-white font-semibold px-5 rounded-[12px] border-none h-[42px] cursor-pointer shadow-[0_8px_16px_rgba(255,165,0,0.15)] transition from-[#ffbe3b] to-[#ea9400] bg-gradient-to-r hover:brightness-105" @click="onSearch">
-        搜索
-      </button>
-    </div>
+        <button class="text-[13px] text-white font-semibold px-5 rounded-[12px] border-none h-[42px] cursor-pointer shadow-[0_8px_16px_rgba(255,165,0,0.15)] transition from-[#ffbe3b] to-[#ea9400] bg-gradient-to-r max-sm:w-full hover:brightness-105" @click="onSearch">
+          搜索
+        </button>
+      </div>
+    </MobileFilterCollapse>
 
     <div class="mt-6 space-y-4">
       <div v-if="loading" class="text-[14px] text-[#b6a27a] py-16 text-center">
@@ -176,16 +183,16 @@ function resolveActivityRoute(item: SchoolActivityListItem) {
       <template v-else-if="items.length">
         <article
           v-for="item in items" :key="item.id"
-          class="px-6 py-5 rounded-[18px] bg-white cursor-pointer ring-1 ring-[#f1e4c6] shadow-[0_8px_20px_rgba(148,92,0,0.04)] transition hover:shadow-[0_12px_28px_rgba(148,92,0,0.08)]"
+          class="px-6 py-5 rounded-[18px] bg-white cursor-pointer ring-1 ring-[#f1e4c6] shadow-[0_8px_20px_rgba(148,92,0,0.04)] transition max-sm:px-4 max-sm:py-4 hover:shadow-[0_12px_28px_rgba(148,92,0,0.08)]"
           @click="router.push(resolveActivityRoute(item))"
         >
-          <div class="flex gap-5 items-start">
-            <div v-if="item.display_cover_image" class="rounded-[12px] bg-[#fef7e8] shrink-0 h-[100px] w-[160px] overflow-hidden">
+          <div class="flex gap-5 items-start max-sm:gap-3">
+            <div v-if="item.display_cover_image" class="rounded-[12px] bg-[#fef7e8] shrink-0 h-[100px] w-[160px] overflow-hidden max-sm:h-[80px] max-sm:w-[120px]">
               <img :src="item.display_cover_image" :alt="item.title" class="h-full w-full object-cover">
             </div>
             <div class="flex-1 min-w-0">
               <div class="flex gap-3 items-center">
-                <h2 class="text-[18px] text-[#24180c] font-semibold">
+                <h2 class="text-[18px] text-[#24180c] font-semibold max-sm:text-[16px]">
                   {{ item.title }}
                 </h2>
                 <span v-if="item.is_hot" class="text-[11px] text-red-500 font-medium px-2.5 py-0.5 rounded-full bg-red-50 shrink-0">热门</span>

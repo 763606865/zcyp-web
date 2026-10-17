@@ -23,8 +23,12 @@ defineProps<{
       <h3>{{ card.title }}</h3>
       <p>招聘职位： {{ card.jobs }}</p>
       <div class="presentation-actions">
-        <button type="button" :class="{ live: card.statusTone === 'live' }">{{ isReplay ? '观看回放' : card.status }}</button>
-        <button type="button">查看职位</button>
+        <button type="button" :class="{ live: card.statusTone === 'live' }">
+          {{ isReplay ? '观看回放' : card.status }}
+        </button>
+        <button type="button">
+          查看职位
+        </button>
       </div>
     </div>
   </NuxtLink>
@@ -81,5 +85,13 @@ defineProps<{
 .presentation-actions button.live {
   background: #ff5c45;
   color: #fff;
+}
+
+/* 移动端：封面固定比例 + cover（覆盖默认高度），单列后保持整齐不变形（PC 零变化） */
+@media (max-width: 640px) {
+  .presentation-card :deep(.activity-cover) {
+    height: auto;
+    aspect-ratio: 2 / 1;
+  }
 }
 </style>

@@ -332,5 +332,21 @@ onBeforeUnmount(() => {
   .article-header h1 {
     font-size: 24px;
   }
+
+  .article-cover {
+    max-height: 240px;
+    margin-bottom: 22px;
+  }
+
+  .article-content {
+    margin-top: 22px;
+    font-size: 15px;
+    line-height: 1.85;
+  }
+
+  .article-summary {
+    padding: 12px 14px;
+    font-size: 13px !important;
+  }
 }
 </style>

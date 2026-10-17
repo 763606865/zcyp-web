@@ -775,4 +775,11 @@ onBeforeUnmount(() => {
     justify-content: center;
   }
 }
+
+/* 移动端（触屏）移除 hover 效果，PC 端 hover 不受影响 */
+@media (hover: none) and (max-width: 640px) {
+  .article-row:hover h3 {
+    color: #222;
+  }
+}
 </style>
