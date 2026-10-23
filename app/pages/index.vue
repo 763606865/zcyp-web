@@ -103,7 +103,7 @@ const serviceEcosystemRows: ServiceEcosystemRow[] = [
       { label: '测评工具', to: 'https://check.myjobseek.com.cn', icon: 'i-carbon-user-profile', appCode: TALENT_ASSESSMENT_APP_CODE },
       { label: '应试能力测评', to: 'https://gangwei.jxujob.com', icon: 'i-carbon-exam-mode', appCode: 'gangwei' },
       { label: '在线学习', to: 'https://zcyp-classroom-web.jxhrm.com?source=zcyp', icon: 'i-carbon-education' },
-      { label: 'AI简历优化诊断', to: 'https://zcyp-landing-hub.jxhrm.com/', icon: 'i-carbon-ai-generate' },
+      { label: 'AI简历优化诊断', to: 'https://zcyp-landing-hub.jxhrm.com/aiResume?source=zcyp', icon: 'i-carbon-ai-generate' },
     ],
   },
 ]
