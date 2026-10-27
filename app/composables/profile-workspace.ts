@@ -1,4 +1,5 @@
 import type { AuthCurrentIdentity, AuthIdentityCode } from '~/types/auth'
+import { appEnv } from '~/config/env'
 
 const profileRouteMap: Record<AuthIdentityCode, string> = {
   jobseeker: '/profile/jobseeker',
@@ -17,7 +18,7 @@ function hasApprovedEmployerWorkspace(identity: AuthCurrentIdentity) {
   )
 }
 
-function _hasBoundCampusManagerWorkspace(identity: AuthCurrentIdentity) {
+function hasBoundCampusManagerWorkspace(identity: AuthCurrentIdentity) {
   return Boolean(
     identity
     && typeof identity === 'object'
@@ -55,8 +56,8 @@ export function resolveProfileWorkspaceRedirect(mode: 'index' | 'workspace', opt
   if (hasApprovedEmployerWorkspace(userStore.currentIdentityInfo))
     return '/employer/dashboard'
 
-  // if (hasBoundCampusManagerWorkspace(userStore.currentIdentityInfo))
-  //   return '/campus/dashboard'
+  if (appEnv.campusManagerEnabled && hasBoundCampusManagerWorkspace(userStore.currentIdentityInfo))
+    return '/campus/dashboard'
 
   return options.getFallbackRedirectTo?.() || null
 }

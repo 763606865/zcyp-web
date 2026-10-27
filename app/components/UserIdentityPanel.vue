@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { AuthIdentityCode } from '~/types/auth'
+import { useIdentityOptions } from '~/composables/identity-switch'
 
 const props = withDefaults(defineProps<{
   variant?: 'warm' | 'slate'
@@ -10,6 +11,7 @@ const props = withDefaults(defineProps<{
 const userStore = useUserStore()
 const { logout } = useAuthActions()
 const { displayName, currentIdentityLabel, avatarText, profileRoute } = usePortalUser()
+const identityOptions = useIdentityOptions()
 const panelRef = ref<HTMLElement | null>(null)
 
 const isWarm = computed(() => props.variant === 'warm')

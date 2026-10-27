@@ -12,7 +12,7 @@ function parseBoolean(value?: string) {
   return value === 'true'
 }
 
-function readPublicConfig(key: 'siteName' | 'apiBaseUrl' | 'imBaseUrl' | 'useMock' | 'amapKey' | 'cnzzKey' | 'dynamicRender') {
+function readPublicConfig(key: 'siteName' | 'apiBaseUrl' | 'imBaseUrl' | 'useMock' | 'amapKey' | 'cnzzKey' | 'campusManagerEnabled' | 'dynamicRender') {
   try {
     return useRuntimeConfig().public[key]
   }
@@ -51,6 +51,10 @@ export const appEnv = {
   },
   get cnzzKey() {
     return String(readPublicConfig('cnzzKey') || nodeProcess.env.NUXT_PUBLIC_CNZZ_KEY || '')
+  },
+  get campusManagerEnabled() {
+    const value = readPublicConfig('campusManagerEnabled') ?? nodeProcess.env.NUXT_PUBLIC_CAMPUS_MANAGER_ENABLED
+    return value == null ? true : parseBoolean(String(value))
   },
   get dynamicRender() {
     return parseBoolean(String(readPublicConfig('dynamicRender') ?? nodeProcess.env.NUXT_DYNAMIC_RENDER ?? 'false'))

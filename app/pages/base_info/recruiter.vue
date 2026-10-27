@@ -2,7 +2,7 @@
 import type { CompanyProfile, CompanyRecord } from '~/types/company'
 import NInput from '~/components/NaiveClientInput.vue'
 import NSelect from '~/components/NaiveClientSelect.vue'
-import { identitySwitchOptions, useIdentitySwitching } from '~/composables/identity-switch'
+import { useIdentitySwitching, useIdentitySwitchOptions } from '~/composables/identity-switch'
 import { getAuthMe } from '~/services/auth'
 import { bindCompany, getCompanyProfile, lookupCompany, recognizeBusinessLicense, registerAndBindCompany, updateCompanyProfile } from '~/services/company'
 import { ApiRequestError, resolveAssetUrl } from '~/services/http'
@@ -564,7 +564,7 @@ const { switchIdentity: switchIdentityTo } = useIdentitySwitching({
   getRedirectTo: () => '/profile',
 })
 
-const identitySwitchOptionsList = identitySwitchOptions.filter(
+const identitySwitchOptionsList = useIdentitySwitchOptions().filter(
   item => item.code !== userStore.currentIdentity,
 )
 

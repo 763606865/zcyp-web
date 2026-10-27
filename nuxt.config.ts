@@ -54,6 +54,7 @@ export default defineNuxtConfig({
       useMock: process.env.NUXT_PUBLIC_USE_MOCK || 'true',
       amapKey: process.env.NUXT_PUBLIC_AMAP_KEY || '',
       cnzzKey: process.env.NUXT_PUBLIC_CNZZ_KEY || '',
+      campusManagerEnabled: process.env.NUXT_PUBLIC_CAMPUS_MANAGER_ENABLED || 'true',
       dynamicRender: process.env.NUXT_DYNAMIC_RENDER || 'false',
     },
   },

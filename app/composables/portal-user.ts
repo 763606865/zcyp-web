@@ -1,4 +1,5 @@
 import type { AuthIdentityCode } from '~/types/auth'
+import { appEnv } from '~/config/env'
 
 interface PortalAccountMenuItem {
   label: string
@@ -8,18 +9,23 @@ interface PortalAccountMenuItem {
 const identityLabels: Record<AuthIdentityCode, string> = {
   jobseeker: '求职者',
   employer: '招聘方',
-  // campus_manager: '校招负责人',
+  campus_manager: '校招负责人',
   // government_manager: '政府机构负责人',
   // headhunter: '猎头',
 } as Record<AuthIdentityCode, string>
 
 export function usePortalUser() {
   const userStore = useUserStore()
+  const campusManagerEnabled = appEnv.campusManagerEnabled
 
   const displayName = computed(() => userStore.user?.nickname || userStore.user?.name || userStore.user?.phone || '当前用户')
   const currentIdentityLabel = computed(() => {
     const identity = userStore.currentIdentity
-    return identity ? identityLabels[identity] : '未设置身份'
+    if (!identity)
+      return '未设置身份'
+    if (identity === 'campus_manager' && !campusManagerEnabled)
+      return '未设置身份'
+    return identityLabels[identity]
   })
   const avatarText = computed(() => displayName.value.slice(0, 1).toUpperCase())
   const profileRoute = computed(() => resolveIdentityProfileRoute(userStore.currentIdentity))

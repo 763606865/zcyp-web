@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { AuthIdentityCode } from '~/types/auth'
+import { appEnv } from '~/config/env'
 
 definePageMeta({
   layout: 'blank',
@@ -18,17 +19,24 @@ const basicInfoRouteMap: Partial<Record<AuthIdentityCode, string>> = {
 const identityLabelMap: Record<AuthIdentityCode, string> = {
   jobseeker: '求职者',
   employer: '招聘方',
-  // campus_manager: '校招负责人',
+  campus_manager: '校招负责人',
   government_manager: '政府机构负责人',
   headhunter: '猎头',
 } as Record<AuthIdentityCode, string>
 
 const isRedirecting = ref(false)
+const campusManagerEnabled = appEnv.campusManagerEnabled
 
 const currentIdentityLabel = computed(() => {
   const identity = userStore.currentIdentity
 
-  return identity ? identityLabelMap[identity] : '未选择身份'
+  if (!identity)
+    return '未选择身份'
+
+  if (identity === 'campus_manager' && !campusManagerEnabled)
+    return '未选择身份'
+
+  return identityLabelMap[identity]
 })
 
 const gatewayTitle = computed(() => {

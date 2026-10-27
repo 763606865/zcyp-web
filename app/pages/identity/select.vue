@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { appEnv } from '~/config/env'
 import { refreshToken } from '~/services/auth'
 import { ApiRequestError } from '~/services/http'
 import { authIdentityTypeValueMap } from '~/types/auth'
@@ -25,7 +26,7 @@ const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 
-const identityOptions: IdentityOption[] = [
+const allIdentityOptions: IdentityOption[] = [
   {
     code: 'jobseeker',
     title: '求职者',
@@ -46,16 +47,16 @@ const identityOptions: IdentityOption[] = [
     nextStep: '绑定企业信息',
     directAction: '绑定企业后可发布职位与管理招聘流程',
   },
-  // {
-  //   code: 'campus_manager',
-  //   title: '校招负责人',
-  //   subtitle: '维护校招信息与学校合作',
-  //   icon: 'i-carbon-education',
-  //   description: '适用于高校就业老师、校招联络员和校园招聘项目负责人。',
-  //   requirements: ['需检查是否已绑定学校 `school`', '若 `school = null`，登录后先去绑定学校'],
-  //   nextStep: '绑定学校信息',
-  //   directAction: '绑定学校后可管理校招专区与校企合作内容',
-  // },
+  {
+    code: 'campus_manager',
+    title: '校招负责人',
+    subtitle: '维护校招信息与学校合作',
+    icon: 'i-carbon-education',
+    description: '适用于高校就业老师、校招联络员和校园招聘项目负责人。',
+    requirements: ['需检查是否已绑定学校 `school`', '若 `school = null`，登录后先去绑定学校'],
+    nextStep: '绑定学校信息',
+    directAction: '绑定学校后可管理校招专区与校企合作内容',
+  },
   {
     code: 'government_manager',
     title: '政府机构负责人',
@@ -82,7 +83,14 @@ const selectedCode = ref<IdentityCode>('jobseeker')
 const isSubmitting = ref(false)
 const errorMessage = ref('')
 
-const selectedIdentity = computed<IdentityOption>(() => identityOptions.find(item => item.code === selectedCode.value) ?? identityOptions[0]!)
+const identityOptions = computed<IdentityOption[]>(() => {
+  if (appEnv.campusManagerEnabled)
+    return allIdentityOptions
+
+  return allIdentityOptions.filter(item => item.code !== 'campus_manager')
+})
+
+const selectedIdentity = computed<IdentityOption>(() => identityOptions.value.find(item => item.code === selectedCode.value) ?? identityOptions.value[0]!)
 const postAuthRedirect = computed(() => resolveAuthRedirectTarget(route.query.redirect))
 
 const fromLogin = computed(() => route.query.from === 'login')

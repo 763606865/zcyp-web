@@ -1,24 +1,37 @@
 import type { AuthIdentityCode } from '~/types/auth'
+import { appEnv } from '~/config/env'
 import { refreshToken } from '~/services/auth'
 import { ApiRequestError } from '~/services/http'
 import { authIdentityTypeValueMap } from '~/types/auth'
 import { pushGlobalNotice } from '~/utils/notice'
 
-export const identityOptions: { code: AuthIdentityCode, label: string }[] = [
+const identityOptions: { code: AuthIdentityCode, label: string }[] = [
   { code: 'jobseeker', label: '求职者' },
   { code: 'employer', label: '招聘方' },
-  // { code: 'campus_manager', label: '校招负责人' },
+  { code: 'campus_manager', label: '校招负责人' },
   // { code: 'government_manager', label: '政府机构负责人' },
   // { code: 'headhunter', label: '猎头' },
 ]
 
-export const identitySwitchOptions: { code: AuthIdentityCode, title: string, subtitle: string, icon: string }[] = [
+const identitySwitchOptions: { code: AuthIdentityCode, title: string, subtitle: string, icon: string }[] = [
   { code: 'jobseeker', title: '求职者', subtitle: '投递职位与管理简历', icon: 'i-carbon-user-avatar-filled-alt' },
   { code: 'employer', title: '招聘方', subtitle: '发布职位与管理企业招聘', icon: 'i-carbon-building' },
-  // { code: 'campus_manager', title: '校招负责人', subtitle: '维护校招信息与学校合作', icon: 'i-carbon-education' },
+  { code: 'campus_manager', title: '校招负责人', subtitle: '维护校招信息与学校合作', icon: 'i-carbon-education' },
   // { code: 'government_manager', title: '政府机构负责人', subtitle: '发布地方招聘与区域政策信息', icon: 'i-carbon-building-government' },
   // { code: 'headhunter', title: '猎头', subtitle: '委托招聘与候选人推荐', icon: 'i-carbon-user-multiple' },
 ]
+
+export function useIdentityOptions() {
+  return appEnv.campusManagerEnabled
+    ? identityOptions
+    : identityOptions.filter(item => item.code !== 'campus_manager')
+}
+
+export function useIdentitySwitchOptions() {
+  return appEnv.campusManagerEnabled
+    ? identitySwitchOptions
+    : identitySwitchOptions.filter(item => item.code !== 'campus_manager')
+}
 
 export function resolveIdentityProfileRoute(identity: AuthIdentityCode | null) {
   const profileRouteMap: Record<AuthIdentityCode, string> = {

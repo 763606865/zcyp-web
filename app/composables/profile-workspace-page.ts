@@ -1,4 +1,6 @@
 import type { AuthIdentityCode } from '~/types/auth'
+import { useIdentitySwitchOptions } from '~/composables/identity-switch'
+import { appEnv } from '~/config/env'
 
 export interface IdentityWorkspaceCard {
   title: string
@@ -20,7 +22,7 @@ type ProfileWorkspaceVariant = 'default' | 'recruiter' | 'campus-manager'
 const identityLabels: Record<AuthIdentityCode, string> = {
   jobseeker: '求职者',
   employer: '招聘方',
-  // campus_manager: '校招负责人',
+  campus_manager: '校招负责人',
   // government_manager: '政府机构负责人',
   // headhunter: '猎头',
 } as Record<AuthIdentityCode, string>
@@ -28,12 +30,12 @@ const identityLabels: Record<AuthIdentityCode, string> = {
 const identityDescriptions: Record<AuthIdentityCode, string> = {
   jobseeker: '下一步将承接在线简历完善、职位投递与求职进度管理。',
   employer: '下一步将承接企业绑定、职位发布与招聘流程管理。',
-  // campus_manager: '下一步将承接学校绑定、校招专区与合作项目维护。',
+  campus_manager: '下一步将承接学校绑定、校招专区与合作项目维护。',
   government_manager: '下一步将承接所属地方关联、本地专题与机构岗位管理。',
   headhunter: '下一步将承接职位发布、候选人推荐与委托招聘管理。',
-} as Record<AuthIdentityCode, string>
+}
 
-const baseWorkspaceCards: Partial<Record<AuthIdentityCode, IdentityWorkspaceCard[]>> = {
+const baseWorkspaceCards: Record<AuthIdentityCode, IdentityWorkspaceCard[]> = {
   jobseeker: [
     {
       title: '完善在线简历',
@@ -76,27 +78,27 @@ const baseWorkspaceCards: Partial<Record<AuthIdentityCode, IdentityWorkspaceCard
       tone: 'from-[#fff5e3] to-[#ffe6b4]',
     },
   ],
-  // campus_manager: [
-  //   {
-  //     title: '绑定学校信息',
-  //     description: '完成学校主体关联后，后续才能继续维护校园招聘专区。',
-  //     cta: '进入学校绑定',
-  //     tone: 'from-[#fff7e8] to-[#ffeac1]',
-  //     to: '/school/bind',
-  //   },
-  //   {
-  //     title: '管理校招专区',
-  //     description: '后续承接校招项目、活动场次与对外展示内容。',
-  //     cta: '待接入专区管理',
-  //     tone: 'from-[#fffaf1] to-[#ffefcd]',
-  //   },
-  //   {
-  //     title: '维护校企合作',
-  //     description: '统一查看合作企业、合作记录和年度校园招聘安排。',
-  //     cta: '待接入合作管理',
-  //     tone: 'from-[#fff5e2] to-[#ffeabf]',
-  //   },
-  // ],
+  campus_manager: [
+    {
+      title: '绑定学校信息',
+      description: '完成学校主体关联后，后续才能继续维护校园招聘专区。',
+      cta: '进入学校绑定',
+      tone: 'from-[#fff7e8] to-[#ffeac1]',
+      to: '/school/bind',
+    },
+    {
+      title: '管理校招专区',
+      description: '后续承接校招项目、活动场次与对外展示内容。',
+      cta: '待接入专区管理',
+      tone: 'from-[#fffaf1] to-[#ffefcd]',
+    },
+    {
+      title: '维护校企合作',
+      description: '统一查看合作企业、合作记录和年度校园招聘安排。',
+      cta: '待接入合作管理',
+      tone: 'from-[#fff5e2] to-[#ffeabf]',
+    },
+  ],
   government_manager: [
     {
       title: '关联所属地方',
@@ -146,6 +148,7 @@ function cloneCards(cards: IdentityWorkspaceCard[]) {
 
 export function useProfileWorkspacePage(variant: ProfileWorkspaceVariant = 'default') {
   const userStore = useUserStore()
+  const campusManagerEnabled = appEnv.campusManagerEnabled
 
   const hasBoundOrganization = computed(() => {
     const identity = userStore.currentIdentityInfo
@@ -160,16 +163,27 @@ export function useProfileWorkspacePage(variant: ProfileWorkspaceVariant = 'defa
   const currentIdentity = computed(() => userStore.currentIdentity)
   const currentIdentityLabel = computed(() => {
     const identity = currentIdentity.value
-    return identity ? identityLabels[identity] : '未设置默认身份'
+    if (!identity)
+      return '未设置默认身份'
+    if (identity === 'campus_manager' && !campusManagerEnabled)
+      return '未设置默认身份'
+    return identityLabels[identity]
   })
   const currentIdentityDescription = computed(() => {
     const identity = currentIdentity.value
-    return identity ? identityDescriptions[identity] : '默认身份尚未设置，暂时无法继续身份初始化流程。'
+    if (!identity)
+      return '默认身份尚未设置，暂时无法继续身份初始化流程。'
+    if (identity === 'campus_manager' && !campusManagerEnabled)
+      return '校招负责人身份暂未开放，请切换到其他身份后继续使用。'
+    return identityDescriptions[identity]
   })
 
   const workspaceCards = computed<IdentityWorkspaceCard[]>(() => {
     const identity = currentIdentity.value
-    const base = identity ? cloneCards(baseWorkspaceCards[identity] ?? []) : []
+    if (!identity || (identity === 'campus_manager' && !campusManagerEnabled))
+      return []
+
+    const base = cloneCards(baseWorkspaceCards[identity])
 
     if (identity === 'employer') {
       const isReady = variant === 'recruiter' ? hasBoundOrganization.value : hasApprovedOrganization.value
@@ -191,40 +205,40 @@ export function useProfileWorkspacePage(variant: ProfileWorkspaceVariant = 'defa
       return [firstCard, ...base.slice(1)]
     }
 
-    // if (identity === 'campus_manager' && variant === 'campus-manager') {
-    //   const firstCard: IdentityWorkspaceCard = userStore.hasBasicInfo
-    //     ? {
-    //         title: '进入校招后台',
-    //         description: '管理数据看板、校企对接、招聘活动、展位设置与院校信息。',
-    //         cta: '进入后台',
-    //         tone: 'from-[#e8f5e9] to-[#c8e6c9]',
-    //         to: '/campus/dashboard',
-    //       }
-    //     : {
-    //         title: '绑定学校信息',
-    //         description: '完成学校主体关联后，后续才能继续维护校园招聘专区。',
-    //         cta: '进入学校绑定',
-    //         tone: 'from-[#fff7e8] to-[#ffeac1]',
-    //         to: '/school/bind',
-    //       }
-    //
-    //   const otherCards = [
-    //     {
-    //       title: '管理校招专区',
-    //       description: '后续承接校招项目、活动场次与对外展示内容。',
-    //       cta: '待接入专区管理',
-    //       tone: 'from-[#fffaf1] to-[#ffefcd]',
-    //     },
-    //     {
-    //       title: '维护校企合作',
-    //       description: '统一查看合作企业、合作记录和年度校园招聘安排。',
-    //       cta: '待接入合作管理',
-    //       tone: 'from-[#fff5e2] to-[#ffeabf]',
-    //     },
-    //   ] satisfies IdentityWorkspaceCard[]
-    //
-    //   return [firstCard, ...otherCards]
-    // }
+    if (identity === 'campus_manager' && variant === 'campus-manager') {
+      const firstCard: IdentityWorkspaceCard = userStore.hasBasicInfo
+        ? {
+            title: '进入校招后台',
+            description: '管理数据看板、校企对接、招聘活动、展位设置与院校信息。',
+            cta: '进入后台',
+            tone: 'from-[#e8f5e9] to-[#c8e6c9]',
+            to: '/campus/dashboard',
+          }
+        : {
+            title: '绑定学校信息',
+            description: '完成学校主体关联后，后续才能继续维护校园招聘专区。',
+            cta: '进入学校绑定',
+            tone: 'from-[#fff7e8] to-[#ffeac1]',
+            to: '/school/bind',
+          }
+
+      const otherCards = [
+        {
+          title: '管理校招专区',
+          description: '后续承接校招项目、活动场次与对外展示内容。',
+          cta: '待接入专区管理',
+          tone: 'from-[#fffaf1] to-[#ffefcd]',
+        },
+        {
+          title: '维护校企合作',
+          description: '统一查看合作企业、合作记录和年度校园招聘安排。',
+          cta: '待接入合作管理',
+          tone: 'from-[#fff5e2] to-[#ffeabf]',
+        },
+      ] satisfies IdentityWorkspaceCard[]
+
+      return [firstCard, ...otherCards]
+    }
 
     return base
   })
@@ -233,12 +247,14 @@ export function useProfileWorkspacePage(variant: ProfileWorkspaceVariant = 'defa
     getRedirectTo: identity => resolveIdentityProfileRoute(identity),
   })
 
+  const identitySwitchOptionList = useIdentitySwitchOptions()
+
   return {
     displayName,
     currentIdentity,
     currentIdentityLabel,
     currentIdentityDescription,
-    identitySwitchOptions,
+    identitySwitchOptions: identitySwitchOptionList,
     workspaceCards,
     isRefreshingIdentity,
     switchingIdentityCode,

@@ -18,7 +18,7 @@ import NInput from '~/components/NaiveClientInput.vue'
 import NRadioGroup from '~/components/NaiveClientRadioGroup.vue'
 import NSelect from '~/components/NaiveClientSelect.vue'
 import TaxonomyCascaderSelect from '~/components/TaxonomyCascaderSelect.vue'
-import { identitySwitchOptions, useIdentitySwitching } from '~/composables/identity-switch'
+import { useIdentitySwitching, useIdentitySwitchOptions } from '~/composables/identity-switch'
 import { createResumeParseTask, getResumeParseTask } from '~/services/ai-resume'
 import { getAuthMe } from '~/services/auth'
 import { ApiRequestError } from '~/services/http'
@@ -1087,7 +1087,7 @@ const { switchIdentity: switchIdentityTo } = useIdentitySwitching({
   getRedirectTo: () => '/profile',
 })
 
-const identitySwitchOptionsList = identitySwitchOptions.filter(
+const identitySwitchOptionsList = useIdentitySwitchOptions().filter(
   item => item.code !== userStore.currentIdentity,
 )
 

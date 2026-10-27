@@ -2,6 +2,7 @@
 import type { PortalNavItem } from '~/composables/portal-navigation'
 import type { CmsMenuItem, CmsSiteConfig } from '~/types/recruitment'
 import { computed, ref, watch } from 'vue'
+import { useIdentityOptions } from '~/composables/identity-switch'
 import { getEcosystemTicket } from '~/services/auth'
 import { ApiRequestError, resolveAssetUrl } from '~/services/http'
 import { useSiteStore } from '~/stores/site'
@@ -17,6 +18,7 @@ const props = defineProps<{
 
 const router = useRouter()
 const route = useRoute()
+const identityOptions = useIdentityOptions()
 const siteStore = useSiteStore()
 const userStore = useUserStore()
 const pageDataStore = usePageDataStore()
