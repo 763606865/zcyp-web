@@ -1,49 +1,76 @@
 <script setup lang="ts">
-import type { HomePageData } from '~/types/recruitment'
-import { createDiscreteApi } from 'naive-ui'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { TALENT_ASSESSMENT_APP_CODE, useEcosystemAppLink } from '~/composables/ecosystem-app-link'
-import { mockCityAsideAds, mockCompanies, mockJobs, mockPositionTree } from '~/mock/recruitment'
-import { exchangeEcosystemTicket, getAuthMe } from '~/services/auth'
-import { ApiRequestError, resolveAssetUrl } from '~/services/http'
-import { pushGlobalNotice } from '~/utils/notice'
+import type { HomePageData } from "~/types/recruitment";
+import { createDiscreteApi } from "naive-ui";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from "vue";
+import {
+  TALENT_ASSESSMENT_APP_CODE,
+  useEcosystemAppLink,
+} from "~/composables/ecosystem-app-link";
+import {
+  mockCityAsideAds,
+  mockCompanies,
+  mockJobs,
+  mockPositionTree,
+} from "~/mock/recruitment";
+import { exchangeEcosystemTicket, getAuthMe } from "~/services/auth";
+import { ApiRequestError, resolveAssetUrl } from "~/services/http";
+import { pushGlobalNotice } from "~/utils/notice";
 
 // variant：'home'（默认，首页）/'city'（城市站：去掉生态矩阵与黄金展位，右栏换成广告位）
 const props = defineProps<{
-  variant?: 'home' | 'city'
-}>()
+  variant?: "home" | "city";
+}>();
 
-const { message } = createDiscreteApi(['message'])
+const { message } = createDiscreteApi(["message"]);
 
 definePageMeta({
-  layout: 'home',
-})
+  layout: "home",
+});
 
 // 中台登录凭证参数名；后续若开放其他页面消费票据，复用本文件下方的 inbound ecosystem 系列函数即可
-const INBOUND_ECOSYSTEM_TICKET_QUERY = 'zc_center_auth_ticket'
+const INBOUND_ECOSYSTEM_TICKET_QUERY = "zc_center_auth_ticket";
 
-const router = useRouter()
-const route = useRoute()
-const userStore = useUserStore()
-const siteStore = useSiteStore()
-const pageDataStore = usePageDataStore()
-const runtimeConfig = useRuntimeConfig()
+const router = useRouter();
+const route = useRoute();
+const userStore = useUserStore();
+const siteStore = useSiteStore();
+const pageDataStore = usePageDataStore();
+const runtimeConfig = useRuntimeConfig();
 
-const homeData = computed<HomePageData>(() => pageDataStore.homeData || fallbackHomeData)
-const allJobs = computed(() => pageDataStore.allJobs.length ? pageDataStore.allJobs : mockJobs)
-const companies = computed(() => pageDataStore.companies.length ? pageDataStore.companies : mockCompanies)
-const positionTree = computed(() => pageDataStore.positionTree.length ? pageDataStore.positionTree : mockPositionTree)
+const homeData = computed<HomePageData>(
+  () => pageDataStore.homeData || fallbackHomeData,
+);
+const allJobs = computed(() =>
+  pageDataStore.allJobs.length ? pageDataStore.allJobs : mockJobs,
+);
+const companies = computed(() =>
+  pageDataStore.companies.length ? pageDataStore.companies : mockCompanies,
+);
+const positionTree = computed(() =>
+  pageDataStore.positionTree.length
+    ? pageDataStore.positionTree
+    : mockPositionTree,
+);
 
-const activeCategoryId = ref<number | null>(null)
-const activeSlideIndex = ref(0)
-const isCategoryPanelVisible = ref(false)
-const inboundEcosystemTicket = ref('')
-const isExchangingEcosystemTicket = ref(false)
-const { openEcosystemApp } = useEcosystemAppLink()
-const portalPageRef = ref<HTMLElement | null>(null)
-const dynamicRenderEnabled = computed(() => String(runtimeConfig.public.dynamicRender).toLowerCase() === 'true')
-let slideTimer: ReturnType<typeof setInterval> | undefined
-let dynamicRevealObserver: IntersectionObserver | undefined
+const activeCategoryId = ref<number | null>(null);
+const activeSlideIndex = ref(0);
+const isCategoryPanelVisible = ref(false);
+const inboundEcosystemTicket = ref("");
+const isExchangingEcosystemTicket = ref(false);
+const { openEcosystemApp } = useEcosystemAppLink();
+const portalPageRef = ref<HTMLElement | null>(null);
+const dynamicRenderEnabled = computed(
+  () => String(runtimeConfig.public.dynamicRender).toLowerCase() === "true",
+);
+let slideTimer: ReturnType<typeof setInterval> | undefined;
+let dynamicRevealObserver: IntersectionObserver | undefined;
 const {
   categoryNavs,
   activeCategory,
@@ -54,487 +81,635 @@ const {
   urgentJobs,
   hotJobs,
   famousCompanies,
-} = usePortalHomeAdapter(homeData, allJobs, companies, positionTree, activeCategoryId, activeSlideIndex)
+} = usePortalHomeAdapter(
+  homeData,
+  allJobs,
+  companies,
+  positionTree,
+  activeCategoryId,
+  activeSlideIndex,
+);
 
-const goldSlotRow1 = computed(() => homeData.value.adSlots.find(s => s.code === 'index.gold.row-1'))
-const goldSlotRow2 = computed(() => homeData.value.adSlots.find(s => s.code === 'index.gold.row-2'))
-const showJobseekerCard = computed(() => userStore.isLoggedIn && userStore.currentIdentity === 'jobseeker')
-const isCityVariant = computed(() => props.variant === 'city')
+const goldSlotRow1 = computed(() =>
+  homeData.value.adSlots.find((s) => s.code === "index.gold.row-1"),
+);
+const goldSlotRow2 = computed(() =>
+  homeData.value.adSlots.find((s) => s.code === "index.gold.row-2"),
+);
+const showJobseekerCard = computed(
+  () => userStore.isLoggedIn && userStore.currentIdentity === "jobseeker",
+);
+const isCityVariant = computed(() => props.variant === "city");
 // 城市站右栏广告位：先用 mock，接口就绪后替换为接口下发数据
-const cityAsideAds = mockCityAsideAds
+const cityAsideAds = mockCityAsideAds;
 
 interface ServiceEcosystemItem {
-  label: string
-  to: string
-  icon: string
-  appCode?: string
+  label: string;
+  to: string;
+  icon: string;
+  appCode?: string;
+  // 站内路由（如 /aiResume）：当前页跳转，不新开标签
+  internal?: boolean;
 }
 
 interface ServiceEcosystemRow {
-  label: string
-  className: string
-  items: ServiceEcosystemItem[]
+  label: string;
+  className: string;
+  items: ServiceEcosystemItem[];
 }
 
 const serviceEcosystemRows: ServiceEcosystemRow[] = [
   {
-    label: '产品与服务',
-    className: 'is-product',
+    label: "产品与服务",
+    className: "is-product",
     items: [
-      { label: '考试命题服务', to: 'https://zcyp-landing-hub.jxhrm.com?source=zcyp', icon: 'i-carbon-document-add' },
-      { label: '阅卷服务与产品', to: 'https://zcyp-landing-hub.jxhrm.com/marking?source=zcyp', icon: 'i-carbon-document-view' },
-      { label: '保密制卷/押运', to: 'https://zcyp-landing-hub.jxhrm.com/escort?source=zcyp', icon: 'i-carbon-catalog' },
-      { label: '机考服务与产品', to: 'https://zcyp-landing-hub.jxhrm.com/computerService?source=zcyp', icon: 'i-carbon-ai-agent-invocation' },
-      { label: '题库系统', to: 'https://zcyp-landing-hub.jxhrm.com/question?source=zcyp', icon: 'i-carbon-document-tasks' },
-      { label: '面试管理系统', to: 'https://zcyp-landing-hub.jxhrm.com/paperlessInterview?source=zcyp', icon: 'i-carbon-video-chat' },
-      { label: 'AI考务智能体', to: 'https://zcyp-landing-hub.jxhrm.com/antiCheating?source=zcyp', icon: 'i-carbon-screen' },
-      { label: '在线考试系统', to: 'https://zcyp-landing-hub.jxhrm.com/onlineTest?source=zcyp', icon: 'i-carbon-task-approved' },
-      { label: '在线面试系统', to: 'https://zcyp-landing-hub.jxhrm.com?source=zcyp', icon: 'i-carbon-task-approved' },
-      { label: 'AI面试系统', to: 'https://zcyp-landing-hub.jxhrm.com/aiInterview?source=zcyp', icon: 'i-carbon-task-approved' },
-      { label: '牛派HRS（人力资源数字资产管理平台）', to: 'https://zcyp-landing-hub.jxhrm.com/niupai?source=zcyp', icon: 'i-carbon-task-approved' },
+      {
+        label: "考试命题服务",
+        to: "https://zcyp-landing-hub.jxhrm.com?source=zcyp",
+        icon: "i-carbon-document-add",
+      },
+      {
+        label: "阅卷服务与产品",
+        to: "https://zcyp-landing-hub.jxhrm.com/marking?source=zcyp",
+        icon: "i-carbon-document-view",
+      },
+      {
+        label: "保密制卷/押运",
+        to: "https://zcyp-landing-hub.jxhrm.com/escort?source=zcyp",
+        icon: "i-carbon-catalog",
+      },
+      {
+        label: "机考服务与产品",
+        to: "https://zcyp-landing-hub.jxhrm.com/computerService?source=zcyp",
+        icon: "i-carbon-ai-agent-invocation",
+      },
+      {
+        label: "题库系统",
+        to: "https://zcyp-landing-hub.jxhrm.com/question?source=zcyp",
+        icon: "i-carbon-document-tasks",
+      },
+      {
+        label: "面试管理系统",
+        to: "https://zcyp-landing-hub.jxhrm.com/paperlessInterview?source=zcyp",
+        icon: "i-carbon-video-chat",
+      },
+      {
+        label: "AI考务智能体",
+        to: "https://zcyp-landing-hub.jxhrm.com/antiCheating?source=zcyp",
+        icon: "i-carbon-screen",
+      },
+      {
+        label: "在线考试系统",
+        to: "https://zcyp-landing-hub.jxhrm.com/onlineTest?source=zcyp",
+        icon: "i-carbon-task-approved",
+      },
+      {
+        label: "在线面试系统",
+        to: "https://zcyp-landing-hub.jxhrm.com?source=zcyp",
+        icon: "i-carbon-task-approved",
+      },
+      {
+        label: "AI面试系统",
+        to: "https://zcyp-landing-hub.jxhrm.com/aiInterview?source=zcyp",
+        icon: "i-carbon-task-approved",
+      },
+      {
+        label: "牛派HRS（人力资源数字资产管理平台）",
+        to: "https://zcyp-landing-hub.jxhrm.com/niupai?source=zcyp",
+        icon: "i-carbon-task-approved",
+      },
     ],
   },
   {
-    label: '线上服务',
-    className: 'is-online',
+    label: "线上服务",
+    className: "is-online",
     items: [
-      { label: '网上报名', to: 'https://zk.sun-hrm.com/index.php', icon: 'i-carbon-edit' },
+      {
+        label: "网上报名",
+        to: "https://zk.sun-hrm.com/index.php",
+        icon: "i-carbon-edit",
+      },
       // 测评工具：待中台下发 key 后填入 TALENT_ASSESSMENT_APP_CODE，届时自动启用「登录 + 携带 ticket」跳转
-      { label: '测评工具', to: 'https://check.myjobseek.com.cn', icon: 'i-carbon-user-profile', appCode: TALENT_ASSESSMENT_APP_CODE },
-      { label: '应试能力测评', to: 'https://gangwei.jxujob.com', icon: 'i-carbon-exam-mode', appCode: 'gangwei' },
-      { label: '在线学习', to: 'https://zcyp-classroom-web.jxhrm.com?source=zcyp', icon: 'i-carbon-education' },
-      { label: 'AI简历优化诊断', to: 'https://zcyp-landing-hub.jxhrm.com/aiResume?source=zcyp', icon: 'i-carbon-ai-generate' },
+      {
+        label: "测评工具",
+        to: "https://check.myjobseek.com.cn",
+        icon: "i-carbon-user-profile",
+        appCode: TALENT_ASSESSMENT_APP_CODE,
+      },
+      {
+        label: "应试能力测评",
+        to: "https://gangwei.jxujob.com",
+        icon: "i-carbon-exam-mode",
+        appCode: "gangwei",
+      },
+      {
+        label: "在线学习",
+        to: "https://zcyp-classroom-web.jxhrm.com?source=zcyp",
+        icon: "i-carbon-education",
+      },
+      {
+        label: "AI简历优化诊断",
+        to: "/aiResume",
+        icon: "i-carbon-ai-generate",
+        internal: true,
+      },
     ],
   },
-]
+];
 
 function openCategory(name: string) {
-  router.push(`/jobs?keyword=${encodeURIComponent(name)}`)
+  router.push(`/jobs?keyword=${encodeURIComponent(name)}`);
 }
 
 function selectCategory(id: number) {
-  activeCategoryId.value = id
-  isCategoryPanelVisible.value = true
+  activeCategoryId.value = id;
+  isCategoryPanelVisible.value = true;
 }
 
 // 触屏 tap 会先触发合成 mouseenter/focus 再触发 click，若不忽略会让刚打开的手风琴立即被收起
 function handleCategoryHover(id: number) {
-  if (import.meta.client && !window.matchMedia('(hover: hover)').matches)
-    return
-  selectCategory(id)
+  if (import.meta.client && !window.matchMedia("(hover: hover)").matches)
+    return;
+  selectCategory(id);
 }
 
 function handleCategoryClick(id: number) {
   // 触屏无法 hover：再次点击已选中分类时收起内联面板，便于移动端折叠
-  const isTouch = import.meta.client && !window.matchMedia('(hover: hover)').matches
-  if (isTouch && activeCategoryId.value === id && isCategoryPanelVisible.value) {
-    hideCategoryPanel()
-    return
+  const isTouch =
+    import.meta.client && !window.matchMedia("(hover: hover)").matches;
+  if (
+    isTouch &&
+    activeCategoryId.value === id &&
+    isCategoryPanelVisible.value
+  ) {
+    hideCategoryPanel();
+    return;
   }
-  selectCategory(id)
+  selectCategory(id);
 }
 
 function hideCategoryPanel() {
-  isCategoryPanelVisible.value = false
+  isCategoryPanelVisible.value = false;
 }
 
 function formatSalaryMin(salaryMin?: string) {
-  return salaryMin ? `${Number.parseFloat(salaryMin) / 1000}k` : ''
+  return salaryMin ? `${Number.parseFloat(salaryMin) / 1000}k` : "";
 }
 
 function formatSalaryMax(salaryMax?: string) {
-  return salaryMax ? `${Number.parseFloat(salaryMax) / 1000}k` : ''
+  return salaryMax ? `${Number.parseFloat(salaryMax) / 1000}k` : "";
 }
 
-function formatSalary(job: { salary_min?: string, salary_max?: string, salary_unit_label?: string }) {
-  const min = formatSalaryMin(job.salary_min)
-  const max = formatSalaryMax(job.salary_max)
-  const unit = job.salary_unit_label ? `/${job.salary_unit_label}` : ''
-  return min && max ? `${min}-${max}${unit}` : ''
+function formatSalary(job: {
+  salary_min?: string;
+  salary_max?: string;
+  salary_unit_label?: string;
+}) {
+  const min = formatSalaryMin(job.salary_min);
+  const max = formatSalaryMax(job.salary_max);
+  const unit = job.salary_unit_label ? `/${job.salary_unit_label}` : "";
+  return min && max ? `${min}-${max}${unit}` : "";
 }
 
-function formatExperience(job: { experience_min?: number, experience_max?: number }) {
-  if (!job.experience_min && !job.experience_max)
-    return ''
+function formatExperience(job: {
+  experience_min?: number;
+  experience_max?: number;
+}) {
+  if (!job.experience_min && !job.experience_max) return "";
   if (job.experience_min === job.experience_max)
-    return `${job.experience_min}年以上`
-  return `${job.experience_min || 0}-${job.experience_max || 0}年`
+    return `${job.experience_min}年以上`;
+  return `${job.experience_min || 0}-${job.experience_max || 0}年`;
 }
 
 function findAreaName(code?: string | null) {
-  if (!code)
-    return ''
+  if (!code) return "";
 
   for (const province of siteStore.areas) {
-    if (province.code === code)
-      return province.name
+    if (province.code === code) return province.name;
 
     for (const city of province.children || []) {
-      if (city.code === code)
-        return city.name
+      if (city.code === code) return city.name;
 
-      const district = city.children?.find(item => item.code === code)
-      if (district)
-        return district.name
+      const district = city.children?.find((item) => item.code === code);
+      if (district) return district.name;
     }
   }
 
-  return code
+  return code;
 }
 
 function resolveUrgentJobLogo(item: any) {
-  return isRealUrgentData() && item.display_cover_image ? resolveAssetUrl(item.display_cover_image) : ''
+  return isRealUrgentData() && item.display_cover_image
+    ? resolveAssetUrl(item.display_cover_image)
+    : "";
 }
 
 function formatUrgentJobRegion(item: any) {
-  return findAreaName(item.job?.city_code || item.city_code)
+  return findAreaName(item.job?.city_code || item.city_code);
 }
 
 function resolveHotJobLogo(item: any) {
-  return isRealHotData() && item.display_cover_image ? resolveAssetUrl(item.display_cover_image) : ''
+  return isRealHotData() && item.display_cover_image
+    ? resolveAssetUrl(item.display_cover_image)
+    : "";
 }
 
 function formatHotJobRegion(item: any) {
-  return findAreaName(item.job?.city_code || item.city_code)
+  return findAreaName(item.job?.city_code || item.city_code);
 }
 
 function resolveFamousCompanyTo(item: any) {
-  return isRealCompanyData() && item.company?.id ? `/company/${item.company.id}` : '/company'
+  return isRealCompanyData() && item.company?.id
+    ? `/company/${item.company.id}`
+    : "/company";
 }
 
 function isRealUrgentData() {
-  return homeData.value.urgentJobs.length > 0
+  return homeData.value.urgentJobs.length > 0;
 }
 
 function isRealHotData() {
-  return homeData.value.hotJobs.length > 0
+  return homeData.value.hotJobs.length > 0;
 }
 
 function isRealCompanyData() {
-  return homeData.value.famousCompanies.length > 0
+  return homeData.value.famousCompanies.length > 0;
 }
 
 function nextSlide() {
-  activeSlideIndex.value = (activeSlideIndex.value + 1) % bannerSlides.value.length
+  activeSlideIndex.value =
+    (activeSlideIndex.value + 1) % bannerSlides.value.length;
 }
 
-const serviceEcosystemScrolling = new WeakSet<HTMLElement>()
+const serviceEcosystemScrolling = new WeakSet<HTMLElement>();
 
 // 生态矩阵各行自动滚动速度（px/s），按行索引对应「产品与服务 / 线上服务」，可按需调整
-const SERVICE_ECOSYSTEM_MARQUEE_SPEEDS = [34, 24]
+const SERVICE_ECOSYSTEM_MARQUEE_SPEEDS = [34, 24];
 // 溢出超过该阈值（px）才启动自动滚动，一行能放下时静止展示，避免临界宽度的轻微抖动
-const SERVICE_ECOSYSTEM_MARQUEE_MIN_OVERFLOW = 8
+const SERVICE_ECOSYSTEM_MARQUEE_MIN_OVERFLOW = 8;
 // 各行初始滚动方向：+1 表示 scrollLeft 递增（内容从右往左），-1 表示递减（内容从左往右）
-const SERVICE_ECOSYSTEM_MARQUEE_DIRECTIONS: (1 | -1)[] = [1, -1]
+const SERVICE_ECOSYSTEM_MARQUEE_DIRECTIONS: (1 | -1)[] = [1, -1];
 
 interface ServiceEcosystemMarqueeRow {
-  scroller: HTMLElement
-  track: HTMLElement | null
-  initialDirection: 1 | -1
-  direction: 1 | -1
-  speed: number
-  paused: boolean
+  scroller: HTMLElement;
+  track: HTMLElement | null;
+  initialDirection: 1 | -1;
+  direction: 1 | -1;
+  speed: number;
+  paused: boolean;
 }
 
-const serviceEcosystemMarqueeRows: ServiceEcosystemMarqueeRow[] = []
-const serviceEcosystemMarqueeCleanups: Array<() => void> = []
-let serviceEcosystemMarqueeFrame = 0
-let serviceEcosystemMarqueeLastTime = 0
+const serviceEcosystemMarqueeRows: ServiceEcosystemMarqueeRow[] = [];
+const serviceEcosystemMarqueeCleanups: Array<() => void> = [];
+let serviceEcosystemMarqueeFrame = 0;
+let serviceEcosystemMarqueeLastTime = 0;
 // 移动端停用自动 marquee（保留手指横滑与左右箭头点击），断点与样式层保持一致
-const SERVICE_ECOSYSTEM_MARQUEE_MOBILE_QUERY = '(max-width: 640px)'
-let serviceEcosystemMobileMedia: MediaQueryList | null = null
+const SERVICE_ECOSYSTEM_MARQUEE_MOBILE_QUERY = "(max-width: 640px)";
+let serviceEcosystemMobileMedia: MediaQueryList | null = null;
 
 function getServiceEcosystemMaxScroll(scroller: HTMLElement) {
-  return scroller.scrollWidth - scroller.clientWidth
+  return scroller.scrollWidth - scroller.clientWidth;
 }
 
 function serviceEcosystemMarqueeTick(time: number) {
   // 限制单帧步长，避免切后台后恢复时出现大幅跳动
-  const delta = serviceEcosystemMarqueeLastTime ? Math.min((time - serviceEcosystemMarqueeLastTime) / 1000, 0.05) : 0
-  serviceEcosystemMarqueeLastTime = time
+  const delta = serviceEcosystemMarqueeLastTime
+    ? Math.min((time - serviceEcosystemMarqueeLastTime) / 1000, 0.05)
+    : 0;
+  serviceEcosystemMarqueeLastTime = time;
 
   if (delta > 0) {
     // 移动端交给手指横滑，跳过自动滚动（含方向重置，避免切换视口时位置被重写）
     if (!serviceEcosystemMobileMedia?.matches) {
       for (const row of serviceEcosystemMarqueeRows) {
         // 每帧实时计算最大滚动距离，天然兼容窗口缩放与数据变化
-        const maxScroll = getServiceEcosystemMaxScroll(row.scroller)
+        const maxScroll = getServiceEcosystemMaxScroll(row.scroller);
         if (maxScroll <= SERVICE_ECOSYSTEM_MARQUEE_MIN_OVERFLOW) {
           // 一行能放下时静止展示，并重置方向以便再次溢出时从初始方向开始
-          row.direction = row.initialDirection
-          continue
+          row.direction = row.initialDirection;
+          continue;
         }
         // 悬停/聚焦暂停；按钮 smooth 滚动期间（serviceEcosystemScrolling 防抖窗口内）跳过，避免与 scrollBy 冲突
-        if (row.paused || serviceEcosystemScrolling.has(row.scroller))
-          continue
+        if (row.paused || serviceEcosystemScrolling.has(row.scroller)) continue;
 
-        let next = row.scroller.scrollLeft + row.direction * row.speed * delta
+        let next = row.scroller.scrollLeft + row.direction * row.speed * delta;
         // 到达边界即反向，形成左右碰撞的往返运动
         if (next >= maxScroll) {
-          next = maxScroll
-          row.direction = -1
+          next = maxScroll;
+          row.direction = -1;
+        } else if (next <= 0) {
+          next = 0;
+          row.direction = 1;
         }
-        else if (next <= 0) {
-          next = 0
-          row.direction = 1
-        }
-        row.scroller.scrollLeft = next
+        row.scroller.scrollLeft = next;
       }
     }
   }
 
-  serviceEcosystemMarqueeFrame = window.requestAnimationFrame(serviceEcosystemMarqueeTick)
+  serviceEcosystemMarqueeFrame = window.requestAnimationFrame(
+    serviceEcosystemMarqueeTick,
+  );
 }
 
 function setupServiceEcosystemMarquee() {
-  if (!import.meta.client || !dynamicRenderEnabled.value || !portalPageRef.value)
-    return
-  if (serviceEcosystemMarqueeRows.length)
-    return
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches)
-    return
+  if (
+    !import.meta.client ||
+    !dynamicRenderEnabled.value ||
+    !portalPageRef.value
+  )
+    return;
+  if (serviceEcosystemMarqueeRows.length) return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
-  const scrollers = Array.from(portalPageRef.value.querySelectorAll<HTMLElement>('.home-service-ecosystem-scroll'))
-  serviceEcosystemMobileMedia = window.matchMedia(SERVICE_ECOSYSTEM_MARQUEE_MOBILE_QUERY)
+  const scrollers = Array.from(
+    portalPageRef.value.querySelectorAll<HTMLElement>(
+      ".home-service-ecosystem-scroll",
+    ),
+  );
+  serviceEcosystemMobileMedia = window.matchMedia(
+    SERVICE_ECOSYSTEM_MARQUEE_MOBILE_QUERY,
+  );
   scrollers.forEach((scroller, index) => {
-    const initialDirection = SERVICE_ECOSYSTEM_MARQUEE_DIRECTIONS[index] ?? 1
+    const initialDirection = SERVICE_ECOSYSTEM_MARQUEE_DIRECTIONS[index] ?? 1;
     const row: ServiceEcosystemMarqueeRow = {
       scroller,
-      track: scroller.closest<HTMLElement>('.home-service-ecosystem-track'),
+      track: scroller.closest<HTMLElement>(".home-service-ecosystem-track"),
       initialDirection,
       direction: initialDirection,
-      speed: SERVICE_ECOSYSTEM_MARQUEE_SPEEDS[index] ?? SERVICE_ECOSYSTEM_MARQUEE_SPEEDS[0]!,
+      speed:
+        SERVICE_ECOSYSTEM_MARQUEE_SPEEDS[index] ??
+        SERVICE_ECOSYSTEM_MARQUEE_SPEEDS[0]!,
       paused: false,
-    }
+    };
     // 初始方向为从左往右的行需先定位到末尾，才能向回滚动（移动端由手指控制，不预定位）
     if (initialDirection === -1 && !serviceEcosystemMobileMedia?.matches)
-      scroller.scrollLeft = getServiceEcosystemMaxScroll(scroller)
+      scroller.scrollLeft = getServiceEcosystemMaxScroll(scroller);
 
     const pause = () => {
-      row.paused = true
-    }
+      row.paused = true;
+    };
     const resume = () => {
-      row.paused = false
-    }
+      row.paused = false;
+    };
     const listeners: Array<[string, EventListener]> = [
-      ['mouseenter', pause],
-      ['mouseleave', resume],
-      ['focusin', pause],
-      ['focusout', resume],
-    ]
+      ["mouseenter", pause],
+      ["mouseleave", resume],
+      ["focusin", pause],
+      ["focusout", resume],
+    ];
     if (row.track) {
-      const track = row.track
-      listeners.forEach(([type, handler]) => track.addEventListener(type, handler))
+      const track = row.track;
+      listeners.forEach(([type, handler]) =>
+        track.addEventListener(type, handler),
+      );
       serviceEcosystemMarqueeCleanups.push(() => {
-        listeners.forEach(([type, handler]) => track.removeEventListener(type, handler))
-      })
+        listeners.forEach(([type, handler]) =>
+          track.removeEventListener(type, handler),
+        );
+      });
     }
 
-    serviceEcosystemMarqueeRows.push(row)
-  })
+    serviceEcosystemMarqueeRows.push(row);
+  });
 
   if (serviceEcosystemMarqueeRows.length) {
-    serviceEcosystemMarqueeLastTime = 0
-    serviceEcosystemMarqueeFrame = window.requestAnimationFrame(serviceEcosystemMarqueeTick)
+    serviceEcosystemMarqueeLastTime = 0;
+    serviceEcosystemMarqueeFrame = window.requestAnimationFrame(
+      serviceEcosystemMarqueeTick,
+    );
   }
 }
 
 function teardownServiceEcosystemMarquee() {
   if (serviceEcosystemMarqueeFrame) {
-    window.cancelAnimationFrame(serviceEcosystemMarqueeFrame)
-    serviceEcosystemMarqueeFrame = 0
+    window.cancelAnimationFrame(serviceEcosystemMarqueeFrame);
+    serviceEcosystemMarqueeFrame = 0;
   }
-  serviceEcosystemMarqueeCleanups.forEach(dispose => dispose())
-  serviceEcosystemMarqueeCleanups.length = 0
-  serviceEcosystemMarqueeRows.length = 0
-  serviceEcosystemMarqueeLastTime = 0
+  serviceEcosystemMarqueeCleanups.forEach((dispose) => dispose());
+  serviceEcosystemMarqueeCleanups.length = 0;
+  serviceEcosystemMarqueeRows.length = 0;
+  serviceEcosystemMarqueeLastTime = 0;
 }
 
 function scrollServiceEcosystemRow(event: MouseEvent, direction: 1 | -1) {
-  const row = (event.currentTarget as HTMLElement).closest('.home-service-ecosystem-row')
-  const scroller = row?.querySelector<HTMLElement>('.home-service-ecosystem-scroll')
-  if (!scroller || serviceEcosystemScrolling.has(scroller))
-    return
+  const row = (event.currentTarget as HTMLElement).closest(
+    ".home-service-ecosystem-row",
+  );
+  const scroller = row?.querySelector<HTMLElement>(
+    ".home-service-ecosystem-scroll",
+  );
+  if (!scroller || serviceEcosystemScrolling.has(scroller)) return;
 
-  const { scrollLeft, scrollWidth, clientWidth } = scroller
-  const atStart = scrollLeft <= 1
-  const atEnd = scrollLeft + clientWidth >= scrollWidth - 1
+  const { scrollLeft, scrollWidth, clientWidth } = scroller;
+  const atStart = scrollLeft <= 1;
+  const atEnd = scrollLeft + clientWidth >= scrollWidth - 1;
 
   if (direction === 1 && atEnd) {
-    message.warning('已经是最后一个了')
-    return
+    message.warning("已经是最后一个了");
+    return;
   }
   if (direction === -1 && atStart) {
-    message.warning('已经是第一个了')
-    return
+    message.warning("已经是第一个了");
+    return;
   }
 
-  serviceEcosystemScrolling.add(scroller)
-  scroller.scrollBy({ left: direction * 200, behavior: 'smooth' })
+  serviceEcosystemScrolling.add(scroller);
+  scroller.scrollBy({ left: direction * 200, behavior: "smooth" });
   window.setTimeout(() => {
-    serviceEcosystemScrolling.delete(scroller)
-  }, 520)
+    serviceEcosystemScrolling.delete(scroller);
+  }, 520);
 }
 
 function setupDynamicReveal() {
-  dynamicRevealObserver?.disconnect()
-  dynamicRevealObserver = undefined
+  dynamicRevealObserver?.disconnect();
+  dynamicRevealObserver = undefined;
 
-  if (!import.meta.client || !dynamicRenderEnabled.value || !portalPageRef.value)
-    return
+  if (
+    !import.meta.client ||
+    !dynamicRenderEnabled.value ||
+    !portalPageRef.value
+  )
+    return;
 
-  const elements = portalPageRef.value.querySelectorAll<HTMLElement>('[data-dynamic-reveal]')
-  if (!('IntersectionObserver' in window)) {
-    elements.forEach(element => element.classList.add('is-dynamic-visible'))
-    return
+  const elements = portalPageRef.value.querySelectorAll<HTMLElement>(
+    "[data-dynamic-reveal]",
+  );
+  if (!("IntersectionObserver" in window)) {
+    elements.forEach((element) => element.classList.add("is-dynamic-visible"));
+    return;
   }
 
-  dynamicRevealObserver = new IntersectionObserver((entries, observer) => {
-    entries.forEach((entry) => {
-      if (!entry.isIntersecting)
-        return
+  dynamicRevealObserver = new IntersectionObserver(
+    (entries, observer) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
 
-      entry.target.classList.add('is-dynamic-visible')
-      observer.unobserve(entry.target)
-    })
-  }, {
-    rootMargin: '0px 0px -8% 0px',
-    threshold: 0.12,
-  })
+        entry.target.classList.add("is-dynamic-visible");
+        observer.unobserve(entry.target);
+      });
+    },
+    {
+      rootMargin: "0px 0px -8% 0px",
+      threshold: 0.12,
+    },
+  );
 
-  elements.forEach(element => dynamicRevealObserver?.observe(element))
+  elements.forEach((element) => dynamicRevealObserver?.observe(element));
 }
 
 function getInboundEcosystemTicket() {
-  const ticketQuery = route.query[INBOUND_ECOSYSTEM_TICKET_QUERY]
-  const ticket = Array.isArray(ticketQuery) ? ticketQuery[0] : ticketQuery
-  return typeof ticket === 'string' ? ticket.trim() : ''
+  const ticketQuery = route.query[INBOUND_ECOSYSTEM_TICKET_QUERY];
+  const ticket = Array.isArray(ticketQuery) ? ticketQuery[0] : ticketQuery;
+  return typeof ticket === "string" ? ticket.trim() : "";
 }
 
 async function clearInboundEcosystemTicket() {
-  const query = { ...route.query }
-  delete query[INBOUND_ECOSYSTEM_TICKET_QUERY]
-  await router.replace({ query })
+  const query = { ...route.query };
+  delete query[INBOUND_ECOSYSTEM_TICKET_QUERY];
+  await router.replace({ query });
 }
 
 function promptInboundEcosystemLogin() {
-  inboundEcosystemTicket.value = getInboundEcosystemTicket()
+  inboundEcosystemTicket.value = getInboundEcosystemTicket();
 }
 
 async function cancelInboundEcosystemLogin() {
-  if (isExchangingEcosystemTicket.value)
-    return
+  if (isExchangingEcosystemTicket.value) return;
 
-  inboundEcosystemTicket.value = ''
-  await clearInboundEcosystemTicket()
+  inboundEcosystemTicket.value = "";
+  await clearInboundEcosystemTicket();
 }
 
 async function confirmInboundEcosystemLogin() {
-  const ticket = inboundEcosystemTicket.value
-  if (!ticket || isExchangingEcosystemTicket.value)
-    return
+  const ticket = inboundEcosystemTicket.value;
+  if (!ticket || isExchangingEcosystemTicket.value) return;
 
-  isExchangingEcosystemTicket.value = true
-  await clearInboundEcosystemTicket()
+  isExchangingEcosystemTicket.value = true;
+  await clearInboundEcosystemTicket();
 
   if (ticket.length > 2048) {
-    pushGlobalNotice('中台登录凭证格式不正确', 'error')
-    inboundEcosystemTicket.value = ''
-    isExchangingEcosystemTicket.value = false
-    return
+    pushGlobalNotice("中台登录凭证格式不正确", "error");
+    inboundEcosystemTicket.value = "";
+    isExchangingEcosystemTicket.value = false;
+    return;
   }
 
   try {
-    const authData = await exchangeEcosystemTicket(ticket)
-    userStore.clearAuthSession()
-    userStore.setAuthSession(authData)
+    const authData = await exchangeEcosystemTicket(ticket);
+    userStore.clearAuthSession();
+    userStore.setAuthSession(authData);
 
-    const meData = await getAuthMe(userStore.authHeader)
-    userStore.setAuthUser(meData.user)
-    await ensureHomeDirectoryData({ authorization: userStore.authHeader, force: true })
-    pushGlobalNotice('中测生态账号登录成功')
-  }
-  catch (error) {
-    pushGlobalNotice(error instanceof ApiRequestError ? error.message : '中台登录失败，请重新从来源站点进入', 'error')
-  }
-  finally {
-    inboundEcosystemTicket.value = ''
-    isExchangingEcosystemTicket.value = false
+    const meData = await getAuthMe(userStore.authHeader);
+    userStore.setAuthUser(meData.user);
+    await ensureHomeDirectoryData({
+      authorization: userStore.authHeader,
+      force: true,
+    });
+    pushGlobalNotice("中测生态账号登录成功");
+  } catch (error) {
+    pushGlobalNotice(
+      error instanceof ApiRequestError
+        ? error.message
+        : "中台登录失败，请重新从来源站点进入",
+      "error",
+    );
+  } finally {
+    inboundEcosystemTicket.value = "";
+    isExchangingEcosystemTicket.value = false;
   }
 }
 
 // 生态应用跳转：已登录携带中台 ticket 新窗口打开，未登录直接跳转（共享逻辑见 composables/ecosystem-app-link）
 function handleEcosystemServiceClick(item: ServiceEcosystemItem) {
-  return openEcosystemApp(item)
+  return openEcosystemApp(item);
 }
 
 // 城市站（variant='city'）按当前城市过滤拉取，城市切后自动重载；'000000'/全国视为全国范围（不过滤）
 const cityScopeCode = computed(() => {
-  if (!isCityVariant.value)
-    return undefined
-  const code = siteStore.currentCityCode
-  return code && code !== '000000' ? code : undefined
-})
+  if (!isCityVariant.value) return undefined;
+  const code = siteStore.currentCityCode;
+  return code && code !== "000000" ? code : undefined;
+});
 
 await useAsyncData(
-  () => (isCityVariant.value ? `home-page-bootstrap-city-${cityScopeCode.value || 'all'}` : 'home-page-bootstrap'),
+  () =>
+    isCityVariant.value
+      ? `home-page-bootstrap-city-${cityScopeCode.value || "all"}`
+      : "home-page-bootstrap",
   async () => {
     await ensureHomeDirectoryData({
       authorization: userStore.authHeader || undefined,
       force: userStore.isLoggedIn,
       cityCode: cityScopeCode.value,
-    })
+    });
 
-    return true
+    return true;
   },
   {
     server: false,
     watch: isCityVariant.value ? [() => siteStore.currentCityCode] : [],
     default: () => true,
   },
-)
+);
 
-watch(categoryNavs, (value) => {
-  if (!activeCategoryId.value && value.length)
-    activeCategoryId.value = value[0]!.id
-}, { immediate: true })
+watch(
+  categoryNavs,
+  (value) => {
+    if (!activeCategoryId.value && value.length)
+      activeCategoryId.value = value[0]!.id;
+  },
+  { immediate: true },
+);
 
-watch(bannerSlides, (value) => {
-  if (slideTimer) {
-    clearInterval(slideTimer)
-    slideTimer = undefined
-  }
+watch(
+  bannerSlides,
+  (value) => {
+    if (slideTimer) {
+      clearInterval(slideTimer);
+      slideTimer = undefined;
+    }
 
-  if (import.meta.client && value.length > 1)
-    slideTimer = setInterval(nextSlide, 4200)
-}, { immediate: true })
+    if (import.meta.client && value.length > 1)
+      slideTimer = setInterval(nextSlide, 4200);
+  },
+  { immediate: true },
+);
 
-watch([urgentJobs, famousCompanies], () => {
-  nextTick(setupDynamicReveal)
-}, { flush: 'post' })
+watch(
+  [urgentJobs, famousCompanies],
+  () => {
+    nextTick(setupDynamicReveal);
+  },
+  { flush: "post" },
+);
 
 onMounted(() => {
-  nextTick(setupDynamicReveal)
-  setupServiceEcosystemMarquee()
-  promptInboundEcosystemLogin()
-})
+  nextTick(setupDynamicReveal);
+  setupServiceEcosystemMarquee();
+  promptInboundEcosystemLogin();
+});
 
 onBeforeUnmount(() => {
-  if (slideTimer)
-    clearInterval(slideTimer)
-  dynamicRevealObserver?.disconnect()
-  teardownServiceEcosystemMarquee()
-})
+  if (slideTimer) clearInterval(slideTimer);
+  dynamicRevealObserver?.disconnect();
+  teardownServiceEcosystemMarquee();
+});
 </script>
 
 <template>
-  <div ref="portalPageRef" class="portal-page" :class="{ 'is-dynamic-render': dynamicRenderEnabled }">
-    <section v-if="!isCityVariant" class="portal-container home-service-ecosystem" aria-labelledby="home-service-ecosystem-title">
+  <div
+    ref="portalPageRef"
+    class="portal-page"
+    :class="{ 'is-dynamic-render': dynamicRenderEnabled }"
+  >
+    <section
+      v-if="!isCityVariant"
+      class="portal-container home-service-ecosystem"
+      aria-labelledby="home-service-ecosystem-title"
+    >
       <div class="home-service-ecosystem-title">
         <span aria-hidden="true" />
-        <h2 id="home-service-ecosystem-title">
-          中测高科生态矩阵
-        </h2>
+        <h2 id="home-service-ecosystem-title">中测高科生态矩阵</h2>
         <span aria-hidden="true" />
       </div>
 
@@ -544,7 +719,13 @@ onBeforeUnmount(() => {
           :key="row.label"
           class="home-service-ecosystem-row"
         >
-          <NuxtLink to="/assessment" target="_blank" rel="noopener noreferrer" class="home-service-ecosystem-badge" :class="row.className">
+          <NuxtLink
+            to="/assessment"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="home-service-ecosystem-badge"
+            :class="row.className"
+          >
             {{ row.label }}
           </NuxtLink>
 
@@ -561,30 +742,54 @@ onBeforeUnmount(() => {
                       class="home-service-ecosystem-card"
                       @click.prevent.stop="handleEcosystemServiceClick(item)"
                     >
-                      <span class="home-service-ecosystem-icon has-glyph" :class="row.className" aria-hidden="true">
-                        <span class="home-service-ecosystem-icon-glyph" :class="item.icon" />
+                      <span
+                        class="home-service-ecosystem-icon has-glyph"
+                        :class="row.className"
+                        aria-hidden="true"
+                      >
+                        <span
+                          class="home-service-ecosystem-icon-glyph"
+                          :class="item.icon"
+                        />
                       </span>
                       <strong>{{ item.label }}</strong>
                     </a>
                     <NuxtLink
                       v-else
                       :to="item.to"
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      :target="item.internal ? undefined : '_blank'"
+                      :rel="item.internal ? undefined : 'noopener noreferrer'"
                       class="home-service-ecosystem-card"
                     >
-                      <span class="home-service-ecosystem-icon has-glyph" :class="row.className" aria-hidden="true">
-                        <span class="home-service-ecosystem-icon-glyph" :class="item.icon" />
+                      <span
+                        class="home-service-ecosystem-icon has-glyph"
+                        :class="row.className"
+                        aria-hidden="true"
+                      >
+                        <span
+                          class="home-service-ecosystem-icon-glyph"
+                          :class="item.icon"
+                        />
                       </span>
                       <strong>{{ item.label }}</strong>
                     </NuxtLink>
                   </template>
                 </div>
               </div>
-              <button type="button" class="home-service-ecosystem-arrow is-left" :aria-label="`查看上一个${row.label}服务`" @click="scrollServiceEcosystemRow($event, -1)">
+              <button
+                type="button"
+                class="home-service-ecosystem-arrow is-left"
+                :aria-label="`查看上一个${row.label}服务`"
+                @click="scrollServiceEcosystemRow($event, -1)"
+              >
                 <span class="i-carbon-chevron-left" aria-hidden="true" />
               </button>
-              <button type="button" class="home-service-ecosystem-arrow is-right" :aria-label="`查看更多${row.label}服务`" @click="scrollServiceEcosystemRow($event, 1)">
+              <button
+                type="button"
+                class="home-service-ecosystem-arrow is-right"
+                :aria-label="`查看更多${row.label}服务`"
+                @click="scrollServiceEcosystemRow($event, 1)"
+              >
                 <span class="i-carbon-chevron-right" aria-hidden="true" />
               </button>
             </div>
@@ -593,13 +798,18 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <section class="portal-container portal-hero-grid" @mouseleave="hideCategoryPanel">
+    <section
+      class="portal-container portal-hero-grid"
+      @mouseleave="hideCategoryPanel"
+    >
       <aside class="home-category-card">
         <div
           v-for="item in categoryNavs"
           :key="item.id"
           class="home-category-item"
-          :class="{ 'is-open': isCategoryPanelVisible && activeCategory?.id === item.id }"
+          :class="{
+            'is-open': isCategoryPanelVisible && activeCategory?.id === item.id,
+          }"
         >
           <button
             type="button"
@@ -608,15 +818,25 @@ onBeforeUnmount(() => {
             @focus="handleCategoryHover(item.id)"
             @click="handleCategoryClick(item.id)"
           >
-            <span class="text-left flex-1 min-w-0 truncate">{{ item.name }}</span>
+            <span class="text-left flex-1 min-w-0 truncate">{{
+              item.name
+            }}</span>
             <span class="i-carbon-chevron-right" />
           </button>
 
-          <div v-if="isCategoryPanelVisible && activeCategory?.id === item.id" class="home-category-item-panel">
+          <div
+            v-if="isCategoryPanelVisible && activeCategory?.id === item.id"
+            class="home-category-item-panel"
+          >
             <section v-for="group in activeCategoryGroups" :key="group.id">
               <h3>{{ group.name }}</h3>
               <div>
-                <button v-for="leaf in group.children" :key="leaf.id" type="button" @click="openCategory(leaf.name)">
+                <button
+                  v-for="leaf in group.children"
+                  :key="leaf.id"
+                  type="button"
+                  @click="openCategory(leaf.name)"
+                >
                   {{ leaf.name }}
                 </button>
               </div>
@@ -625,18 +845,25 @@ onBeforeUnmount(() => {
         </div>
       </aside>
 
-      <div v-if="isCategoryPanelVisible && activeCategory" class="home-category-modal" @mouseenter="isCategoryPanelVisible = true">
+      <div
+        v-if="isCategoryPanelVisible && activeCategory"
+        class="home-category-modal"
+        @mouseenter="isCategoryPanelVisible = true"
+      >
         <div class="home-category-modal-head">
           <strong>{{ activeCategory.name }}</strong>
-          <NuxtLink to="/jobs">
-            全部职位
-          </NuxtLink>
+          <NuxtLink to="/jobs"> 全部职位 </NuxtLink>
         </div>
         <div class="home-category-modal-body">
           <section v-for="group in activeCategoryGroups" :key="group.id">
             <h3>{{ group.name }}</h3>
             <div>
-              <button v-for="leaf in group.children" :key="leaf.id" type="button" @click="openCategory(leaf.name)">
+              <button
+                v-for="leaf in group.children"
+                :key="leaf.id"
+                type="button"
+                @click="openCategory(leaf.name)"
+              >
                 {{ leaf.name }}
               </button>
             </div>
@@ -648,12 +875,24 @@ onBeforeUnmount(() => {
         <component
           :is="currentSlide.linkUrl ? 'a' : 'div'"
           :key="currentSlide.id"
-          :href="currentSlide.linkUrl ? resolvePortalLinkUrl(currentSlide.linkUrl) : undefined"
-          :target="currentSlide.linkUrl ? resolvePortalLinkTarget(currentSlide.target) : undefined"
+          :href="
+            currentSlide.linkUrl
+              ? resolvePortalLinkUrl(currentSlide.linkUrl)
+              : undefined
+          "
+          :target="
+            currentSlide.linkUrl
+              ? resolvePortalLinkTarget(currentSlide.target)
+              : undefined
+          "
           rel="noopener noreferrer"
           class="home-banner"
         >
-          <img v-if="currentSlide.image" :src="currentSlide.image" :alt="currentSlide.title">
+          <img
+            v-if="currentSlide.image"
+            :src="currentSlide.image"
+            :alt="currentSlide.title"
+          />
           <div v-else class="home-banner-fallback">
             <span>一站式求职攻略</span>
             <strong>百日招聘</strong>
@@ -681,10 +920,11 @@ onBeforeUnmount(() => {
     </section>
 
     <section v-if="!isCityVariant" class="portal-container home-section">
-      <h2 class="home-section-title is-gold">
-        黄金展位
-      </h2>
-      <div v-if="goldSlotRow1?.ads?.length || goldSlotRow2?.ads?.length" class="home-gold-block">
+      <h2 class="home-section-title is-gold">黄金展位</h2>
+      <div
+        v-if="goldSlotRow1?.ads?.length || goldSlotRow2?.ads?.length"
+        class="home-gold-block"
+      >
         <div v-if="goldSlotRow1?.ads?.length" class="home-gold-row-1">
           <a
             v-for="ad in goldSlotRow1.ads"
@@ -694,7 +934,11 @@ onBeforeUnmount(() => {
             rel="noopener noreferrer"
             class="home-gold-card"
           >
-            <img v-if="ad.image" :src="resolveAssetUrl(ad.image)" :alt="ad.title">
+            <img
+              v-if="ad.image"
+              :src="resolveAssetUrl(ad.image)"
+              :alt="ad.title"
+            />
             <span v-else class="home-gold-card-text">{{ ad.title }}</span>
           </a>
         </div>
@@ -707,7 +951,11 @@ onBeforeUnmount(() => {
             rel="noopener noreferrer"
             class="home-gold-card"
           >
-            <img v-if="ad.image" :src="resolveAssetUrl(ad.image)" :alt="ad.title">
+            <img
+              v-if="ad.image"
+              :src="resolveAssetUrl(ad.image)"
+              :alt="ad.title"
+            />
             <span v-else class="home-gold-card-text">{{ ad.title }}</span>
           </a>
         </div>
@@ -715,26 +963,42 @@ onBeforeUnmount(() => {
     </section>
 
     <section class="portal-container home-panel home-urgent-panel">
-      <h2 class="home-section-title is-urgent">
-        紧急招聘
-      </h2>
+      <h2 class="home-section-title is-urgent">紧急招聘</h2>
       <div class="home-job-grid">
         <NuxtLink
           v-for="(item, index) in urgentJobs"
-          :key="isRealUrgentData() ? `urgent-${item.id}` : `urgent-mock-${index}`"
-          :to="isRealUrgentData() && item.job ? `/jobs/${item.job.id}` : `/jobs/${(item as any).id}`"
+          :key="
+            isRealUrgentData() ? `urgent-${item.id}` : `urgent-mock-${index}`
+          "
+          :to="
+            isRealUrgentData() && item.job
+              ? `/jobs/${item.job.id}`
+              : `/jobs/${(item as any).id}`
+          "
           class="home-job-card dynamic-reveal-card"
           :class="`dynamic-delay-${index % 6}`"
           data-dynamic-reveal
         >
           <div class="home-job-title">
-            <strong>{{ isRealUrgentData() ? (item.title || item.job?.title || '') : (item as any).title }}</strong>
-            <span>{{ isRealUrgentData() && item.job ? formatSalary(item.job) : (item as any).salary }}</span>
+            <strong>{{
+              isRealUrgentData()
+                ? item.title || item.job?.title || ""
+                : (item as any).title
+            }}</strong>
+            <span>{{
+              isRealUrgentData() && item.job
+                ? formatSalary(item.job)
+                : (item as any).salary
+            }}</span>
           </div>
           <div class="home-job-tags">
             <template v-if="isRealUrgentData() && item.job">
-              <em v-if="item.job.experience_min">{{ formatExperience(item.job) }}</em>
-              <em v-if="item.job.education_level_label">{{ item.job.education_level_label }}</em>
+              <em v-if="item.job.experience_min">{{
+                formatExperience(item.job)
+              }}</em>
+              <em v-if="item.job.education_level_label">{{
+                item.job.education_level_label
+              }}</em>
             </template>
             <template v-else>
               <em>{{ (item as any).experience }}</em>
@@ -744,12 +1008,31 @@ onBeforeUnmount(() => {
             </template>
           </div>
           <div class="home-job-company">
-            <span class="home-company-logo" :class="resolveUrgentJobLogo(item) ? 'is-image' : ((item as any).logoClass || 'is-blue')">
-              <img v-if="resolveUrgentJobLogo(item)" :src="resolveUrgentJobLogo(item)" :alt="item.job?.company?.name || item.title || '公司 logo'">
+            <span
+              class="home-company-logo"
+              :class="
+                resolveUrgentJobLogo(item)
+                  ? 'is-image'
+                  : (item as any).logoClass || 'is-blue'
+              "
+            >
+              <img
+                v-if="resolveUrgentJobLogo(item)"
+                :src="resolveUrgentJobLogo(item)"
+                :alt="item.job?.company?.name || item.title || '公司 logo'"
+              />
               <template v-else>logo</template>
             </span>
-            <strong>{{ isRealUrgentData() && item.job ? item.job.company.name : ((item as any).companyName || 'XXXXX公司名称') }}</strong>
-            <small>{{ isRealUrgentData() ? formatUrgentJobRegion(item) : `${(item as any).city || '南昌'} 红谷滩区` }}</small>
+            <strong>{{
+              isRealUrgentData() && item.job
+                ? item.job.company.name
+                : (item as any).companyName || "XXXXX公司名称"
+            }}</strong>
+            <small>{{
+              isRealUrgentData()
+                ? formatUrgentJobRegion(item)
+                : `${(item as any).city || "南昌"} 红谷滩区`
+            }}</small>
           </div>
         </NuxtLink>
       </div>
@@ -757,39 +1040,48 @@ onBeforeUnmount(() => {
 
     <section class="portal-container home-panel">
       <div class="home-panel-head">
-        <h2 class="home-section-title is-company">
-          名企招聘
-        </h2>
-        <NuxtLink to="/company">
-          更多招聘
-        </NuxtLink>
+        <h2 class="home-section-title is-company">名企招聘</h2>
+        <NuxtLink to="/company"> 更多招聘 </NuxtLink>
       </div>
       <div class="home-company-grid">
         <NuxtLink
           v-for="(item, index) in famousCompanies"
-          :key="isRealCompanyData() ? `company-${item.id}` : `company-mock-${index}`"
+          :key="
+            isRealCompanyData() ? `company-${item.id}` : `company-mock-${index}`
+          "
           :to="resolveFamousCompanyTo(item)"
           class="home-company-card dynamic-reveal-card"
           :class="`dynamic-delay-${index % 6}`"
           data-dynamic-reveal
         >
-          <div v-if="isRealCompanyData() && item.company" class="home-company-card-body">
+          <div
+            v-if="isRealCompanyData() && item.company"
+            class="home-company-card-body"
+          >
             <div class="home-company-card-cover">
               <img
                 v-if="(item as any).display_cover_image"
                 :src="resolveAssetUrl((item as any).display_cover_image)"
                 :alt="item.company.name || item.title"
-              >
-              <strong v-else>{{ item.company.display_name || item.company.name || item.title }}</strong>
+              />
+              <strong v-else>{{
+                item.company.display_name || item.company.name || item.title
+              }}</strong>
             </div>
             <h3>{{ item.company.name || item.title }}</h3>
-            <small v-if="(item.company as any).industry">{{ (item.company as any).industry }}</small>
+            <small v-if="(item.company as any).industry">{{
+              (item.company as any).industry
+            }}</small>
           </div>
           <template v-else>
             <div class="home-company-cover" :class="(item as any).coverClass">
-              <strong v-if="(item as any).coverClass === 'is-orange'">南昌巨湾科技有限公司<br>社会招聘会</strong>
-              <strong v-else-if="(item as any).coverClass === 'is-poster'">闪耀的我们<br>诚邀加入</strong>
-              <strong v-else>心怀宇宙<br>智行天下</strong>
+              <strong v-if="(item as any).coverClass === 'is-orange'"
+                >南昌巨湾科技有限公司<br />社会招聘会</strong
+              >
+              <strong v-else-if="(item as any).coverClass === 'is-poster'"
+                >闪耀的我们<br />诚邀加入</strong
+              >
+              <strong v-else>心怀宇宙<br />智行天下</strong>
             </div>
             <h3>{{ (item as any).title }}</h3>
           </template>
@@ -799,28 +1091,40 @@ onBeforeUnmount(() => {
 
     <section class="portal-container home-panel home-final-panel">
       <div class="home-panel-head">
-        <h2 class="home-section-title is-hot">
-          热招职位
-        </h2>
-        <NuxtLink to="/jobs">
-          更多招聘
-        </NuxtLink>
+        <h2 class="home-section-title is-hot">热招职位</h2>
+        <NuxtLink to="/jobs"> 更多招聘 </NuxtLink>
       </div>
       <div class="home-job-grid is-large">
         <NuxtLink
           v-for="(item, index) in hotJobs"
           :key="isRealHotData() ? `hot-${item.id}` : `hot-mock-${index}`"
-          :to="isRealHotData() && item.job ? `/jobs/${item.job.id}` : `/jobs/${(item as any).id}`"
+          :to="
+            isRealHotData() && item.job
+              ? `/jobs/${item.job.id}`
+              : `/jobs/${(item as any).id}`
+          "
           class="home-job-card"
         >
           <div class="home-job-title">
-            <strong>{{ isRealHotData() ? (item.title || item.job?.title || '') : (item as any).title }}</strong>
-            <span>{{ isRealHotData() && item.job ? formatSalary(item.job) : (item as any).salary }}</span>
+            <strong>{{
+              isRealHotData()
+                ? item.title || item.job?.title || ""
+                : (item as any).title
+            }}</strong>
+            <span>{{
+              isRealHotData() && item.job
+                ? formatSalary(item.job)
+                : (item as any).salary
+            }}</span>
           </div>
           <div class="home-job-tags">
             <template v-if="isRealHotData() && item.job">
-              <em v-if="item.job.experience_min">{{ formatExperience(item.job) }}</em>
-              <em v-if="item.job.education_level_label">{{ item.job.education_level_label }}</em>
+              <em v-if="item.job.experience_min">{{
+                formatExperience(item.job)
+              }}</em>
+              <em v-if="item.job.education_level_label">{{
+                item.job.education_level_label
+              }}</em>
             </template>
             <template v-else>
               <em>{{ (item as any).experience }}</em>
@@ -830,34 +1134,81 @@ onBeforeUnmount(() => {
             </template>
           </div>
           <div class="home-job-company">
-            <span class="home-company-logo" :class="resolveHotJobLogo(item) ? 'is-image' : ((item as any).logoClass || 'is-blue')">
-              <img v-if="resolveHotJobLogo(item)" :src="resolveHotJobLogo(item)" :alt="item.job?.company?.name || item.title || '公司 logo'">
+            <span
+              class="home-company-logo"
+              :class="
+                resolveHotJobLogo(item)
+                  ? 'is-image'
+                  : (item as any).logoClass || 'is-blue'
+              "
+            >
+              <img
+                v-if="resolveHotJobLogo(item)"
+                :src="resolveHotJobLogo(item)"
+                :alt="item.job?.company?.name || item.title || '公司 logo'"
+              />
               <template v-else>logo</template>
             </span>
-            <strong>{{ isRealHotData() && item.job ? item.job.company.name : ((item as any).companyName || 'XXXXX公司名称') }}</strong>
-            <small>{{ isRealHotData() ? formatHotJobRegion(item) : `${(item as any).city || '南昌'} 红谷滩区` }}</small>
+            <strong>{{
+              isRealHotData() && item.job
+                ? item.job.company.name
+                : (item as any).companyName || "XXXXX公司名称"
+            }}</strong>
+            <small>{{
+              isRealHotData()
+                ? formatHotJobRegion(item)
+                : `${(item as any).city || "南昌"} 红谷滩区`
+            }}</small>
           </div>
         </NuxtLink>
       </div>
     </section>
 
     <Teleport to="body">
-      <div v-if="inboundEcosystemTicket" class="ecosystem-auth-overlay" role="presentation" @click.self="cancelInboundEcosystemLogin">
-        <section class="ecosystem-auth-dialog" role="dialog" aria-modal="true" aria-labelledby="ecosystem-auth-title">
-          <span class="ecosystem-auth-icon i-carbon-ibm-cloud-pak-integration" aria-hidden="true" />
-          <h2 id="ecosystem-auth-title">
-            中测生态账号登录
-          </h2>
+      <div
+        v-if="inboundEcosystemTicket"
+        class="ecosystem-auth-overlay"
+        role="presentation"
+        @click.self="cancelInboundEcosystemLogin"
+      >
+        <section
+          class="ecosystem-auth-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="ecosystem-auth-title"
+        >
+          <span
+            class="ecosystem-auth-icon i-carbon-ibm-cloud-pak-integration"
+            aria-hidden="true"
+          />
+          <h2 id="ecosystem-auth-title">中测生态账号登录</h2>
           <p>
-            {{ userStore.isLoggedIn ? '检测到来自中测生态的登录信息。继续后将退出当前账号，并切换为生态账号。' : '检测到来自中测生态的登录信息，是否使用该账号登录本站？' }}
+            {{
+              userStore.isLoggedIn
+                ? "检测到来自中测生态的登录信息。继续后将退出当前账号，并切换为生态账号。"
+                : "检测到来自中测生态的登录信息，是否使用该账号登录本站？"
+            }}
           </p>
           <div class="ecosystem-auth-actions">
-            <button type="button" class="is-secondary" :disabled="isExchangingEcosystemTicket" @click="cancelInboundEcosystemLogin">
+            <button
+              type="button"
+              class="is-secondary"
+              :disabled="isExchangingEcosystemTicket"
+              @click="cancelInboundEcosystemLogin"
+            >
               取消
             </button>
-            <button type="button" :disabled="isExchangingEcosystemTicket" @click="confirmInboundEcosystemLogin">
-              <span v-if="isExchangingEcosystemTicket" class="i-carbon-circle-dash animate-spin" aria-hidden="true" />
-              {{ isExchangingEcosystemTicket ? '正在登录' : '确认登录' }}
+            <button
+              type="button"
+              :disabled="isExchangingEcosystemTicket"
+              @click="confirmInboundEcosystemLogin"
+            >
+              <span
+                v-if="isExchangingEcosystemTicket"
+                class="i-carbon-circle-dash animate-spin"
+                aria-hidden="true"
+              />
+              {{ isExchangingEcosystemTicket ? "正在登录" : "确认登录" }}
             </button>
           </div>
         </section>
