@@ -7,7 +7,7 @@ import { pushGlobalNotice } from '~/utils/notice'
 export const ECOSYSTEM_TICKET_QUERY = 'zc_center_auth_ticket'
 
 // 人才测评（心理测评）应用码：待中台下发 key 后填入，届时自动启用「登录 + 携带 ticket」跳转；为空时直接跳转目标站点
-export const TALENT_ASSESSMENT_APP_CODE = ''
+export const TALENT_ASSESSMENT_APP_CODE = 'jobseek-check'
 
 export interface EcosystemAppLinkItem {
   label: string
